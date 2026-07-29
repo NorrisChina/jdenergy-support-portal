@@ -41,7 +41,7 @@
             class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 hover:text-emerald-100"
             @click="handleStaffModeClick"
           >
-            {{ staffMode ? t('auth.leave') : t('app.staffMode') }}
+            {{ isInternalMode ? t('auth.leave') : t('app.staffMode') }}
           </button>
         </div>
       </header>
@@ -51,7 +51,7 @@
       </div>
 
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-        <span>{{ staffMode ? t('common.managedHint') : t('common.readOnlyHint') }}</span>
+        <span>{{ isInternalMode ? t('common.managedHint') : t('common.readOnlyHint') }}</span>
         <span class="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-cyan-200">
           {{ staffModeBadge }}
         </span>
@@ -66,7 +66,7 @@
                 <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('fault.section') }}</h2>
                 <p class="mt-3 text-sm leading-7 text-slate-300 sm:text-base">{{ t('fault.subtitle') }}</p>
               </div>
-              <button v-if="staffMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openFaultEditor()">
+              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openFaultEditor()">
                 {{ t('fault.adminCreate') }}
               </button>
             </div>
@@ -126,7 +126,7 @@
               </div>
               <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">Match</span>
             </div>
-            <div v-if="staffMode" class="mt-3 flex flex-wrap gap-2">
+            <div v-if="isInternalMode" class="mt-3 flex flex-wrap gap-2">
               <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openFaultEditor(item)">{{ t('common.edit') }}</button>
               <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('fault', item.fault_code, item.fault_code, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
             </div>
@@ -217,7 +217,7 @@
                 <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('grid.section') }}</h2>
                 <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('grid.subtitle') }}</p>
               </div>
-              <button v-if="staffMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openProjectEditor()">
+              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openProjectEditor()">
                 {{ t('grid.adminCreate') }}
               </button>
             </div>
@@ -284,7 +284,7 @@
               <p class="mt-1 text-sm font-semibold text-white">{{ project.daysLabel }}</p>
             </div>
 
-            <div v-if="staffMode" class="mt-4 flex flex-wrap gap-2">
+            <div v-if="isInternalMode" class="mt-4 flex flex-wrap gap-2">
               <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openProjectEditor(project)">{{ t('common.edit') }}</button>
               <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('grid', project.project_name, project.project_name, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
             </div>
@@ -301,7 +301,7 @@
                 <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('ci.section') }}</h2>
                 <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('ci.subtitle') }}</p>
               </div>
-              <button v-if="staffMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openCiEditor()">
+              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openCiEditor()">
                 {{ t('ci.createDealer') }}
               </button>
             </div>
@@ -321,7 +321,7 @@
                   <th class="px-5 py-4 font-medium">100C 已交付</th>
                   <th class="px-5 py-4 font-medium">250 已交付</th>
                   <th class="px-5 py-4 font-medium">{{ t('ci.total') }}</th>
-                  <th v-if="staffMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
+                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
@@ -331,7 +331,7 @@
                   <td class="px-5 py-4"><span class="rounded-full bg-cyan-400/10 px-3 py-1 font-semibold text-cyan-200">{{ item.delivered_100c }}</span></td>
                   <td class="px-5 py-4"><span class="rounded-full bg-emerald-400/10 px-3 py-1 font-semibold text-emerald-200">{{ item.delivered_250 }}</span></td>
                   <td class="px-5 py-4 font-semibold text-white">{{ item.delivered_100c + item.delivered_250 }}</td>
-                  <td v-if="staffMode" class="px-5 py-4">
+                  <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
                       <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openCiEditor(item)">{{ t('common.edit') }}</button>
                       <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('ci', item.dealer_name, item.dealer_name, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
@@ -353,7 +353,7 @@
                 <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('inventory.section') }}</h2>
                 <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('inventory.subtitle') }}</p>
               </div>
-              <button v-if="staffMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openInventoryEditor()">
+              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openInventoryEditor()">
                 {{ t('inventory.addItem') }}
               </button>
             </div>
@@ -384,7 +384,7 @@
                   <th class="px-5 py-4 font-medium">{{ t('inventory.availableQuantity') }}</th>
                   <th class="px-5 py-4 font-medium">{{ t('inventory.photoPaths') }}</th>
                   <th class="px-5 py-4 font-medium">{{ t('inventory.remarks') }}</th>
-                  <th v-if="staffMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
+                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
@@ -404,7 +404,7 @@
                     </div>
                   </td>
                   <td class="px-5 py-4 text-slate-300">{{ item.remarks || '-' }}</td>
-                  <td v-if="staffMode" class="px-5 py-4">
+                  <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
                       <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openInventoryEditor(item)">{{ t('common.edit') }}</button>
                       <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('inventory', item.item_no, item.item_no, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
@@ -412,7 +412,7 @@
                   </td>
                 </tr>
                 <tr v-if="inventoryItems.length === 0">
-                  <td :colspan="staffMode ? 9 : 8" class="px-4 py-10 text-center text-slate-400">{{ t('common.noData') }}</td>
+                  <td :colspan="isInternalMode ? 9 : 8" class="px-4 py-10 text-center text-slate-400">{{ t('common.noData') }}</td>
                 </tr>
               </tbody>
             </table>
@@ -680,6 +680,7 @@ const inventoryItems = ref([])
 const photoInputRef = ref(null)
 const photoUploading = ref(false)
 const imagePreviewUrl = ref('')
+let gridDashboardTimerId = null
 
 const crudModal = reactive({ open: false, kind: '', mode: 'create', originalKey: '' })
 const crudDraft = reactive(createEmptyCrudDraft())
@@ -701,7 +702,8 @@ const warehouseTopCards = computed(() => {
     { key: 'CableKit', label: '线缆包', quantity: lookup('CableKit'), note: '核心配件' },
   ]
 })
-const staffMode = computed(() => portalState.staffMode)
+const isInternalMode = computed(() => portalState.staffMode)
+const staffMode = isInternalMode
 const locale = computed(() => portalState.locale)
 const isEnglish = computed(() => locale.value === 'en-US')
 
@@ -817,11 +819,19 @@ function openVideo(url) {
 }
 
 function handleStaffModeClick() {
-  if (staffMode.value) {
+  if (isInternalMode.value) {
     leaveStaffMode(isEnglish.value ? 'Staff mode disabled.' : '已退出内部员工模式')
     return
   }
   requestStaffMode()
+}
+
+function ensureInternalMode() {
+  if (isInternalMode.value) {
+    return true
+  }
+  setNotice(isEnglish.value ? 'Read-only mode: switch to Staff Mode to modify data.' : '当前为只读模式，请切换到内部员工模式后再执行修改。', 'error')
+  return false
 }
 
 function confirmPassword() {
@@ -829,6 +839,7 @@ function confirmPassword() {
 }
 
 function openCrudModal(kind, mode = 'create', record = null) {
+  if (!ensureInternalMode()) return
   crudModal.kind = kind
   crudModal.mode = mode
   crudModal.originalKey = getRecordKey(kind, record) ?? ''
@@ -844,6 +855,7 @@ function closeCrudModal() {
 }
 
 function openDeleteDialog(kind, key, title, message) {
+  if (!ensureInternalMode()) return
   deleteDialog.kind = kind
   deleteDialog.key = key
   deleteDialog.title = title
@@ -953,10 +965,12 @@ function recomputeAvailableQuantity() {
 }
 
 function openPhotoPicker() {
+  if (!ensureInternalMode()) return
   photoInputRef.value?.click()
 }
 
 async function handlePhotoFiles(event) {
+  if (!ensureInternalMode()) return
   const files = [...(event.target.files ?? [])]
   if (files.length === 0) return
   photoUploading.value = true
@@ -1062,6 +1076,7 @@ async function loadWarehouseInventory() {
 }
 
 async function saveProjectStatus(projectName) {
+  if (!ensureInternalMode()) return
   const nextStatus = projectDraftStatus[projectName]
   if (!nextStatus) return
   await portalApi.updateGridProjectStatus(projectName, nextStatus)
@@ -1090,6 +1105,7 @@ function openInventoryEditor(record = null) {
 }
 
 async function submitCrud() {
+  if (!ensureInternalMode()) return
   if (!crudModal.kind) return
   if (crudModal.kind === 'fault') {
     if (crudModal.mode === 'create') {
@@ -1188,6 +1204,7 @@ async function submitCrud() {
 }
 
 async function confirmDelete() {
+  if (!ensureInternalMode()) return
   const { kind, key } = deleteDialog
   if (!kind || !key) return
   if (kind === 'fault') {
@@ -1219,6 +1236,7 @@ async function applyProjectStatus(projectName) {
 }
 
 async function submitWarehouseTransaction() {
+  if (!ensureInternalMode()) return
   if (!warehouseForm.tx_no) {
     prefillWarehouseTxNo()
   }
@@ -1239,6 +1257,12 @@ async function submitWarehouseTransaction() {
 
 watch(selectedWarehouse, async () => {
   await loadWarehouseData()
+})
+
+watch(isInternalMode, (enabled) => {
+  if (enabled) return
+  closeCrudModal()
+  closeDeleteDialog()
 })
 
 onMounted(async () => {

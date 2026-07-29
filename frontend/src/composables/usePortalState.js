@@ -4,13 +4,14 @@ import { supportedLocales } from '../locales/messages'
 const STORAGE_KEYS = {
   locale: 'jd-energy.locale',
   staffMode: 'jd-energy.staff-mode',
+  internalMode: 'isInternalMode',
 }
 
 const STAFF_PASSWORD = 'Jdny!1234'
 
 const state = reactive({
   locale: loadStoredValue(STORAGE_KEYS.locale, 'zh-CN'),
-  staffMode: loadStoredValue(STORAGE_KEYS.staffMode, false),
+  staffMode: loadStoredValue(STORAGE_KEYS.internalMode, loadStoredValue(STORAGE_KEYS.staffMode, false)),
   staffAuthOpen: false,
   staffPassword: '',
   staffAuthError: '',
@@ -46,7 +47,10 @@ watch(
 
 watch(
   () => state.staffMode,
-  (value) => persistValue(STORAGE_KEYS.staffMode, value),
+  (value) => {
+    persistValue(STORAGE_KEYS.staffMode, value)
+    persistValue(STORAGE_KEYS.internalMode, value)
+  },
 )
 
 function setLocale(locale) {

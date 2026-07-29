@@ -1,12 +1,33 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
+function readInternalModeFlag() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return window.localStorage.getItem('isInternalMode') === 'true' || window.localStorage.getItem('jd-energy.staff-mode') === 'true'
+}
+
+function buildInternalModeHeaders(method = 'GET') {
+  const normalizedMethod = method.toUpperCase()
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
+    return {}
+  }
+  return {
+    'x-internal-mode': readInternalModeFlag() ? 'true' : 'false',
+  }
+}
+
 async function requestJson(path, options = {}) {
+  const { headers: customHeaders = {}, method: customMethod = 'GET', ...restOptions } = options
+  const method = customMethod.toUpperCase()
   const response = await fetch(`${API_BASE}${path}`, {
+    ...restOptions,
+    method,
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers || {}),
+      ...buildInternalModeHeaders(method),
+      ...customHeaders,
     },
-    ...options,
   })
 
   const contentType = response.headers.get('content-type') ?? ''
@@ -26,6 +47,9 @@ export const portalApi = {
     formData.append('file', file)
     return fetch(`${API_BASE}/api/upload`, {
       method: 'POST',
+      headers: {
+        ...buildInternalModeHeaders('POST'),
+      },
       body: formData,
     }).then(async (response) => {
       const text = await response.text()
