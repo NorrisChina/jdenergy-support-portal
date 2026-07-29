@@ -141,7 +141,32 @@ def seed_database() -> None:
             session.add_all(WAREHOUSE_TRANSACTION_SEED)
         if session.exec(select(WarehouseInventoryItem)).first() is None:
             session.add_all(WAREHOUSE_INVENTORY_ITEM_SEED)
+        else:
+            sync_warehouse_inventory_item_seed(session)
         session.commit()
+
+
+def sync_warehouse_inventory_item_seed(session) -> None:
+    seeded_by_key = {item.item_no: item for item in WAREHOUSE_INVENTORY_ITEM_SEED}
+    existing_by_key = {
+        item.item_no: item
+        for item in session.exec(select(WarehouseInventoryItem)).all()
+    }
+
+    for item_no, seed_item in seeded_by_key.items():
+        target = existing_by_key.get(item_no)
+        if target is None:
+            session.add(WarehouseInventoryItem(**seed_item.model_dump()))
+            continue
+
+        target.description_zh = seed_item.description_zh
+        target.specification = seed_item.specification
+        target.total_quantity = seed_item.total_quantity
+        target.damaged_quantity = seed_item.damaged_quantity
+        target.available_quantity = seed_item.available_quantity
+        target.photo_paths = seed_item.photo_paths
+        target.remarks = seed_item.remarks
+        session.add(target)
 
 
 def score_record(record: FaultCode, keyword: str) -> int:
