@@ -73,16 +73,6 @@
               <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">Quick Guide</p>
               <p class="mt-2 text-sm leading-6 text-slate-300">1. 输入代码或关键词 2. 前端请求后端 API 3. 返回故障名称、可能原因和标准化解决方案。</p>
             </div>
-            <div class="grid grid-cols-2 gap-3 text-sm">
-              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p class="text-slate-400">Backend</p>
-                <p class="mt-2 font-semibold text-white">FastAPI</p>
-              </div>
-              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p class="text-slate-400">Frontend</p>
-                <p class="mt-2 font-semibold text-white">Vue 3 + Tailwind</p>
-              </div>
-            </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
               当前结果：<span class="font-semibold text-white">{{ faultResults.length }}</span>
             </div>
