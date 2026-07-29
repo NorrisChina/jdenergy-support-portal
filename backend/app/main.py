@@ -6,7 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -118,6 +118,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+warehouse_inventory_router = APIRouter(
+    prefix="/api/warehouse/inventory",
+    tags=["Warehouse Inventory"],
+)
+
+grid_scale_router = APIRouter(
+    prefix="/api/ledger/grid-scale",
+    tags=["Grid-Scale Ledger"],
 )
 
 
@@ -295,14 +305,14 @@ def delete_fault_code(fault_code: str) -> dict[str, object]:
         return {"message": "deleted"}
 
 
-@app.get("/api/ledger/grid-scale")
+@grid_scale_router.get("")
 def list_grid_scale_projects() -> dict[str, object]:
     with get_session() as session:
         items = session.exec(select(GridScaleProject)).all()
     return {"count": len(items), "items": items}
 
 
-@app.post("/api/ledger/grid-scale")
+@grid_scale_router.post("")
 def create_grid_scale_project(payload: GridScaleProjectUpsert) -> dict[str, object]:
     with get_session() as session:
         if session.get(GridScaleProject, payload.project_name) is not None:
@@ -314,7 +324,7 @@ def create_grid_scale_project(payload: GridScaleProjectUpsert) -> dict[str, obje
         return {"message": "created", "item": item}
 
 
-@app.put("/api/ledger/grid-scale/{project_name}")
+@grid_scale_router.put("/{project_name}")
 def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert) -> dict[str, object]:
     with get_session() as session:
         item = session.get(GridScaleProject, project_name)
@@ -332,7 +342,7 @@ def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert
         return {"message": "updated", "item": item}
 
 
-@app.post("/api/ledger/grid-scale/{project_name}/status")
+@grid_scale_router.post("/{project_name}/status")
 def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate) -> dict[str, object]:
     with get_session() as session:
         project = session.get(GridScaleProject, project_name)
@@ -345,7 +355,7 @@ def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate) 
         return {"message": "updated", "item": project}
 
 
-@app.delete("/api/ledger/grid-scale/{project_name}")
+@grid_scale_router.delete("/{project_name}")
 def delete_grid_scale_project(project_name: str) -> dict[str, object]:
     with get_session() as session:
         item = session.get(GridScaleProject, project_name)
@@ -356,14 +366,14 @@ def delete_grid_scale_project(project_name: str) -> dict[str, object]:
         return {"message": "deleted"}
 
 
-@app.get("/api/warehouse/inventory")
+@warehouse_inventory_router.get("")
 def list_warehouse_inventory_items() -> dict[str, object]:
     with get_session() as session:
         items = session.exec(select(WarehouseInventoryItem)).all()
     return {"count": len(items), "items": items}
 
 
-@app.post("/api/warehouse/inventory")
+@warehouse_inventory_router.post("")
 def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> dict[str, object]:
     with get_session() as session:
         if session.get(WarehouseInventoryItem, payload.item_no) is not None:
@@ -387,7 +397,7 @@ def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> di
         return {"message": "created", "item": item}
 
 
-@app.put("/api/warehouse/inventory/{item_no}")
+@warehouse_inventory_router.put("/{item_no}")
 def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryItemUpdate) -> dict[str, object]:
     with get_session() as session:
         item = session.get(WarehouseInventoryItem, item_no)
@@ -406,7 +416,7 @@ def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryIte
         return {"message": "updated", "item": item}
 
 
-@app.delete("/api/warehouse/inventory/{item_no}")
+@warehouse_inventory_router.delete("/{item_no}")
 def delete_warehouse_inventory_item(item_no: str) -> dict[str, object]:
     with get_session() as session:
         item = session.get(WarehouseInventoryItem, item_no)
@@ -415,6 +425,10 @@ def delete_warehouse_inventory_item(item_no: str) -> dict[str, object]:
         session.delete(item)
         session.commit()
         return {"message": "deleted"}
+
+
+app.include_router(warehouse_inventory_router)
+app.include_router(grid_scale_router)
 
 
 @app.get("/api/ledger/ci-deliveries")
