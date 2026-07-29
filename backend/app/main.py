@@ -4,7 +4,12 @@ import os
 import uuid
 from collections import defaultdict
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Dict, List, Optional
+
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 from fastapi import APIRouter, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,7 +58,7 @@ class GridScaleProjectUpsert(BaseModel):
     cell_version: str
     pcs_model: str
     progress_status: str
-    photo_paths: list[str]
+    photo_paths: List[str]
 
 
 class CiDeliveryUpdate(BaseModel):
@@ -86,7 +91,7 @@ class WarehouseInventoryItemCreate(BaseModel):
     total_quantity: int = 0
     damaged_quantity: int = 0
     available_quantity: Optional[int] = None
-    photo_paths: list[str] = Field(default_factory=list)
+    photo_paths: List[str] = Field(default_factory=list)
     remarks: Optional[str] = None
 
 
@@ -96,7 +101,7 @@ class WarehouseInventoryItemUpdate(BaseModel):
     total_quantity: int = 0
     damaged_quantity: int = 0
     available_quantity: Optional[int] = None
-    photo_paths: list[str] = Field(default_factory=list)
+    photo_paths: List[str] = Field(default_factory=list)
     remarks: Optional[str] = None
 
 
@@ -206,8 +211,8 @@ def score_record(record: FaultCode, keyword: str) -> int:
     return score
 
 
-def serialize_inventory(rows: list[WarehouseInventory]) -> dict[str, list[WarehouseInventory]]:
-    grouped: dict[str, list[WarehouseInventory]] = defaultdict(list)
+def serialize_inventory(rows: List[WarehouseInventory]) -> Dict[str, List[WarehouseInventory]]:
+    grouped: Dict[str, List[WarehouseInventory]] = defaultdict(list)
     for row in rows:
         grouped[row.category].append(row)
     return grouped
@@ -233,12 +238,12 @@ def apply_inventory_delta(session, warehouse_name: str, product_model: str, delt
 
 
 @app.get("/")
-def health_check() -> dict[str, str]:
+def health_check() -> Dict[str, str]:
     return {"status": "ok", "service": "JD Energy Service Portal API"}
 
 
 @app.get("/api/fault-codes")
-def get_fault_codes(q: str = Query(default="", description="Fault code or keyword search term")) -> dict[str, object]:
+def get_fault_codes(q: str = Query(default="", description="Fault code or keyword search term")) -> Dict[str, object]:
     normalized_keyword = q.strip().lower()
     with get_session() as session:
         records = session.exec(select(FaultCode)).all()
@@ -258,7 +263,7 @@ def get_fault_codes(q: str = Query(default="", description="Fault code or keywor
 
 
 @app.post("/api/fault-codes")
-def create_fault_code(payload: FaultCodeRecord) -> dict[str, object]:
+def create_fault_code(payload: FaultCodeRecord) -> Dict[str, object]:
     with get_session() as session:
         if session.get(FaultCode, payload.fault_code) is not None:
                         raise HTTPException(status_code=409, detail="Fault code already exists")
@@ -270,7 +275,7 @@ def create_fault_code(payload: FaultCodeRecord) -> dict[str, object]:
 
 
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)) -> dict[str, str]:
+async def upload_file(file: UploadFile = File(...)) -> Dict[str, str]:
         original_suffix = Path(file.filename or "").suffix or ".bin"
         new_filename = f"{uuid.uuid4().hex}{original_suffix}"
         file_path = UPLOAD_DIR / new_filename
@@ -280,7 +285,7 @@ async def upload_file(file: UploadFile = File(...)) -> dict[str, str]:
 
 
 @app.put("/api/fault-codes/{fault_code}")
-def update_fault_code(fault_code: str, payload: FaultCodeUpsert) -> dict[str, object]:
+def update_fault_code(fault_code: str, payload: FaultCodeUpsert) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(FaultCode, fault_code)
         if item is None:
@@ -295,7 +300,7 @@ def update_fault_code(fault_code: str, payload: FaultCodeUpsert) -> dict[str, ob
 
 
 @app.delete("/api/fault-codes/{fault_code}")
-def delete_fault_code(fault_code: str) -> dict[str, object]:
+def delete_fault_code(fault_code: str) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(FaultCode, fault_code)
         if item is None:
@@ -306,14 +311,14 @@ def delete_fault_code(fault_code: str) -> dict[str, object]:
 
 
 @grid_scale_router.get("")
-def list_grid_scale_projects() -> dict[str, object]:
+def list_grid_scale_projects() -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(GridScaleProject)).all()
     return {"count": len(items), "items": items}
 
 
 @grid_scale_router.post("")
-def create_grid_scale_project(payload: GridScaleProjectUpsert) -> dict[str, object]:
+def create_grid_scale_project(payload: GridScaleProjectUpsert) -> Dict[str, object]:
     with get_session() as session:
         if session.get(GridScaleProject, payload.project_name) is not None:
             raise HTTPException(status_code=409, detail="Project already exists")
@@ -325,7 +330,7 @@ def create_grid_scale_project(payload: GridScaleProjectUpsert) -> dict[str, obje
 
 
 @grid_scale_router.put("/{project_name}")
-def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert) -> dict[str, object]:
+def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(GridScaleProject, project_name)
         if item is None:
@@ -343,7 +348,7 @@ def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert
 
 
 @grid_scale_router.post("/{project_name}/status")
-def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate) -> dict[str, object]:
+def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate) -> Dict[str, object]:
     with get_session() as session:
         project = session.get(GridScaleProject, project_name)
         if project is None:
@@ -356,7 +361,7 @@ def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate) 
 
 
 @grid_scale_router.delete("/{project_name}")
-def delete_grid_scale_project(project_name: str) -> dict[str, object]:
+def delete_grid_scale_project(project_name: str) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(GridScaleProject, project_name)
         if item is None:
@@ -367,14 +372,14 @@ def delete_grid_scale_project(project_name: str) -> dict[str, object]:
 
 
 @warehouse_inventory_router.get("")
-def list_warehouse_inventory_items() -> dict[str, object]:
+def list_warehouse_inventory_items() -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(WarehouseInventoryItem)).all()
     return {"count": len(items), "items": items}
 
 
 @warehouse_inventory_router.post("")
-def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> dict[str, object]:
+def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> Dict[str, object]:
     with get_session() as session:
         if session.get(WarehouseInventoryItem, payload.item_no) is not None:
             raise HTTPException(status_code=409, detail="Inventory item already exists")
@@ -398,7 +403,7 @@ def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> di
 
 
 @warehouse_inventory_router.put("/{item_no}")
-def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryItemUpdate) -> dict[str, object]:
+def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryItemUpdate) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(WarehouseInventoryItem, item_no)
         if item is None:
@@ -417,7 +422,7 @@ def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryIte
 
 
 @warehouse_inventory_router.delete("/{item_no}")
-def delete_warehouse_inventory_item(item_no: str) -> dict[str, object]:
+def delete_warehouse_inventory_item(item_no: str) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(WarehouseInventoryItem, item_no)
         if item is None:
@@ -432,14 +437,14 @@ app.include_router(grid_scale_router)
 
 
 @app.get("/api/ledger/ci-deliveries")
-def list_ci_deliveries() -> dict[str, object]:
+def list_ci_deliveries() -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(CiDealerDelivery)).all()
     return {"count": len(items), "items": items}
 
 
 @app.post("/api/ledger/ci-deliveries")
-def create_ci_delivery(payload: CiDeliveryCreateUpdate) -> dict[str, object]:
+def create_ci_delivery(payload: CiDeliveryCreateUpdate) -> Dict[str, object]:
     with get_session() as session:
         if session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == payload.dealer_name)).first() is not None:
             raise HTTPException(status_code=409, detail="Dealer already exists")
@@ -451,7 +456,7 @@ def create_ci_delivery(payload: CiDeliveryCreateUpdate) -> dict[str, object]:
 
 
 @app.put("/api/ledger/ci-deliveries/{dealer_name}")
-def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate) -> dict[str, object]:
+def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate) -> Dict[str, object]:
     with get_session() as session:
         item = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == dealer_name)).first()
         if item is None:
@@ -466,7 +471,7 @@ def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate) -> dict[str,
 
 
 @app.delete("/api/ledger/ci-deliveries/{dealer_name}")
-def delete_ci_delivery(dealer_name: str) -> dict[str, object]:
+def delete_ci_delivery(dealer_name: str) -> Dict[str, object]:
     with get_session() as session:
         item = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == dealer_name)).first()
         if item is None:
@@ -477,7 +482,7 @@ def delete_ci_delivery(dealer_name: str) -> dict[str, object]:
 
 
 @app.get("/api/warehouse/summary")
-def get_warehouse_summary(warehouse_name: str = Query(default="europe")) -> dict[str, object]:
+def get_warehouse_summary(warehouse_name: str = Query(default="europe")) -> Dict[str, object]:
     with get_session() as session:
         inventory_items = session.exec(
             select(WarehouseInventory).where(WarehouseInventory.warehouse_name == warehouse_name)
@@ -498,7 +503,7 @@ def get_warehouse_summary(warehouse_name: str = Query(default="europe")) -> dict
 
 
 @app.post("/api/warehouse/transactions")
-def create_warehouse_transaction(payload: WarehouseTransactionCreate) -> dict[str, object]:
+def create_warehouse_transaction(payload: WarehouseTransactionCreate) -> Dict[str, object]:
     if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
 
@@ -523,7 +528,7 @@ def create_warehouse_transaction(payload: WarehouseTransactionCreate) -> dict[st
 
 
 @app.put("/api/warehouse/transactions/{tx_no}")
-def update_warehouse_transaction(tx_no: str, payload: WarehouseTransactionUpdate) -> dict[str, object]:
+def update_warehouse_transaction(tx_no: str, payload: WarehouseTransactionUpdate) -> Dict[str, object]:
     if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
 
@@ -561,7 +566,7 @@ def update_warehouse_transaction(tx_no: str, payload: WarehouseTransactionUpdate
 
 
 @app.delete("/api/warehouse/transactions/{tx_no}")
-def delete_warehouse_transaction(tx_no: str) -> dict[str, object]:
+def delete_warehouse_transaction(tx_no: str) -> Dict[str, object]:
     with get_session() as session:
         transaction = session.exec(select(WarehouseTransaction).where(WarehouseTransaction.tx_no == tx_no)).first()
         if transaction is None:

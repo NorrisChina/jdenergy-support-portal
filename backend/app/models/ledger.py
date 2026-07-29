@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import Column
 from sqlalchemy import JSON as SAJSON
@@ -22,7 +22,7 @@ class GridScaleProject(SQLModel, table=True):
     cell_version: str
     pcs_model: str
     progress_status: str
-    photo_paths: list[str] = Field(default_factory=list, sa_column=Column(SAJSON))
+    photo_paths: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
 
 
 class CiDealerDelivery(SQLModel, table=True):
@@ -62,7 +62,7 @@ class WarehouseInventoryItem(SQLModel, table=True):
     total_quantity: int = 0
     damaged_quantity: int = 0
     available_quantity: int = 0
-    photo_paths: list[str] = Field(default_factory=list, sa_column=Column(SAJSON))
+    photo_paths: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
     remarks: Optional[str] = None
 
 
