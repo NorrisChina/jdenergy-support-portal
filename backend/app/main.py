@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import uuid
 from collections import defaultdict
 from pathlib import Path
@@ -11,13 +12,15 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
-from fastapi import APIRouter, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import or_
 from sqlmodel import select
 
 from .database import get_session, init_db
+from .models.after_sales import FaultCode as AfterSalesFaultCode
 from .models.ledger import (
     CI_DELIVERY_SEED,
     FAULT_CODE_SEED,
@@ -45,6 +48,23 @@ class FaultCodeUpsert(BaseModel):
     fault_name: str
     possible_causes: str
     solution: str
+
+
+class AfterSalesFaultCodeItem(BaseModel):
+    module: str
+    fault_code: str
+    fault_name: str = ""
+    fault_level: str = ""
+    is_stop: str = ""
+    recovery: str = ""
+    detection_condition: str = ""
+    trigger_logic: str = ""
+    possible_cause: str = ""
+    solution: str = ""
+
+
+class AfterSalesFaultCodeImportPayload(BaseModel):
+    items: List[AfterSalesFaultCodeItem]
 
 
 class GridScaleStatusUpdate(BaseModel):
@@ -139,7 +159,14 @@ grid_scale_router = APIRouter(
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
-    seed_database()
+    seed_mode = os.getenv("SEED_MODE", "all").strip().lower()
+    if seed_mode == "all":
+        seed_database()
+    elif seed_mode in {"none", "after-sales-only", "after_sales_only"}:
+        # Skip legacy full-module seed when deploying with selective data initialization.
+        pass
+    else:
+        seed_database()
 
 
 def seed_database() -> None:
@@ -209,6 +236,62 @@ def score_record(record: FaultCode, keyword: str) -> int:
     if normalized_keyword in solution:
         score += 10
     return score
+
+
+def normalize_after_sales_fault_code_item(item: AfterSalesFaultCodeItem) -> Dict[str, str]:
+    return {
+        "module": item.module.strip(),
+        "fault_code": item.fault_code.strip(),
+        "fault_name": item.fault_name.strip(),
+        "fault_level": item.fault_level.strip(),
+        "is_stop": item.is_stop.strip(),
+        "recovery": item.recovery.strip(),
+        "detection_condition": item.detection_condition.strip(),
+        "trigger_logic": item.trigger_logic.strip(),
+        "possible_cause": item.possible_cause.strip(),
+        "solution": item.solution.strip(),
+    }
+
+
+def upsert_after_sales_fault_codes(session, items: List[AfterSalesFaultCodeItem], overwrite: bool = True) -> Dict[str, int]:
+    created = 0
+    updated = 0
+    skipped = 0
+
+    for item in items:
+        payload = normalize_after_sales_fault_code_item(item)
+        if not payload["module"] or not payload["fault_code"]:
+            skipped += 1
+            continue
+
+        existing = session.exec(
+            select(AfterSalesFaultCode).where(
+                AfterSalesFaultCode.module == payload["module"],
+                AfterSalesFaultCode.fault_code == payload["fault_code"],
+            )
+        ).first()
+
+        if existing is None:
+            session.add(AfterSalesFaultCode(**payload))
+            created += 1
+            continue
+
+        if not overwrite:
+            skipped += 1
+            continue
+
+        existing.fault_name = payload["fault_name"]
+        existing.fault_level = payload["fault_level"]
+        existing.is_stop = payload["is_stop"]
+        existing.recovery = payload["recovery"]
+        existing.detection_condition = payload["detection_condition"]
+        existing.trigger_logic = payload["trigger_logic"]
+        existing.possible_cause = payload["possible_cause"]
+        existing.solution = payload["solution"]
+        session.add(existing)
+        updated += 1
+
+    return {"created": created, "updated": updated, "skipped": skipped}
 
 
 def serialize_inventory(rows: List[WarehouseInventory]) -> Dict[str, List[WarehouseInventory]]:
@@ -308,6 +391,98 @@ def delete_fault_code(fault_code: str) -> Dict[str, object]:
         session.delete(item)
         session.commit()
         return {"message": "deleted"}
+
+
+@app.get("/api/after-sales/fault-codes")
+def list_after_sales_fault_codes(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=200),
+    module: Optional[str] = Query(default=None),
+    keyword: Optional[str] = Query(default=None),
+) -> Dict[str, object]:
+    with get_session() as session:
+        statement = select(AfterSalesFaultCode)
+
+        if module and module.strip():
+            statement = statement.where(AfterSalesFaultCode.module == module.strip())
+
+        if keyword and keyword.strip():
+            like_keyword = f"%{keyword.strip()}%"
+            statement = statement.where(
+                or_(
+                    AfterSalesFaultCode.fault_code.like(like_keyword),
+                    AfterSalesFaultCode.fault_name.like(like_keyword),
+                )
+            )
+
+        all_items = session.exec(statement.order_by(AfterSalesFaultCode.id.asc())).all()
+
+    total = len(all_items)
+    offset = (page - 1) * page_size
+    paged_items = all_items[offset: offset + page_size]
+
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "count": len(paged_items),
+        "items": paged_items,
+    }
+
+
+@app.post("/api/after-sales/fault-codes/import")
+async def import_after_sales_fault_codes(
+    payload: Optional[AfterSalesFaultCodeImportPayload] = Body(default=None),
+    file: Optional[UploadFile] = File(default=None),
+    overwrite: bool = Query(default=True),
+) -> Dict[str, object]:
+    parsed_items: List[object] = []
+
+    if file is not None:
+        raw_text = (await file.read()).decode("utf-8")
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON file: {exc}") from exc
+
+        if isinstance(data, list):
+            parsed_items = data
+        elif isinstance(data, dict) and isinstance(data.get("items"), list):
+            parsed_items = data["items"]
+        else:
+            raise HTTPException(status_code=400, detail="JSON must be a list or an object with an 'items' list")
+    elif payload is not None:
+        parsed_items = [item.model_dump() for item in payload.items]
+    else:
+        raise HTTPException(status_code=400, detail="Provide request JSON body or upload a JSON file")
+
+    validated_items: List[AfterSalesFaultCodeItem] = []
+    validation_errors: List[Dict[str, object]] = []
+    for index, item in enumerate(parsed_items):
+        try:
+            validated_items.append(AfterSalesFaultCodeItem.model_validate(item))
+        except ValidationError as exc:
+            validation_errors.append({"index": index, "error": exc.errors()})
+
+    if validation_errors:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Some records failed validation",
+                "errors": validation_errors[:20],
+                "error_count": len(validation_errors),
+            },
+        )
+
+    with get_session() as session:
+        result = upsert_after_sales_fault_codes(session, validated_items, overwrite=overwrite)
+        session.commit()
+
+    return {
+        "message": "imported",
+        "source_count": len(parsed_items),
+        **result,
+    }
 
 
 @grid_scale_router.get("")

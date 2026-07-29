@@ -60,15 +60,12 @@
       <section v-if="activeView === 'after-sales'" class="flex-1">
         <div class="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
           <div class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glow backdrop-blur-xl sm:p-8">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">After-sales Service</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">{{ t('views.afterSales') }}</p>
             <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('fault.section') }}</h2>
                 <p class="mt-3 text-sm leading-7 text-slate-300 sm:text-base">{{ t('fault.subtitle') }}</p>
               </div>
-              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openFaultEditor()">
-                {{ t('fault.adminCreate') }}
-              </button>
             </div>
 
             <form class="mt-6 flex flex-col gap-3 sm:flex-row" @submit.prevent="handleFaultSearch">
@@ -85,6 +82,20 @@
               </button>
             </form>
 
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">模块</label>
+              <select v-model="faultModule" class="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none sm:max-w-xs" @change="handleFaultFilterChange">
+                <option value="">全部模块</option>
+                <option v-for="module in faultModules" :key="module" :value="module">{{ module }}</option>
+              </select>
+              <label class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 sm:ml-2">每页</label>
+              <select v-model.number="faultPageSize" class="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none" @change="handleFaultPageSizeChange">
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+              </select>
+            </div>
+
             <div class="mt-4 flex flex-wrap gap-2 text-xs text-slate-400">
               <span v-for="chip in t('fault.chips')" :key="chip" class="rounded-full border border-white/10 bg-white/5 px-3 py-1">{{ chip }}</span>
             </div>
@@ -96,7 +107,7 @@
               <p class="mt-2 text-sm leading-6 text-slate-300">{{ t('fault.quickGuide') }}</p>
             </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              {{ t('fault.currentCount') }}：<span class="font-semibold text-white">{{ faultResults.length }}</span>
+              {{ t('fault.currentCount') }}：<span class="font-semibold text-white">{{ faultTotal }}</span>
             </div>
           </aside>
         </div>
@@ -106,7 +117,7 @@
             <h3 class="text-xl font-semibold text-white sm:text-2xl">{{ t('fault.resultTitle') }}</h3>
             <p class="mt-1 text-sm text-slate-400">{{ faultHint }}</p>
           </div>
-          <div class="text-sm text-slate-500">{{ faultLoading ? 'Loading...' : `${faultResults.length} item(s)` }}</div>
+          <div class="text-sm text-slate-500">{{ faultLoading ? 'Loading...' : `${faultResults.length} / ${faultTotal} item(s)` }}</div>
         </div>
 
         <div v-if="faultLoading" class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -117,30 +128,42 @@
           {{ faultError }}
         </div>
 
-        <div v-else-if="faultResults.length > 0" class="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="item in faultResults" :key="item.fault_code" class="group rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-white/7">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium text-cyan-200">{{ item.fault_code }}</p>
-                <h4 class="mt-1 text-lg font-semibold text-white">{{ item.fault_name }}</h4>
-              </div>
-              <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">Match</span>
+        <div v-else-if="faultResults.length > 0" class="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+              <thead class="bg-slate-950/50 text-slate-400">
+                <tr>
+                  <th class="px-5 py-4 font-medium">模块</th>
+                  <th class="px-5 py-4 font-medium">故障码</th>
+                  <th class="px-5 py-4 font-medium">故障名称</th>
+                  <th class="px-5 py-4 font-medium">等级</th>
+                  <th class="px-5 py-4 font-medium">停机</th>
+                  <th class="px-5 py-4 font-medium">恢复机制</th>
+                  <th class="px-5 py-4 font-medium">可能原因</th>
+                  <th class="px-5 py-4 font-medium">解决措施</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/10 text-slate-200">
+                <tr v-for="item in faultResults" :key="`${item.module}-${item.fault_code}-${item.id}`" class="bg-white/[0.02] hover:bg-white/[0.04]">
+                  <td class="px-5 py-4"><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200">{{ item.module || '-' }}</span></td>
+                  <td class="px-5 py-4 font-semibold text-white">{{ item.fault_code || '-' }}</td>
+                  <td class="px-5 py-4 text-white">{{ item.fault_name || '-' }}</td>
+                  <td class="px-5 py-4">{{ item.fault_level || '-' }}</td>
+                  <td class="px-5 py-4">{{ item.is_stop || '-' }}</td>
+                  <td class="px-5 py-4">{{ item.recovery || '-' }}</td>
+                  <td class="max-w-xs px-5 py-4 text-slate-300">{{ item.possible_cause || '-' }}</td>
+                  <td class="max-w-xs px-5 py-4 text-slate-300">{{ item.solution || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex flex-col items-center justify-between gap-3 border-t border-white/10 px-5 py-4 sm:flex-row">
+            <p class="text-xs text-slate-400">第 {{ faultPage }} / {{ faultTotalPages }} 页，共 {{ faultTotal }} 条</p>
+            <div class="flex items-center gap-2">
+              <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40" :disabled="faultPage <= 1" @click="goFaultPage(faultPage - 1)">上一页</button>
+              <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40" :disabled="faultPage >= faultTotalPages" @click="goFaultPage(faultPage + 1)">下一页</button>
             </div>
-            <div v-if="isInternalMode" class="mt-3 flex flex-wrap gap-2">
-              <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openFaultEditor(item)">{{ t('common.edit') }}</button>
-              <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('fault', item.fault_code, item.fault_code, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
-            </div>
-            <div class="mt-5 space-y-4 text-sm leading-6 text-slate-300">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t('fault.possibleCauses') }}</p>
-                <p class="mt-2 whitespace-pre-line">{{ item.possible_causes }}</p>
-              </div>
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t('fault.solution') }}</p>
-                <p class="mt-2 whitespace-pre-line">{{ item.solution }}</p>
-              </div>
-            </div>
-          </article>
+          </div>
         </div>
 
         <div v-else class="mt-4 rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-slate-300">
@@ -148,7 +171,16 @@
           <p class="mt-2 text-sm leading-6 text-slate-400">{{ t('fault.noResultHint') }}</p>
         </div>
 
-        <div class="mt-8 grid gap-6 xl:grid-cols-2">
+      </section>
+
+      <section v-else-if="activeView === 'materials-center'" class="flex-1">
+        <div class="mb-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Materials Center</p>
+          <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t('views.materialsCenter') }}</h2>
+          <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('materials.subtitle') }}</p>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-2">
           <section class="rounded-3xl border border-white/10 bg-white/5 p-6">
             <div class="flex items-end justify-between gap-3">
               <div>
@@ -306,8 +338,20 @@
               </button>
             </div>
           </div>
-          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-            {{ t('ci.dealerCount') }}：<span class="font-semibold text-white">{{ ciDeliveries.length }}</span>
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+              {{ t('ci.dealerCount') }}：<span class="font-semibold text-white">{{ ciDeliveries.length }}</span>
+            </div>
+            <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+              <p class="text-xs uppercase tracking-[0.2em] text-cyan-200">100C</p>
+              <p class="mt-1 font-semibold text-white">{{ ciSummary.total100c }} 台</p>
+              <p class="text-xs text-cyan-200">{{ formatCiMwh(ciSummary.total100cMwh) }} MWh</p>
+            </div>
+            <div class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+              <p class="text-xs uppercase tracking-[0.2em] text-emerald-200">250</p>
+              <p class="mt-1 font-semibold text-white">{{ ciSummary.total250 }} 台</p>
+              <p class="text-xs text-emerald-200">{{ formatCiMwh(ciSummary.total250Mwh) }} MWh</p>
+            </div>
           </div>
         </div>
 
@@ -320,17 +364,25 @@
                   <th class="px-5 py-4 font-medium">{{ t('ci.dealer') }}</th>
                   <th class="px-5 py-4 font-medium">100C 已交付</th>
                   <th class="px-5 py-4 font-medium">250 已交付</th>
-                  <th class="px-5 py-4 font-medium">{{ t('ci.total') }}</th>
                   <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
-                <tr v-for="item in ciDeliveries" :key="item.dealer_name" class="bg-white/[0.02] hover:bg-white/[0.04]">
+                <tr v-for="item in ciCapacityRows" :key="item.dealer_name" class="bg-white/[0.02] hover:bg-white/[0.04]">
                   <td class="px-5 py-4">{{ item.region }}</td>
                   <td class="px-5 py-4 font-medium text-white">{{ item.dealer_name }}</td>
-                  <td class="px-5 py-4"><span class="rounded-full bg-cyan-400/10 px-3 py-1 font-semibold text-cyan-200">{{ item.delivered_100c }}</span></td>
-                  <td class="px-5 py-4"><span class="rounded-full bg-emerald-400/10 px-3 py-1 font-semibold text-emerald-200">{{ item.delivered_250 }}</span></td>
-                  <td class="px-5 py-4 font-semibold text-white">{{ item.delivered_100c + item.delivered_250 }}</td>
+                  <td class="px-5 py-4">
+                    <p class="font-semibold text-cyan-200">{{ item.delivered_100c }} 台 ({{ formatCiMwh(item.mwh100c) }} MWh)</p>
+                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
+                      <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio100c}%` }"></div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <p class="font-semibold text-emerald-200">{{ item.delivered_250 }} 台 ({{ formatCiMwh(item.mwh250) }} MWh)</p>
+                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
+                      <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio250}%` }"></div>
+                    </div>
+                  </td>
                   <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
                       <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openCiEditor(item)">{{ t('common.edit') }}</button>
@@ -619,6 +671,7 @@ const activeView = ref('after-sales')
 
 const views = computed(() => [
   { key: 'after-sales', label: t('views.afterSales') },
+  { key: 'materials-center', label: t('views.materialsCenter') },
   { key: 'grid-scale', label: t('views.gridScale') },
   { key: 'ci-dashboard', label: t('views.ciDashboard') },
   { key: 'warehouse', label: t('views.warehouse') },
@@ -659,6 +712,11 @@ const videos = [
 const projectStatuses = ['清关中', '设备上岸', '土建施工', '调试中', '正式并网']
 
 const faultKeyword = ref('')
+const faultModule = ref('')
+const faultModules = ref(['PCS', 'BMS', 'EMS', '消防', '水机'])
+const faultPage = ref(1)
+const faultPageSize = ref(20)
+const faultTotal = ref(0)
 const faultLoading = ref(false)
 const faultError = ref('')
 const faultResults = ref([])
@@ -720,6 +778,8 @@ const faultHint = computed(() => {
   return faultKeyword.value.trim() ? `${isEnglish.value ? 'Current keyword' : '当前搜索词'}: ${faultKeyword.value.trim()}` : (isEnglish.value ? 'Showing all results.' : '显示全部结果。')
 })
 
+const faultTotalPages = computed(() => Math.max(1, Math.ceil((faultTotal.value || 0) / (faultPageSize.value || 1))))
+
 const gridSummary = computed(() => {
   const totalMwh = gridProjects.value.reduce((sum, project) => sum + (Number(project.capacity_mwh) || 0), 0)
   const totalDayValue = getTodayDayValue()
@@ -764,6 +824,43 @@ const gridSummary = computed(() => {
 
 const staffModeBadge = computed(() => (staffMode.value ? t('app.staffBadge') : t('app.customerBadge')))
 
+const CI_100C_MWH_PER_UNIT = 0.12
+const CI_250_MWH_PER_UNIT = 0.25
+
+const ciCapacityRows = computed(() => {
+  const baseRows = ciDeliveries.value.map((item) => {
+    const delivered100c = Number(item.delivered_100c) || 0
+    const delivered250 = Number(item.delivered_250) || 0
+    return {
+      ...item,
+      delivered_100c: delivered100c,
+      delivered_250: delivered250,
+      mwh100c: delivered100c * CI_100C_MWH_PER_UNIT,
+      mwh250: delivered250 * CI_250_MWH_PER_UNIT,
+    }
+  })
+
+  const max100cMwh = Math.max(0, ...baseRows.map((item) => item.mwh100c))
+  const max250Mwh = Math.max(0, ...baseRows.map((item) => item.mwh250))
+
+  return baseRows.map((item) => ({
+    ...item,
+    ratio100c: max100cMwh > 0 ? (item.mwh100c / max100cMwh) * 100 : 0,
+    ratio250: max250Mwh > 0 ? (item.mwh250 / max250Mwh) * 100 : 0,
+  }))
+})
+
+const ciSummary = computed(() => {
+  const total100c = ciCapacityRows.value.reduce((sum, item) => sum + item.delivered_100c, 0)
+  const total250 = ciCapacityRows.value.reduce((sum, item) => sum + item.delivered_250, 0)
+  return {
+    total100c,
+    total250,
+    total100cMwh: total100c * CI_100C_MWH_PER_UNIT,
+    total250Mwh: total250 * CI_250_MWH_PER_UNIT,
+  }
+})
+
 function makeTextDownload(content, filename) {
   return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}#${encodeURIComponent(filename)}`
 }
@@ -771,6 +868,10 @@ function makeTextDownload(content, filename) {
 function formatMwh(value) {
   const numericValue = Number(value) || 0
   return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1)
+}
+
+function formatCiMwh(value) {
+  return (Number(value) || 0).toFixed(2)
 }
 
 function currentTimestampStamp() {
@@ -1013,18 +1114,56 @@ function formatApiError(error, fallback) {
 }
 
 async function handleFaultSearch() {
+  faultPage.value = 1
+  await loadAfterSalesFaultCodes()
+}
+
+async function loadAfterSalesFaultCodes() {
   faultLoading.value = true
   faultError.value = ''
   faultHasSearched.value = true
   try {
-    const payload = await portalApi.getFaultCodes(faultKeyword.value.trim())
+    const payload = await portalApi.listAfterSalesFaultCodes({
+      page: faultPage.value,
+      pageSize: faultPageSize.value,
+      module: faultModule.value,
+      keyword: faultKeyword.value.trim(),
+    })
     faultResults.value = payload.items ?? []
+    faultTotal.value = Number(payload.total) || faultResults.value.length
+    const moduleSet = new Set(faultModules.value)
+    for (const item of faultResults.value) {
+      if (item?.module) {
+        moduleSet.add(item.module)
+      }
+    }
+    faultModules.value = [...moduleSet]
   } catch (error) {
     faultError.value = formatApiError(error, `${t('notices.loadFailed')} / API request failed`)
     faultResults.value = []
+    faultTotal.value = 0
   } finally {
     faultLoading.value = false
   }
+}
+
+async function handleFaultFilterChange() {
+  faultPage.value = 1
+  await loadAfterSalesFaultCodes()
+}
+
+async function handleFaultPageSizeChange() {
+  faultPage.value = 1
+  await loadAfterSalesFaultCodes()
+}
+
+async function goFaultPage(nextPage) {
+  const page = Number(nextPage) || 1
+  if (page < 1 || page > faultTotalPages.value || page === faultPage.value) {
+    return
+  }
+  faultPage.value = page
+  await loadAfterSalesFaultCodes()
 }
 
 async function loadLedgerData() {

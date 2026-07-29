@@ -38,13 +38,14 @@ export const messages = {
       managedHint: '内部员工模式已启用，可进行新增、编辑、删除和保存操作。',
     },
     views: {
-      afterSales: '售后服务',
+      afterSales: '故障排查与解决',
+      materialsCenter: '技术文档与教学多媒体',
       gridScale: '源网侧大储成果展',
       ciDashboard: '工商业交付看板',
       warehouse: '海外仓储',
     },
     fault: {
-      section: '售后故障代码速查',
+      section: '故障排查与解决',
       subtitle: '输入故障代码、故障名称或关键词，快速定位可能原因与标准化解决方案。',
       placeholder: '请输入故障代码 / Enter fault code e.g. E024',
       searchButton: '搜索 / Search',
@@ -57,6 +58,9 @@ export const messages = {
       solution: 'Standard Solution / 标准化解决方案',
       currentCount: '当前结果',
       adminCreate: '新增故障码',
+    },
+    materials: {
+      subtitle: '集中查看技术文档、操作手册和标准化教学视频，支持在线播放与下载。',
     },
     grid: {
       section: '源网侧储能项目成果展',
@@ -182,13 +186,14 @@ export const messages = {
       managedHint: 'Staff mode is active. Add, edit, delete, and save actions are available.',
     },
     views: {
-      afterSales: 'After-sales',
+      afterSales: 'Fault diagnosis & resolution',
+      materialsCenter: 'Materials Center',
       gridScale: 'Grid-scale showcase',
       ciDashboard: 'C&I delivery dashboard',
       warehouse: 'Warehouse',
     },
     fault: {
-      section: 'Fault Code Lookup',
+      section: 'Fault Diagnosis & Resolution',
       subtitle: 'Search by code, fault name, or keyword to locate the likely cause and standard solution.',
       placeholder: 'Enter fault code e.g. E024',
       searchButton: 'Search',
@@ -201,6 +206,9 @@ export const messages = {
       solution: 'Standard Solution',
       currentCount: 'Current results',
       adminCreate: 'Add fault code',
+    },
+    materials: {
+      subtitle: 'Centralized access to technical documentation, operation manuals, and standardized training videos with play/download support.',
     },
     grid: {
       section: 'Grid-Scale Delivery Showcase',

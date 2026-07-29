@@ -70,6 +70,18 @@ export const portalApi = {
   getFaultCodes(query = '') {
     return requestJson(`/api/fault-codes?q=${encodeURIComponent(query)}`)
   },
+  listAfterSalesFaultCodes({ page = 1, pageSize = 20, module = '', keyword = '' } = {}) {
+    const query = new URLSearchParams()
+    query.set('page', String(page))
+    query.set('page_size', String(pageSize))
+    if (module) {
+      query.set('module', module)
+    }
+    if (keyword) {
+      query.set('keyword', keyword)
+    }
+    return requestJson(`/api/after-sales/fault-codes?${query.toString()}`)
+  },
   createFaultCode(payload) {
     return requestJson('/api/fault-codes', {
       method: 'POST',
