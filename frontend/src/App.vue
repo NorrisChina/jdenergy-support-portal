@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-hero-grid text-slate-100">
+  <div :class="['min-h-screen bg-hero-grid', isLightMode ? 'theme-light text-slate-900' : 'theme-dark text-slate-100']">
     <main class="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-      <header class="mb-4 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur-xl sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+      <header class="portal-header mb-4 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur-xl sm:p-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p class="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-cyan-200 uppercase">
             {{ t('app.brand') }}
@@ -15,14 +15,14 @@
         </div>
 
         <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          <div class="rounded-2xl border border-white/10 bg-slate-950/70 p-1">
+          <div class="portal-tabs rounded-2xl border border-white/10 bg-slate-950/70 p-1">
             <div v-for="(row, rowIndex) in viewRows" :key="`view-row-${rowIndex}`" class="flex flex-wrap gap-1" :class="rowIndex > 0 ? 'mt-1' : ''">
               <button
                 v-for="view in row"
                 :key="view.key"
                 type="button"
-                class="rounded-xl px-4 py-2 text-sm font-medium transition"
-                :class="activeView === view.key ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20' : 'text-slate-300 hover:bg-white/5 hover:text-white'"
+                class="tab-btn rounded-xl px-4 py-2 text-sm font-medium transition"
+                :class="activeView === view.key ? 'tab-btn-active bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20' : 'tab-btn-inactive text-slate-300 hover:bg-white/5 hover:text-white'"
                 @click="activeView = view.key"
               >
                 {{ view.label }}
@@ -32,7 +32,15 @@
 
           <button
             type="button"
-            class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+              class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+            @click="toggleTheme"
+          >
+              {{ isLightMode ? t('app.themeNight') : t('app.themeDay') }}
+          </button>
+
+          <button
+            type="button"
+              class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
             @click="toggleLocale"
           >
             {{ t('app.languageToggle') }}
@@ -40,7 +48,7 @@
 
           <button
             type="button"
-            class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 hover:text-emerald-100"
+              class="toolbar-btn toolbar-btn-staff rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 hover:text-emerald-100"
             @click="handleStaffModeClick"
           >
             {{ isInternalMode ? t('auth.leave') : t('app.staffMode') }}
@@ -52,9 +60,9 @@
         {{ portalState.notice }}
       </div>
 
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+      <div class="mode-hint-bar mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
         <span>{{ isInternalMode ? t('common.managedHint') : t('common.readOnlyHint') }}</span>
-        <span class="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-cyan-200">
+        <span class="mode-hint-badge rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-cyan-200">
           {{ staffModeBadge }}
         </span>
       </div>
@@ -107,12 +115,12 @@
           </div>
 
           <aside class="grid gap-4 rounded-3xl border border-white/10 bg-slate-950/55 p-5">
-            <div>
+            <div class="quick-guide-panel">
               <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">Quick Guide</p>
-              <p class="mt-2 text-sm leading-6 text-slate-300">{{ t('fault.quickGuide') }}</p>
+              <p class="quick-guide-text mt-2 text-sm leading-6 text-slate-300">{{ t('fault.quickGuide') }}</p>
             </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              {{ t('fault.currentCount') }}：<span class="font-semibold text-white">{{ faultTotal }}</span>
+            <div class="quick-count rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              {{ t('fault.currentCount') }}：<span class="quick-count-number font-semibold text-white">{{ faultTotal }}</span>
             </div>
           </aside>
         </div>
@@ -122,7 +130,7 @@
             <h3 class="text-xl font-semibold text-white sm:text-2xl">{{ t('fault.resultTitle') }}</h3>
             <p class="mt-1 text-sm text-slate-400">{{ faultHint }}</p>
           </div>
-          <div class="text-sm text-slate-500">{{ faultLoading ? 'Loading...' : `${faultResults.length} / ${faultTotal} item(s)` }}</div>
+          <div class="result-meta text-sm text-slate-500">{{ faultLoading ? 'Loading...' : `${faultResults.length} / ${faultTotal} item(s)` }}</div>
         </div>
 
         <div v-if="faultLoading" class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -227,14 +235,14 @@
               <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{{ materialsByCategory[category]?.length ?? 0 }}</span>
             </div>
 
-            <div class="mt-4 grid gap-3">
+              <div class="mt-4 grid gap-3">
               <article v-for="item in materialsByCategory[category]" :key="item.id" class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-white">{{ item.title }}</p>
-                    <p class="mt-1 text-xs text-slate-400">{{ item.file_type || '-' }} · {{ item.file_size || '-' }}</p>
+                    <p class="doc-meta mt-1 text-xs text-slate-400">{{ item.file_type || '-' }} · {{ item.file_size || '-' }}</p>
                   </div>
-                  <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200">{{ item.product_series }}</span>
+                  <span class="doc-series-badge rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200">{{ item.product_series }}</span>
                 </div>
                 <div class="mt-3 flex flex-wrap gap-2">
                   <button type="button" class="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110" @click="previewTechnicalDoc(item)">
@@ -247,7 +255,7 @@
                   <button v-if="materialsCanManage" type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('technical-doc', String(item.id), item.title, t('common.deleteConfirm'))">删除</button>
                 </div>
               </article>
-              <div v-if="(materialsByCategory[category] ?? []).length === 0" class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400">
+                <div v-if="(materialsByCategory[category] ?? []).length === 0" class="empty-placeholder rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400">
                 {{ t('common.noData') }}
               </div>
             </div>
@@ -303,7 +311,7 @@
         </div>
 
         <div v-else class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="project in gridSummary.projects" :key="project.project_name" class="rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-cyan-400/30">
+          <article v-for="project in gridSummary.projects" :key="project.project_name" class="grid-project-card rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-cyan-400/30">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t('grid.location') }}</p>
@@ -312,10 +320,10 @@
               <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="project.deliveryBadgeClass">{{ project.deliveryState }}</span>
             </div>
 
-            <div class="mt-5 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+            <div class="grid-capacity-panel mt-5 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
               <div class="flex items-end justify-between gap-3">
                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t('grid.capacity') }}</p>
-                <p class="text-xs font-semibold text-cyan-200">{{ project.ratioLabel }}</p>
+                <p class="grid-ratio text-xs font-semibold text-cyan-200">{{ project.ratioLabel }}</p>
               </div>
               <div class="mt-2 flex items-end justify-between gap-3">
                 <p class="text-2xl font-semibold text-white">{{ formatMwh(project.capacityMwh) }} <span class="text-base text-slate-300">MWh</span></p>
@@ -326,9 +334,9 @@
               </div>
             </div>
 
-            <div class="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">{{ t('grid.daySummary') }}</p>
-              <p class="mt-1 text-sm font-semibold text-white">{{ project.daysLabel }}</p>
+            <div class="grid-day-block mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
+              <p class="grid-day-label text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">{{ t('grid.daySummary') }}</p>
+              <p class="grid-day-value mt-1 text-sm font-semibold text-white">{{ project.daysLabel }}</p>
             </div>
 
             <div v-if="isInternalMode" class="mt-4 flex flex-wrap gap-2">
@@ -353,26 +361,26 @@
               </button>
             </div>
           </div>
-          <div class="grid gap-3 sm:grid-cols-3">
-            <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-              {{ t('ci.dealerCount') }}：<span class="font-semibold text-white">{{ ciDeliveries.length }}</span>
+          <div class="ci-kpi-grid grid gap-3 sm:grid-cols-3">
+            <div class="ci-kpi-card rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+              {{ t('ci.dealerCount') }}：<span class="kpi-number font-semibold text-white">{{ ciDeliveries.length }}</span>
             </div>
-            <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+            <div class="ci-kpi-card ci-kpi-card-100c rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
               <p class="text-xs uppercase tracking-[0.2em] text-cyan-200">100C</p>
-              <p class="mt-1 font-semibold text-white">{{ ciSummary.total100c }} 台</p>
-              <p class="text-xs text-cyan-200">{{ formatCiMwh(ciSummary.total100cMwh) }} MWh</p>
+              <p class="kpi-number mt-1 font-semibold text-white">{{ ciSummary.total100c }} 台</p>
+              <p class="kpi-number kpi-number-sub text-xs text-cyan-200">{{ formatCiMwh(ciSummary.total100cMwh) }} MWh</p>
             </div>
-            <div class="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+            <div class="ci-kpi-card ci-kpi-card-250 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
               <p class="text-xs uppercase tracking-[0.2em] text-emerald-200">250</p>
-              <p class="mt-1 font-semibold text-white">{{ ciSummary.total250 }} 台</p>
-              <p class="text-xs text-emerald-200">{{ formatCiMwh(ciSummary.total250Mwh) }} MWh</p>
+              <p class="kpi-number mt-1 font-semibold text-white">{{ ciSummary.total250 }} 台</p>
+              <p class="kpi-number kpi-number-sub text-xs text-emerald-200">{{ formatCiMwh(ciSummary.total250Mwh) }} MWh</p>
             </div>
           </div>
         </div>
 
         <div class="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+            <table class="data-table ci-data-table min-w-full divide-y divide-white/10 text-left text-sm">
               <thead class="bg-slate-950/50 text-slate-400">
                 <tr>
                   <th class="px-5 py-4 font-medium">{{ t('ci.region') }}</th>
@@ -384,24 +392,24 @@
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
                 <tr v-for="item in ciCapacityRows" :key="item.dealer_name" class="bg-white/[0.02] hover:bg-white/[0.04]">
-                  <td class="px-5 py-4">{{ item.region }}</td>
-                  <td class="px-5 py-4 font-medium text-white">{{ item.dealer_name }}</td>
+                  <td class="key-cell px-5 py-4">{{ item.region }}</td>
+                  <td class="key-cell px-5 py-4 font-medium text-white">{{ item.dealer_name }}</td>
                   <td class="px-5 py-4">
-                    <p class="font-semibold text-cyan-200">{{ item.delivered_100c }} 台 ({{ formatCiMwh(item.mwh100c) }} MWh)</p>
-                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
-                      <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio100c}%` }"></div>
+                    <p class="delivery-metric delivery-metric-100c font-semibold text-cyan-200">{{ item.delivered_100c }} 台 ({{ formatCiMwh(item.mwh100c) }} MWh)</p>
+                    <div class="delivery-track mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
+                      <div class="delivery-fill delivery-fill-100c h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio100c}%` }"></div>
                     </div>
                   </td>
                   <td class="px-5 py-4">
-                    <p class="font-semibold text-emerald-200">{{ item.delivered_250 }} 台 ({{ formatCiMwh(item.mwh250) }} MWh)</p>
-                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
-                      <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio250}%` }"></div>
+                    <p class="delivery-metric delivery-metric-250 font-semibold text-emerald-200">{{ item.delivered_250 }} 台 ({{ formatCiMwh(item.mwh250) }} MWh)</p>
+                    <div class="delivery-track mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
+                      <div class="delivery-fill delivery-fill-250 h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio250}%` }"></div>
                     </div>
                   </td>
                   <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openCiEditor(item)">{{ t('common.edit') }}</button>
-                      <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('ci', item.dealer_name, item.dealer_name, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                      <button type="button" class="table-action-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openCiEditor(item)">{{ t('common.edit') }}</button>
+                      <button type="button" class="table-action-btn table-action-danger rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('ci', item.dealer_name, item.dealer_name, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
                     </div>
                   </td>
                 </tr>
@@ -440,7 +448,7 @@
 
         <div v-else class="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+            <table class="data-table inventory-data-table min-w-full divide-y divide-white/10 text-left text-sm">
               <thead class="bg-slate-950/50 text-slate-400">
                 <tr>
                   <th class="px-5 py-4 font-medium">{{ t('inventory.itemNo') }}</th>
@@ -473,8 +481,8 @@
                   <td class="px-5 py-4 text-slate-300">{{ item.remarks || '-' }}</td>
                   <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openInventoryEditor(item)">{{ t('common.edit') }}</button>
-                      <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('inventory', item.item_no, item.item_no, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                      <button type="button" class="table-action-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openInventoryEditor(item)">{{ t('common.edit') }}</button>
+                      <button type="button" class="table-action-btn table-action-danger rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('inventory', item.item_no, item.item_no, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
                     </div>
                   </td>
                 </tr>
@@ -737,6 +745,9 @@ import { usePortalState } from './composables/usePortalState'
 
 const { state: portalState, setLocale, toggleLocale, requestStaffMode, cancelStaffAuth, confirmStaffAuth, leaveStaffMode, setNotice } = usePortalState()
 
+const THEME_STORAGE_KEY = 'jd-portal-theme'
+const themeMode = ref('dark')
+
 const activeView = ref('after-sales')
 
 const views = computed(() => [
@@ -819,6 +830,7 @@ const isInternalMode = computed(() => portalState.staffMode)
 const staffMode = isInternalMode
 const locale = computed(() => portalState.locale)
 const isEnglish = computed(() => locale.value === 'en-US')
+const isLightMode = computed(() => themeMode.value === 'light')
 const materialsCanManage = computed(() => {
   if (isInternalMode.value) {
     return true
@@ -841,6 +853,38 @@ const materialsByCategory = computed(() => {
 
 function t(path) {
   return path.split('.').reduce((accumulator, key) => accumulator?.[key], messages[locale.value]) ?? path
+}
+
+function applyTheme(mode) {
+  if (typeof document === 'undefined') {
+    return
+  }
+  document.documentElement.setAttribute('data-theme', mode)
+  document.documentElement.classList.toggle('light', mode === 'light')
+}
+
+function restoreTheme() {
+  if (typeof window === 'undefined') {
+    applyTheme(themeMode.value)
+    return
+  }
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+  if (stored === 'light' || stored === 'dark') {
+    themeMode.value = stored
+  } else if (stored === 'day') {
+    themeMode.value = 'light'
+  } else if (stored === 'night') {
+    themeMode.value = 'dark'
+  }
+  applyTheme(themeMode.value)
+}
+
+function toggleTheme() {
+  themeMode.value = isLightMode.value ? 'dark' : 'light'
+  applyTheme(themeMode.value)
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode.value)
+  }
 }
 
 const todayTick = ref(Date.now())
@@ -1650,6 +1694,7 @@ watch(isInternalMode, (enabled) => {
 })
 
 onMounted(async () => {
+  restoreTheme()
   todayTick.value = Date.now()
   const timerId = window.setInterval(() => {
     todayTick.value = Date.now()
