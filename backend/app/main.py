@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import uuid
+import mimetypes
 from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
@@ -15,6 +16,7 @@ except ImportError:
 
 from fastapi import APIRouter, Body, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import or_
@@ -531,6 +533,38 @@ def delete_technical_doc(doc_id: int) -> Dict[str, object]:
         session.delete(item)
         session.commit()
         return {"message": "deleted"}
+
+
+@app.get("/api/technical-docs/{doc_id}/file")
+def get_technical_doc_file(doc_id: int, download: bool = Query(default=False)):
+    with get_session() as session:
+        item = session.get(TechnicalDoc, doc_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Technical document not found")
+
+    if item.file_url.startswith("http://") or item.file_url.startswith("https://"):
+        return RedirectResponse(url=item.file_url, status_code=307)
+
+    local_path = resolve_local_upload_path(item.file_url)
+    if local_path is None or not local_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    suffix = local_path.suffix
+    filename = f"{item.title}{suffix}" if suffix and not item.title.endswith(suffix) else item.title
+    media_type = item.file_type or mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
+
+    if download:
+        return FileResponse(
+            path=local_path,
+            media_type=media_type,
+            filename=filename,
+        )
+
+    return FileResponse(
+        path=local_path,
+        media_type=media_type,
+        content_disposition_type="inline",
+    )
 
 
 @app.put("/api/fault-codes/{fault_code}")

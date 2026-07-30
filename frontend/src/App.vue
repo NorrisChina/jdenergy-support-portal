@@ -240,7 +240,7 @@
                   <button type="button" class="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110" @click="previewTechnicalDoc(item)">
                     {{ isVideoFile(item) ? '播放 / Play' : '预览 / Preview' }}
                   </button>
-                  <a :href="item.file_url" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">
+                  <a :href="technicalDocActionUrl(item, true)" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">
                     下载 / Download
                   </a>
                   <button v-if="materialsCanManage" type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openTechnicalDocEditor(item)">编辑</button>
@@ -1000,12 +1000,21 @@ function isVideoFile(item) {
 }
 
 function previewTechnicalDoc(item) {
-  if (!item?.file_url) return
+  const previewUrl = technicalDocActionUrl(item, false)
+  if (!previewUrl) return
   if (isVideoFile(item)) {
-    openVideo(item.file_url)
+    openVideo(previewUrl)
     return
   }
-  window.open(item.file_url, '_blank', 'noopener,noreferrer')
+  window.open(previewUrl, '_blank', 'noopener,noreferrer')
+}
+
+function technicalDocActionUrl(item, download = false) {
+  const id = item?.id
+  if (!id) {
+    return item?.file_url || ''
+  }
+  return `/api/technical-docs/${encodeURIComponent(String(id))}/file${download ? '?download=1' : ''}`
 }
 
 function changeMaterialsSeries(series) {
