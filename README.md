@@ -66,6 +66,30 @@ location /api/ {
 }
 ```
 
+如果上传技术文档出现 413（Content Too Large），请在站点 Nginx 配置中确认以下两项：
+
+1. 在 server 块设置足够大的上传体积限制，例如：
+
+```nginx
+client_max_body_size 200m;
+```
+
+2. 在 /api 代理块单独设置上传限制，并关闭请求体缓冲：
+
+```nginx
+location /api/ {
+    client_max_body_size 200m;
+    proxy_request_buffering off;
+    proxy_pass http://127.0.0.1:8000;
+}
+```
+
+修改后执行 Nginx 配置测试并重载：
+
+```bash
+nginx -t && nginx -s reload
+```
+
 ## 后端生产启动
 
 进入 `backend/` 后执行：
