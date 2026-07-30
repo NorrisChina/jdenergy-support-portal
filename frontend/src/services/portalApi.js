@@ -82,6 +82,68 @@ export const portalApi = {
     }
     return requestJson(`/api/after-sales/fault-codes?${query.toString()}`)
   },
+  createAfterSalesFaultCode(payload) {
+    return requestJson('/api/after-sales/fault-codes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+  updateAfterSalesFaultCode(id, payload) {
+    return requestJson(`/api/after-sales/fault-codes/${encodeURIComponent(String(id))}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+  deleteAfterSalesFaultCode(id) {
+    return requestJson(`/api/after-sales/fault-codes/${encodeURIComponent(String(id))}`, {
+      method: 'DELETE',
+    })
+  },
+  listTechnicalDocs({ product = '', category = '' } = {}) {
+    const query = new URLSearchParams()
+    if (product) {
+      query.set('product', product)
+    }
+    if (category) {
+      query.set('category', category)
+    }
+    const suffix = query.toString()
+    return requestJson(`/api/technical-docs${suffix ? `?${suffix}` : ''}`)
+  },
+  uploadTechnicalDoc(formData) {
+    return fetch(`${API_BASE}/api/technical-docs`, {
+      method: 'POST',
+      headers: {
+        ...buildInternalModeHeaders('POST'),
+      },
+      body: formData,
+    }).then(async (response) => {
+      const text = await response.text()
+      let payload = {}
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          payload = { detail: text }
+        }
+      }
+      if (!response.ok) {
+        throw new Error(payload?.detail ?? `HTTP ${response.status}`)
+      }
+      return payload
+    })
+  },
+  updateTechnicalDoc(id, payload) {
+    return requestJson(`/api/technical-docs/${encodeURIComponent(String(id))}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+  deleteTechnicalDoc(id) {
+    return requestJson(`/api/technical-docs/${encodeURIComponent(String(id))}`, {
+      method: 'DELETE',
+    })
+  },
   createFaultCode(payload) {
     return requestJson('/api/fault-codes', {
       method: 'POST',

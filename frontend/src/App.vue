@@ -15,17 +15,19 @@
         </div>
 
         <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          <div class="flex flex-wrap rounded-2xl border border-white/10 bg-slate-950/70 p-1">
-            <button
-              v-for="view in views"
-              :key="view.key"
-              type="button"
-              class="rounded-xl px-4 py-2 text-sm font-medium transition"
-              :class="activeView === view.key ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20' : 'text-slate-300 hover:bg-white/5 hover:text-white'"
-              @click="activeView = view.key"
-            >
-              {{ view.label }}
-            </button>
+          <div class="rounded-2xl border border-white/10 bg-slate-950/70 p-1">
+            <div v-for="(row, rowIndex) in viewRows" :key="`view-row-${rowIndex}`" class="flex flex-wrap gap-1" :class="rowIndex > 0 ? 'mt-1' : ''">
+              <button
+                v-for="view in row"
+                :key="view.key"
+                type="button"
+                class="rounded-xl px-4 py-2 text-sm font-medium transition"
+                :class="activeView === view.key ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20' : 'text-slate-300 hover:bg-white/5 hover:text-white'"
+                @click="activeView = view.key"
+              >
+                {{ view.label }}
+              </button>
+            </div>
           </div>
 
           <button
@@ -66,6 +68,9 @@
                 <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('fault.section') }}</h2>
                 <p class="mt-3 text-sm leading-7 text-slate-300 sm:text-base">{{ t('fault.subtitle') }}</p>
               </div>
+              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openFaultEditor()">
+                {{ t('fault.adminCreate') }}
+              </button>
             </div>
 
             <form class="mt-6 flex flex-col gap-3 sm:flex-row" @submit.prevent="handleFaultSearch">
@@ -141,6 +146,7 @@
                   <th class="px-5 py-4 font-medium">恢复机制</th>
                   <th class="px-5 py-4 font-medium">可能原因</th>
                   <th class="px-5 py-4 font-medium">解决措施</th>
+                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
@@ -153,6 +159,12 @@
                   <td class="px-5 py-4">{{ item.recovery || '-' }}</td>
                   <td class="max-w-xs px-5 py-4 text-slate-300">{{ item.possible_cause || '-' }}</td>
                   <td class="max-w-xs px-5 py-4 text-slate-300">{{ item.solution || '-' }}</td>
+                  <td v-if="isInternalMode" class="px-5 py-4">
+                    <div class="flex flex-wrap gap-2">
+                      <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openFaultEditor(item)">{{ t('common.edit') }}</button>
+                      <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('fault', String(item.id), `${item.module}-${item.fault_code}`, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -176,65 +188,68 @@
       <section v-else-if="activeView === 'materials-center'" class="flex-1">
         <div class="mb-5">
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Materials Center</p>
-          <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t('views.materialsCenter') }}</h2>
-          <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('materials.subtitle') }}</p>
+          <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('views.materialsCenter') }}</h2>
+              <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('materials.subtitle') }}</p>
+            </div>
+            <button v-if="materialsCanManage" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openTechnicalDocEditor()">
+              + 上传新资料
+            </button>
+          </div>
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-2">
-          <section class="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <div class="flex items-end justify-between gap-3">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Documents</p>
-                <h3 class="mt-2 text-xl font-semibold text-white">技术文档与教学多媒体 / Materials Center</h3>
-              </div>
-              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">PDF / Video</span>
+        <div class="mb-5 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/5 p-2">
+          <button
+            v-for="series in technicalDocProductSeries"
+            :key="series"
+            type="button"
+            class="rounded-xl px-4 py-2 text-sm font-semibold transition"
+            :class="materialsProductSeries === series ? 'bg-cyan-400 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'"
+            @click="changeMaterialsSeries(series)"
+          >
+            {{ series }}
+          </button>
+        </div>
+
+        <div v-if="materialsLoading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div v-for="index in 5" :key="index" class="h-56 animate-pulse rounded-3xl border border-white/10 bg-white/5"></div>
+        </div>
+
+        <div v-else-if="materialsError" class="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100">
+          {{ materialsError }}
+        </div>
+
+        <div v-else class="grid gap-6 xl:grid-cols-2">
+          <section v-for="category in technicalDocCategories" :key="category" class="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-xl font-semibold text-white">{{ category }}</h3>
+              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{{ materialsByCategory[category]?.length ?? 0 }}</span>
             </div>
 
-            <div class="mt-4 grid gap-4 md:grid-cols-3">
-              <article v-for="doc in documents" :key="doc.title" class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+            <div class="mt-4 grid gap-3">
+              <article v-for="item in materialsByCategory[category]" :key="item.id" class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                 <div class="flex items-start justify-between gap-3">
-                  <div class="flex items-center gap-3">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-sm font-bold text-rose-200">PDF</div>
-                    <div>
-                      <p class="text-sm font-semibold text-white">{{ doc.title }}</p>
-                      <p class="text-xs text-slate-400">{{ doc.desc }}</p>
-                    </div>
-                  </div>
-                </div>
-                <a :href="doc.href" :download="doc.filename" class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10">
-                  下载 / Download
-                </a>
-              </article>
-            </div>
-          </section>
-
-          <section class="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <div class="flex items-end justify-between gap-3">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Training Videos</p>
-                <h3 class="mt-2 text-xl font-semibold text-white">标准化教学视频</h3>
-              </div>
-              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">Play / Download</span>
-            </div>
-
-            <div class="mt-4 grid gap-4 md:grid-cols-3">
-              <article v-for="video in videos" :key="video.title" class="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
-                <div class="flex aspect-video items-center justify-center bg-gradient-to-br from-cyan-400/15 via-slate-950 to-emerald-400/10 text-center">
                   <div>
-                    <p class="text-sm font-semibold text-white">{{ video.title }}</p>
-                    <p class="mt-1 text-xs text-slate-300">{{ video.subtitle }}</p>
-                    <p class="mt-2 text-[11px] tracking-[0.24em] text-cyan-200">{{ video.duration }}</p>
+                    <p class="text-sm font-semibold text-white">{{ item.title }}</p>
+                    <p class="mt-1 text-xs text-slate-400">{{ item.file_type || '-' }} · {{ item.file_size || '-' }}</p>
                   </div>
+                  <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200">{{ item.product_series }}</span>
                 </div>
-                <div class="grid grid-cols-2 gap-2 p-3">
-                  <button type="button" class="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110" @click="openVideo(video.url)">
-                    播放 / Play
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button type="button" class="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110" @click="previewTechnicalDoc(item)">
+                    {{ isVideoFile(item) ? '播放 / Play' : '预览 / Preview' }}
                   </button>
-                  <a :href="video.url" download class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-white/10">
+                  <a :href="item.file_url" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">
                     下载 / Download
                   </a>
+                  <button v-if="materialsCanManage" type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openTechnicalDocEditor(item)">编辑</button>
+                  <button v-if="materialsCanManage" type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('technical-doc', String(item.id), item.title, t('common.deleteConfirm'))">删除</button>
                 </div>
               </article>
+              <div v-if="(materialsByCategory[category] ?? []).length === 0" class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400">
+                {{ t('common.noData') }}
+              </div>
             </div>
           </section>
         </div>
@@ -490,7 +505,7 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">CRUD</p>
-              <h3 class="mt-2 text-2xl font-semibold text-white">{{ crudModal.kind === 'fault' ? t('fault.adminCreate') : crudModal.kind === 'grid' ? t('grid.createTitle') : crudModal.kind === 'ci' ? t('ci.createTitle') : t('inventory.createTitle') }}</h3>
+              <h3 class="mt-2 text-2xl font-semibold text-white">{{ crudModal.kind === 'fault' ? t('fault.adminCreate') : crudModal.kind === 'grid' ? t('grid.createTitle') : crudModal.kind === 'ci' ? t('ci.createTitle') : crudModal.kind === 'technical-doc' ? t('materials.createTitle') : t('inventory.createTitle') }}</h3>
             </div>
             <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="closeCrudModal">{{ t('common.close') }}</button>
           </div>
@@ -498,19 +513,43 @@
           <div class="mt-5 grid gap-4 md:grid-cols-2">
             <template v-if="crudModal.kind === 'fault'">
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fault Code</span>
-                <input v-model="crudDraft.fault_code" :disabled="crudModal.mode === 'edit'" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60" />
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">模块</span>
+                <input v-model="crudDraft.module" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">故障码</span>
+                <input v-model="crudDraft.fault_code" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fault Name</span>
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">故障名称</span>
                 <input v-model="crudDraft.fault_name" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
               </label>
-              <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Possible Causes</span>
-                <textarea v-model="crudDraft.possible_causes" rows="4" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">故障等级</span>
+                <input v-model="crudDraft.fault_level" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">停机</span>
+                <input v-model="crudDraft.is_stop" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">恢复机制</span>
+                <input v-model="crudDraft.recovery" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">触发逻辑</span>
+                <input v-model="crudDraft.trigger_logic" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Solution</span>
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">检测条件</span>
+                <textarea v-model="crudDraft.detection_condition" rows="3" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+              </label>
+              <label class="block md:col-span-2">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">可能原因</span>
+                <textarea v-model="crudDraft.possible_cause" rows="4" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+              </label>
+              <label class="block md:col-span-2">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">解决措施</span>
                 <textarea v-model="crudDraft.solution" rows="4" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
               </label>
             </template>
@@ -576,6 +615,37 @@
                 <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">250</span>
                 <input v-model.number="crudDraft.delivered_250" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
               </label>
+            </template>
+            <template v-else-if="crudModal.kind === 'technical-doc'">
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">产品系列</span>
+                <select v-model="crudDraft.product_series" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none">
+                  <option v-for="series in technicalDocProductSeries" :key="series" :value="series">{{ series }}</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">资料分类</span>
+                <select v-model="crudDraft.category" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none">
+                  <option v-for="category in technicalDocCategories" :key="category" :value="category">{{ category }}</option>
+                </select>
+              </label>
+              <label class="block md:col-span-2">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">标题</span>
+                <input v-model="crudDraft.title" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+              </label>
+              <label v-if="crudModal.mode === 'create'" class="block md:col-span-2">
+                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">上传文件</span>
+                <input ref="technicalDocFileInputRef" type="file" class="hidden" @change="handleTechnicalDocFile" />
+                <div class="flex flex-wrap items-center gap-3">
+                  <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="openTechnicalDocFilePicker">
+                    选择文件
+                  </button>
+                  <span class="text-xs text-slate-400">{{ crudDraft.technical_doc_file ? crudDraft.technical_doc_file.name : '未选择文件' }}</span>
+                </div>
+              </label>
+              <div v-else class="md:col-span-2 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
+                当前文件：{{ crudDraft.file_url || '-' }}
+              </div>
             </template>
             <template v-else>
               <label class="block md:col-span-2">
@@ -672,9 +742,13 @@ const activeView = ref('after-sales')
 const views = computed(() => [
   { key: 'after-sales', label: t('views.afterSales') },
   { key: 'materials-center', label: t('views.materialsCenter') },
+  { key: 'warehouse', label: t('views.warehouse') },
   { key: 'grid-scale', label: t('views.gridScale') },
   { key: 'ci-dashboard', label: t('views.ciDashboard') },
-  { key: 'warehouse', label: t('views.warehouse') },
+])
+const viewRows = computed(() => [
+  [views.value[0], views.value[1], views.value[2]],
+  [views.value[3], views.value[4]],
 ])
 
 const warehouseOptions = [
@@ -682,32 +756,8 @@ const warehouseOptions = [
   { key: 'north_america', label: '北美仓 / North America' },
 ]
 
-const documents = [
-  {
-    title: '安装手册',
-    desc: 'Installation Manual',
-    filename: 'installation-manual.pdf',
-    href: makeTextDownload('JD Energy 安装手册\n\n此处为演示下载文件，可后续替换为真实 PDF。', 'installation-manual.pdf'),
-  },
-  {
-    title: '调试手册',
-    desc: 'Commissioning Manual',
-    filename: 'commissioning-manual.pdf',
-    href: makeTextDownload('JD Energy 调试手册\n\n此处为演示下载文件，可后续替换为真实 PDF。', 'commissioning-manual.pdf'),
-  },
-  {
-    title: '运维手册',
-    desc: 'O&M Manual',
-    filename: 'operation-maintenance-manual.pdf',
-    href: makeTextDownload('JD Energy 运维手册\n\n此处为演示下载文件，可后续替换为真实 PDF。', 'operation-maintenance-manual.pdf'),
-  },
-]
-
-const videos = [
-  { title: '标准化开箱视频', subtitle: 'Standard Unboxing', duration: '06:28', url: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { title: '线缆接线教学视频', subtitle: 'Cable Routing Tutorial', duration: '08:14', url: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { title: 'BMS 软件配置视频', subtitle: 'BMS Software Setup', duration: '10:06', url: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-]
+const technicalDocProductSeries = ['418', '250', '100C']
+const technicalDocCategories = ['安装手册', '调试手册', '运维手册', '安装视频', '其他手册']
 
 const projectStatuses = ['清关中', '设备上岸', '土建施工', '调试中', '正式并网']
 
@@ -735,7 +785,12 @@ const warehouseForm = reactive({ tx_type: '国内到货入库', product_model: '
 const inventoryLoading = ref(false)
 const inventoryError = ref('')
 const inventoryItems = ref([])
+const materialsProductSeries = ref(technicalDocProductSeries[0])
+const materialsLoading = ref(false)
+const materialsError = ref('')
+const materialsItems = ref([])
 const photoInputRef = ref(null)
+const technicalDocFileInputRef = ref(null)
 const photoUploading = ref(false)
 const imagePreviewUrl = ref('')
 let gridDashboardTimerId = null
@@ -764,6 +819,25 @@ const isInternalMode = computed(() => portalState.staffMode)
 const staffMode = isInternalMode
 const locale = computed(() => portalState.locale)
 const isEnglish = computed(() => locale.value === 'en-US')
+const materialsCanManage = computed(() => {
+  if (isInternalMode.value) {
+    return true
+  }
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return Boolean(window.localStorage.getItem('token'))
+})
+const materialsByCategory = computed(() => {
+  const grouped = Object.fromEntries(technicalDocCategories.map((category) => [category, []]))
+  for (const item of materialsItems.value) {
+    if (!grouped[item.category]) {
+      grouped[item.category] = []
+    }
+    grouped[item.category].push(item)
+  }
+  return grouped
+})
 
 function t(path) {
   return path.split('.').reduce((accumulator, key) => accumulator?.[key], messages[locale.value]) ?? path
@@ -919,6 +993,65 @@ function openVideo(url) {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+function isVideoFile(item) {
+  const fileType = String(item?.file_type ?? '').toLowerCase()
+  const fileUrl = String(item?.file_url ?? '').toLowerCase()
+  return fileType.startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(fileUrl) || item?.category === '安装视频'
+}
+
+function previewTechnicalDoc(item) {
+  if (!item?.file_url) return
+  if (isVideoFile(item)) {
+    openVideo(item.file_url)
+    return
+  }
+  window.open(item.file_url, '_blank', 'noopener,noreferrer')
+}
+
+function changeMaterialsSeries(series) {
+  if (materialsProductSeries.value === series) {
+    return
+  }
+  materialsProductSeries.value = series
+  loadTechnicalDocs()
+}
+
+async function loadTechnicalDocs() {
+  materialsLoading.value = true
+  materialsError.value = ''
+  try {
+    const payload = await portalApi.listTechnicalDocs({ product: materialsProductSeries.value })
+    materialsItems.value = payload.items ?? []
+  } catch (error) {
+    materialsItems.value = []
+    materialsError.value = formatApiError(error, `${t('notices.loadFailed')} / Materials load failed`)
+  } finally {
+    materialsLoading.value = false
+  }
+}
+
+function openTechnicalDocEditor(record = null) {
+  if (!materialsCanManage.value) {
+    setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
+    return
+  }
+  openCrudModal('technical-doc', record ? 'edit' : 'create', record)
+}
+
+function openTechnicalDocFilePicker() {
+  technicalDocFileInputRef.value?.click()
+}
+
+function handleTechnicalDocFile(event) {
+  const files = [...(event.target.files ?? [])]
+  const file = files[0]
+  if (!file) return
+  crudDraft.technical_doc_file = file
+  if (!crudDraft.title.trim()) {
+    crudDraft.title = file.name.replace(/\.[^.]+$/, '')
+  }
+}
+
 function handleStaffModeClick() {
   if (isInternalMode.value) {
     leaveStaffMode(isEnglish.value ? 'Staff mode disabled.' : '已退出内部员工模式')
@@ -940,7 +1073,14 @@ function confirmPassword() {
 }
 
 function openCrudModal(kind, mode = 'create', record = null) {
-  if (!ensureInternalMode()) return
+  if (kind === 'technical-doc') {
+    if (!materialsCanManage.value) {
+      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
+      return
+    }
+  } else if (!ensureInternalMode()) {
+    return
+  }
   crudModal.kind = kind
   crudModal.mode = mode
   crudModal.originalKey = getRecordKey(kind, record) ?? ''
@@ -956,7 +1096,14 @@ function closeCrudModal() {
 }
 
 function openDeleteDialog(kind, key, title, message) {
-  if (!ensureInternalMode()) return
+  if (kind === 'technical-doc') {
+    if (!materialsCanManage.value) {
+      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
+      return
+    }
+  } else if (!ensureInternalMode()) {
+    return
+  }
   deleteDialog.kind = kind
   deleteDialog.key = key
   deleteDialog.title = title
@@ -974,9 +1121,16 @@ function closeDeleteDialog() {
 
 function createEmptyCrudDraft() {
   return {
+    id: null,
+    module: '',
     fault_code: '',
     fault_name: '',
-    possible_causes: '',
+    fault_level: '',
+    is_stop: '',
+    recovery: '',
+    detection_condition: '',
+    trigger_logic: '',
+    possible_cause: '',
     solution: '',
     project_name: '',
     cod: '',
@@ -1001,6 +1155,13 @@ function createEmptyCrudDraft() {
     total_quantity: 0,
     damaged_quantity: 0,
     available_quantity: 0,
+    product_series: materialsProductSeries.value,
+    category: technicalDocCategories[0],
+    title: '',
+    file_url: '',
+    file_type: '',
+    file_size: '',
+    technical_doc_file: null,
     remarks: '',
   }
 }
@@ -1008,9 +1169,16 @@ function createEmptyCrudDraft() {
 function resetCrudDraft(kind, record) {
   const nextDraft = createEmptyCrudDraft()
   if (kind === 'fault' && record) {
+    nextDraft.id = record.id
+    nextDraft.module = record.module
     nextDraft.fault_code = record.fault_code
     nextDraft.fault_name = record.fault_name
-    nextDraft.possible_causes = record.possible_causes
+    nextDraft.fault_level = record.fault_level
+    nextDraft.is_stop = record.is_stop
+    nextDraft.recovery = record.recovery
+    nextDraft.detection_condition = record.detection_condition
+    nextDraft.trigger_logic = record.trigger_logic
+    nextDraft.possible_cause = record.possible_cause
     nextDraft.solution = record.solution
   }
   if (kind === 'grid' && record) {
@@ -1038,6 +1206,15 @@ function resetCrudDraft(kind, record) {
     nextDraft.photo_paths = [...(record.photo_paths ?? [])]
     nextDraft.remarks = record.remarks ?? ''
   }
+  if (kind === 'technical-doc' && record) {
+    nextDraft.product_series = record.product_series
+    nextDraft.category = record.category
+    nextDraft.title = record.title
+    nextDraft.file_url = record.file_url
+    nextDraft.file_type = record.file_type
+    nextDraft.file_size = record.file_size
+    nextDraft.technical_doc_file = null
+  }
   Object.assign(crudDraft, nextDraft)
   if (kind === 'warehouse' && !crudDraft.tx_no) {
     prefillWarehouseTxNo()
@@ -1049,9 +1226,10 @@ function resetCrudDraft(kind, record) {
 
 function getRecordKey(kind, record) {
   if (!record) return ''
-  if (kind === 'fault') return record.fault_code
+  if (kind === 'fault') return String(record.id)
   if (kind === 'grid') return record.project_name
   if (kind === 'ci') return record.dealer_name
+  if (kind === 'technical-doc') return String(record.id)
   if (kind === 'inventory') return record.item_no
   if (kind === 'warehouse') return record.tx_no
   return ''
@@ -1244,22 +1422,69 @@ function openInventoryEditor(record = null) {
 }
 
 async function submitCrud() {
-  if (!ensureInternalMode()) return
   if (!crudModal.kind) return
-  if (crudModal.kind === 'fault') {
+  if (crudModal.kind === 'technical-doc') {
+    if (!materialsCanManage.value) {
+      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
+      return
+    }
+  } else if (!ensureInternalMode()) {
+    return
+  }
+  if (crudModal.kind === 'technical-doc') {
+    const payload = {
+      product_series: crudDraft.product_series,
+      category: crudDraft.category,
+      title: crudDraft.title.trim(),
+    }
+
+    if (!payload.title) {
+      setNotice(isEnglish.value ? 'Title is required.' : '标题不能为空。', 'error')
+      return
+    }
+
     if (crudModal.mode === 'create') {
-      await portalApi.createFaultCode({
-        fault_code: crudDraft.fault_code.trim(),
-        fault_name: crudDraft.fault_name.trim(),
-        possible_causes: crudDraft.possible_causes.trim(),
-        solution: crudDraft.solution.trim(),
-      })
+      if (!crudDraft.technical_doc_file) {
+        setNotice(isEnglish.value ? 'Please choose a file first.' : '请先选择上传文件。', 'error')
+        return
+      }
+      const formData = new FormData()
+      formData.append('product_series', payload.product_series)
+      formData.append('category', payload.category)
+      formData.append('title', payload.title)
+      formData.append('file', crudDraft.technical_doc_file)
+      await portalApi.uploadTechnicalDoc(formData)
     } else {
-      await portalApi.updateFaultCode(crudModal.originalKey, {
-        fault_name: crudDraft.fault_name.trim(),
-        possible_causes: crudDraft.possible_causes.trim(),
-        solution: crudDraft.solution.trim(),
-      })
+      await portalApi.updateTechnicalDoc(crudModal.originalKey, payload)
+    }
+
+    await loadTechnicalDocs()
+    setNotice(t('materials.savedNotice'), 'success')
+  }
+
+  if (crudModal.kind === 'fault') {
+    const payload = {
+      module: crudDraft.module.trim(),
+      fault_code: crudDraft.fault_code.trim(),
+      fault_name: crudDraft.fault_name.trim(),
+      fault_level: crudDraft.fault_level.trim(),
+      is_stop: crudDraft.is_stop.trim(),
+      recovery: crudDraft.recovery.trim(),
+      detection_condition: crudDraft.detection_condition.trim(),
+      trigger_logic: crudDraft.trigger_logic.trim(),
+      possible_cause: crudDraft.possible_cause.trim(),
+      solution: crudDraft.solution.trim(),
+    }
+
+    if (!payload.module || !payload.fault_code) {
+      setNotice(isEnglish.value ? 'Module and fault code are required.' : '模块和故障码不能为空。', 'error')
+      return
+    }
+
+    if (crudModal.mode === 'create') {
+      await portalApi.createAfterSalesFaultCode(payload)
+    } else {
+      await portalApi.updateAfterSalesFaultCode(crudModal.originalKey, payload)
     }
     await handleFaultSearch()
     setNotice(t('notices.faultCreated'), 'success')
@@ -1343,11 +1568,18 @@ async function submitCrud() {
 }
 
 async function confirmDelete() {
-  if (!ensureInternalMode()) return
   const { kind, key } = deleteDialog
   if (!kind || !key) return
+  if (kind === 'technical-doc') {
+    if (!materialsCanManage.value) {
+      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
+      return
+    }
+  } else if (!ensureInternalMode()) {
+    return
+  }
   if (kind === 'fault') {
-    await portalApi.deleteFaultCode(key)
+    await portalApi.deleteAfterSalesFaultCode(key)
     await handleFaultSearch()
   }
   if (kind === 'grid') {
@@ -1365,6 +1597,10 @@ async function confirmDelete() {
   if (kind === 'inventory') {
     await portalApi.deleteWarehouseInventoryItem(key)
     await loadWarehouseInventory()
+  }
+  if (kind === 'technical-doc') {
+    await portalApi.deleteTechnicalDoc(key)
+    await loadTechnicalDocs()
   }
   setNotice(t('notices.deleted'), 'success')
   closeDeleteDialog()
@@ -1411,7 +1647,7 @@ onMounted(async () => {
   }, 60000)
   gridDashboardTimerId = timerId
   prefillWarehouseTxNo()
-  await Promise.all([handleFaultSearch(), loadLedgerData(), loadWarehouseData(), loadWarehouseInventory()])
+  await Promise.all([handleFaultSearch(), loadLedgerData(), loadWarehouseData(), loadWarehouseInventory(), loadTechnicalDocs()])
 })
 
 onUnmounted(() => {

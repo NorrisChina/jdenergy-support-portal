@@ -3,7 +3,7 @@ export const messages = {
     app: {
       brand: 'Overseas Engineering Delivery Portal',
       title: 'JD Energy 海外工程部综合交付与服务门户',
-      description: '售后服务、源网侧大储成果展、工商业交付看板、海外仓储管理统一入口。',
+      description: '海外售后+交付+仓储管理统一入口。',
       languageToggle: '中文 / EN',
       staffMode: '切换内部员工模式',
       staffModeOn: '已进入内部员工模式',
@@ -61,6 +61,8 @@ export const messages = {
     },
     materials: {
       subtitle: '集中查看技术文档、操作手册和标准化教学视频，支持在线播放与下载。',
+      createTitle: '新增 / 编辑资料',
+      savedNotice: '资料已保存。',
     },
     grid: {
       section: '源网侧储能项目成果展',
@@ -151,7 +153,7 @@ export const messages = {
     app: {
       brand: 'Overseas Engineering Delivery Portal',
       title: 'JD Energy Overseas Engineering Delivery & Service Portal',
-      description: 'A unified entry for after-sales service, grid-scale showcase, C&I delivery dashboard, and overseas warehouse management.',
+      description: 'A unified overseas after-sales, delivery, and warehouse management portal.',
       languageToggle: '中文 / EN',
       staffMode: 'Switch to Staff Mode',
       staffModeOn: 'Staff Mode Enabled',
@@ -209,6 +211,8 @@ export const messages = {
     },
     materials: {
       subtitle: 'Centralized access to technical documentation, operation manuals, and standardized training videos with play/download support.',
+      createTitle: 'Add / Edit material',
+      savedNotice: 'Material saved.',
     },
     grid: {
       section: 'Grid-Scale Delivery Showcase',

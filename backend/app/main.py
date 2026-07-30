@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import uuid
+from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -12,7 +13,7 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
-from fastapi import APIRouter, Body, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
@@ -34,6 +35,12 @@ from .models.ledger import (
     WarehouseInventoryItem,
     WarehouseTransaction,
     WAREHOUSE_INVENTORY_ITEM_SEED,
+)
+from .models.technical_docs import (
+    TECHNICAL_DOCS_SEED,
+    TECHNICAL_DOC_CATEGORIES,
+    TECHNICAL_DOC_PRODUCT_SERIES,
+    TechnicalDoc,
 )
 
 
@@ -65,6 +72,32 @@ class AfterSalesFaultCodeItem(BaseModel):
 
 class AfterSalesFaultCodeImportPayload(BaseModel):
     items: List[AfterSalesFaultCodeItem]
+
+
+class AfterSalesFaultCodeCreate(BaseModel):
+    module: str
+    fault_code: str
+    fault_name: str = ""
+    fault_level: str = ""
+    is_stop: str = ""
+    recovery: str = ""
+    detection_condition: str = ""
+    trigger_logic: str = ""
+    possible_cause: str = ""
+    solution: str = ""
+
+
+class AfterSalesFaultCodeUpdate(BaseModel):
+    module: Optional[str] = None
+    fault_code: Optional[str] = None
+    fault_name: Optional[str] = None
+    fault_level: Optional[str] = None
+    is_stop: Optional[str] = None
+    recovery: Optional[str] = None
+    detection_condition: Optional[str] = None
+    trigger_logic: Optional[str] = None
+    possible_cause: Optional[str] = None
+    solution: Optional[str] = None
 
 
 class GridScaleStatusUpdate(BaseModel):
@@ -125,6 +158,12 @@ class WarehouseInventoryItemUpdate(BaseModel):
     remarks: Optional[str] = None
 
 
+class TechnicalDocUpdate(BaseModel):
+    product_series: Optional[str] = None
+    category: Optional[str] = None
+    title: Optional[str] = None
+
+
 app = FastAPI(
     title="JD Energy Service Portal API",
     version="2.0.0",
@@ -134,6 +173,8 @@ app = FastAPI(
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BACKEND_ROOT / "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+DOCS_UPLOAD_DIR = UPLOAD_DIR / "docs"
+os.makedirs(DOCS_UPLOAD_DIR, exist_ok=True)
 
 app.mount("/static_uploads", StaticFiles(directory=UPLOAD_DIR), name="static_uploads")
 
@@ -185,6 +226,8 @@ def seed_database() -> None:
             session.add_all(WAREHOUSE_INVENTORY_ITEM_SEED)
         else:
             sync_warehouse_inventory_item_seed(session)
+        if session.exec(select(TechnicalDoc)).first() is None:
+            session.add_all([TechnicalDoc(**item) for item in TECHNICAL_DOCS_SEED])
         session.commit()
 
 
@@ -367,6 +410,129 @@ async def upload_file(file: UploadFile = File(...)) -> Dict[str, str]:
         return {"url": f"/static_uploads/{new_filename}"}
 
 
+def format_file_size(size_in_bytes: int) -> str:
+    if size_in_bytes < 1024:
+        return f"{size_in_bytes} B"
+    if size_in_bytes < 1024 * 1024:
+        return f"{size_in_bytes / 1024:.1f} KB"
+    return f"{size_in_bytes / (1024 * 1024):.1f} MB"
+
+
+def resolve_local_upload_path(file_url: str) -> Optional[Path]:
+    static_prefix = "/static_uploads/"
+    if not file_url.startswith(static_prefix):
+        return None
+    relative_path = file_url[len(static_prefix):].lstrip("/")
+    return UPLOAD_DIR / relative_path
+
+
+def validate_technical_doc_dims(product_series: str, category: str) -> None:
+    if product_series not in TECHNICAL_DOC_PRODUCT_SERIES:
+        raise HTTPException(status_code=400, detail="Invalid product series")
+    if category not in TECHNICAL_DOC_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid category")
+
+
+@app.get("/api/technical-docs")
+def list_technical_docs(
+    product: Optional[str] = Query(default=None),
+    category: Optional[str] = Query(default=None),
+) -> Dict[str, object]:
+    with get_session() as session:
+        statement = select(TechnicalDoc)
+        if product and product.strip():
+            normalized_product = product.strip()
+            if normalized_product in {"418", "250"}:
+                statement = statement.where(TechnicalDoc.product_series.in_([normalized_product, "418/250"]))
+            else:
+                statement = statement.where(TechnicalDoc.product_series == normalized_product)
+        if category and category.strip():
+            statement = statement.where(TechnicalDoc.category == category.strip())
+        items = session.exec(statement.order_by(TechnicalDoc.updated_at.desc(), TechnicalDoc.id.desc())).all()
+
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/technical-docs")
+async def create_technical_doc(
+    product_series: str = Form(...),
+    category: str = Form(...),
+    title: str = Form(...),
+    file: UploadFile = File(...),
+) -> Dict[str, object]:
+    normalized_product_series = product_series.strip()
+    normalized_category = category.strip()
+    normalized_title = title.strip()
+
+    validate_technical_doc_dims(normalized_product_series, normalized_category)
+    if not normalized_title:
+        raise HTTPException(status_code=400, detail="Title is required")
+
+    original_suffix = Path(file.filename or "").suffix or ".bin"
+    new_filename = f"{uuid.uuid4().hex}{original_suffix}"
+    file_path = DOCS_UPLOAD_DIR / new_filename
+    content = await file.read()
+    file_path.write_bytes(content)
+
+    item = TechnicalDoc(
+        product_series=normalized_product_series,
+        category=normalized_category,
+        title=normalized_title,
+        file_url=f"/static_uploads/docs/{new_filename}",
+        file_type=file.content_type or original_suffix.lstrip(".").lower(),
+        file_size=format_file_size(len(content)),
+        updated_at=datetime.utcnow(),
+    )
+
+    with get_session() as session:
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "created", "item": item}
+
+
+@app.put("/api/technical-docs/{doc_id}")
+def update_technical_doc(doc_id: int, payload: TechnicalDocUpdate) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(TechnicalDoc, doc_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Technical document not found")
+
+        next_product_series = payload.product_series.strip() if payload.product_series is not None else item.product_series
+        next_category = payload.category.strip() if payload.category is not None else item.category
+        validate_technical_doc_dims(next_product_series, next_category)
+
+        if payload.title is not None:
+            normalized_title = payload.title.strip()
+            if not normalized_title:
+                raise HTTPException(status_code=400, detail="Title is required")
+            item.title = normalized_title
+
+        item.product_series = next_product_series
+        item.category = next_category
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "updated", "item": item}
+
+
+@app.delete("/api/technical-docs/{doc_id}")
+def delete_technical_doc(doc_id: int) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(TechnicalDoc, doc_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Technical document not found")
+
+        local_path = resolve_local_upload_path(item.file_url)
+        if local_path is not None and local_path.exists():
+            local_path.unlink()
+
+        session.delete(item)
+        session.commit()
+        return {"message": "deleted"}
+
+
 @app.put("/api/fault-codes/{fault_code}")
 def update_fault_code(fault_code: str, payload: FaultCodeUpsert) -> Dict[str, object]:
     with get_session() as session:
@@ -430,6 +596,99 @@ def list_after_sales_fault_codes(
     }
 
 
+@app.post("/api/after-sales/fault-codes")
+def create_after_sales_fault_code(payload: AfterSalesFaultCodeCreate) -> Dict[str, object]:
+    normalized_module = payload.module.strip()
+    normalized_fault_code = payload.fault_code.strip()
+    if not normalized_module or not normalized_fault_code:
+        raise HTTPException(status_code=400, detail="module and fault_code are required")
+
+    with get_session() as session:
+        exists = session.exec(
+            select(AfterSalesFaultCode).where(
+                AfterSalesFaultCode.module == normalized_module,
+                AfterSalesFaultCode.fault_code == normalized_fault_code,
+            )
+        ).first()
+        if exists is not None:
+            raise HTTPException(status_code=409, detail="Fault code already exists in this module")
+
+        item = AfterSalesFaultCode(
+            module=normalized_module,
+            fault_code=normalized_fault_code,
+            fault_name=payload.fault_name.strip(),
+            fault_level=payload.fault_level.strip(),
+            is_stop=payload.is_stop.strip(),
+            recovery=payload.recovery.strip(),
+            detection_condition=payload.detection_condition.strip(),
+            trigger_logic=payload.trigger_logic.strip(),
+            possible_cause=payload.possible_cause.strip(),
+            solution=payload.solution.strip(),
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "created", "item": item}
+
+
+@app.put("/api/after-sales/fault-codes/{item_id}")
+def update_after_sales_fault_code(item_id: int, payload: AfterSalesFaultCodeUpdate) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(AfterSalesFaultCode, item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="After-sales fault code not found")
+
+        next_module = payload.module.strip() if payload.module is not None else item.module
+        next_fault_code = payload.fault_code.strip() if payload.fault_code is not None else item.fault_code
+        if not next_module or not next_fault_code:
+            raise HTTPException(status_code=400, detail="module and fault_code are required")
+
+        duplicate = session.exec(
+            select(AfterSalesFaultCode).where(
+                AfterSalesFaultCode.module == next_module,
+                AfterSalesFaultCode.fault_code == next_fault_code,
+                AfterSalesFaultCode.id != item.id,
+            )
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="Fault code already exists in this module")
+
+        item.module = next_module
+        item.fault_code = next_fault_code
+        if payload.fault_name is not None:
+            item.fault_name = payload.fault_name.strip()
+        if payload.fault_level is not None:
+            item.fault_level = payload.fault_level.strip()
+        if payload.is_stop is not None:
+            item.is_stop = payload.is_stop.strip()
+        if payload.recovery is not None:
+            item.recovery = payload.recovery.strip()
+        if payload.detection_condition is not None:
+            item.detection_condition = payload.detection_condition.strip()
+        if payload.trigger_logic is not None:
+            item.trigger_logic = payload.trigger_logic.strip()
+        if payload.possible_cause is not None:
+            item.possible_cause = payload.possible_cause.strip()
+        if payload.solution is not None:
+            item.solution = payload.solution.strip()
+
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "updated", "item": item}
+
+
+@app.delete("/api/after-sales/fault-codes/{item_id}")
+def delete_after_sales_fault_code(item_id: int) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(AfterSalesFaultCode, item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="After-sales fault code not found")
+        session.delete(item)
+        session.commit()
+        return {"message": "deleted"}
+
+
 @app.post("/api/after-sales/fault-codes/import")
 async def import_after_sales_fault_codes(
     payload: Optional[AfterSalesFaultCodeImportPayload] = Body(default=None),
@@ -488,7 +747,9 @@ async def import_after_sales_fault_codes(
 @grid_scale_router.get("")
 def list_grid_scale_projects() -> Dict[str, object]:
     with get_session() as session:
-        items = session.exec(select(GridScaleProject)).all()
+        items = session.exec(
+            select(GridScaleProject).order_by(GridScaleProject.cod.asc(), GridScaleProject.project_name.asc())
+        ).all()
     return {"count": len(items), "items": items}
 
 
