@@ -427,3 +427,55 @@ html.light .theme-light .empty-placeholder,
 html[data-theme='light'] .theme-light .empty-placeholder {
   color: #64748b !important;
 }
+
+html.light .theme-light .grid-stat-card,
+html[data-theme='light'] .theme-light .grid-stat-card {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+html.light .theme-light .grid-stat-card .grid-stat-value,
+html[data-theme='light'] .theme-light .grid-stat-card .grid-stat-value {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+html.light .theme-light .grid-stat-card .grid-stat-unit,
+html.light .theme-light .grid-stat-card .grid-stat-meta,
+html.light .theme-light .grid-stat-card .grid-stat-percent,
+html.light .theme-light .grid-stat-total,
+html[data-theme='light'] .theme-light .grid-stat-card .grid-stat-unit,
+html[data-theme='light'] .theme-light .grid-stat-card .grid-stat-meta,
+html[data-theme='light'] .theme-light .grid-stat-card .grid-stat-percent,
+html[data-theme='light'] .theme-light .grid-stat-total {
+  color: #475569 !important;
+}
+
+html.light .theme-light .grid-stat-total span,
+html[data-theme='light'] .theme-light .grid-stat-total span {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+html.light .theme-light .grid-stat-card:first-child .grid-stat-badge,
+html[data-theme='light'] .theme-light .grid-stat-card:first-child .grid-stat-badge {
+  color: #15803d !important;
+  border-color: #86efac !important;
+  background: #dcfce7 !important;
+}
+
+html.light .theme-light .grid-stat-card:nth-child(2) .grid-stat-badge,
+html[data-theme='light'] .theme-light .grid-stat-card:nth-child(2) .grid-stat-badge {
+  color: #b45309 !important;
+  border-color: #fcd34d !important;
+  background: #fef3c7 !important;
+}
+
+html.light .theme-light .grid-project-card .text-2xl,
+html.light .theme-light .grid-project-card .text-lg,
+html[data-theme='light'] .theme-light .grid-project-card .text-2xl,
+html[data-theme='light'] .theme-light .grid-project-card .text-lg {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}

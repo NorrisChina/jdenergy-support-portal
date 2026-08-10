@@ -277,32 +277,38 @@
               </button>
             </div>
           </div>
-          <div class="rounded-3xl border border-cyan-400/20 bg-gradient-to-r from-cyan-400/10 via-white/5 to-emerald-400/10 p-4 shadow-glow">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">{{ t('grid.totalMwh') }}</p>
-                <div class="mt-2 flex items-end gap-3">
-                  <span class="text-3xl font-semibold text-white sm:text-4xl">{{ formatMwh(gridSummary.totalMwh) }}</span>
-                  <span class="pb-1 text-sm font-medium text-slate-300">MWh</span>
-                </div>
+          <div class="grid w-full gap-3 lg:max-w-3xl sm:grid-cols-2">
+            <article class="grid-stat-card rounded-3xl border border-emerald-300/30 bg-emerald-400/10 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <span class="grid-stat-badge rounded-full border border-emerald-300/40 bg-emerald-100/20 px-3 py-1 text-xs font-semibold text-emerald-200">{{ t('grid.deliveredTag') }}</span>
+                <span class="grid-stat-percent text-xs font-semibold text-emerald-200">{{ gridSummary.connectedRatioLabel }}</span>
               </div>
-              <div class="text-sm text-slate-300">
-                <p>{{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridProjects.length }}</span></p>
-                <p class="mt-1 max-w-md leading-6 text-slate-400">{{ t('grid.ratioHint') }}</p>
+              <div class="mt-3 flex items-end gap-2">
+                <span class="grid-stat-value text-3xl font-semibold text-white sm:text-4xl">{{ formatMwh(gridSummary.connectedMwh) }}</span>
+                <span class="grid-stat-unit pb-1 text-sm font-medium text-slate-300">MWh</span>
               </div>
-            </div>
-            <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-950/70">
-              <div class="flex h-full w-full overflow-hidden rounded-full">
-                <div
-                  v-for="project in gridSummary.projects"
-                  :key="project.project_name"
-                  class="h-full transition-all"
-                  :class="project.ratioBarClass"
-                  :style="{ width: `${project.capacityRatio}%` }"
-                  :title="`${project.project_name} · ${project.capacityMwh} MWh · ${project.ratioLabel}`"
-                ></div>
+              <p class="grid-stat-meta mt-1 text-sm text-slate-300">{{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridSummary.connectedCount }}</span></p>
+              <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80">
+                <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all" :style="{ width: `${gridSummary.connectedRatio}%` }"></div>
               </div>
-            </div>
+            </article>
+
+            <article class="grid-stat-card rounded-3xl border border-amber-300/35 bg-amber-400/10 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <span class="grid-stat-badge rounded-full border border-amber-300/40 bg-amber-100/20 px-3 py-1 text-xs font-semibold text-amber-200">{{ t('grid.inProgressTag') }}</span>
+                <span class="grid-stat-percent text-xs font-semibold text-amber-200">{{ gridSummary.pendingRatioLabel }}</span>
+              </div>
+              <div class="mt-3 flex items-end gap-2">
+                <span class="grid-stat-value text-3xl font-semibold text-white sm:text-4xl">{{ formatMwh(gridSummary.pendingMwh) }}</span>
+                <span class="grid-stat-unit pb-1 text-sm font-medium text-slate-300">MWh</span>
+              </div>
+              <p class="grid-stat-meta mt-1 text-sm text-slate-300">{{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridSummary.pendingCount }}</span></p>
+              <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80">
+                <div class="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all" :style="{ width: `${gridSummary.pendingRatio}%` }"></div>
+              </div>
+            </article>
+
+            <p class="grid-stat-total text-xs font-semibold text-slate-400 sm:col-span-2">{{ t('grid.totalMwh') }}：<span class="font-semibold text-white">{{ formatMwh(gridSummary.totalMwh) }} MWh</span> · {{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridProjects.length }}</span></p>
           </div>
         </div>
 
@@ -770,7 +776,7 @@ const warehouseOptions = [
 const technicalDocProductSeries = ['418', '250', '100C']
 const technicalDocCategories = ['安装手册', '调试手册', '运维手册', '安装视频', '其他手册']
 
-const projectStatuses = ['清关中', '设备上岸', '土建施工', '调试中', '正式并网']
+const projectStatuses = ['待交付', '已并网', '交付中', '清关中', '设备上岸', '土建施工', '调试中', '正式并网']
 
 const faultKeyword = ref('')
 const faultModule = ref('')
@@ -937,7 +943,25 @@ const gridSummary = computed(() => {
     }
   })
 
-  return { totalMwh, projects }
+  const connectedProjects = projects.filter((project) => isGridProjectConnectedStatus(project.progress_status))
+  const pendingProjects = projects.filter((project) => isGridProjectPendingStatus(project.progress_status))
+  const connectedMwh = connectedProjects.reduce((sum, project) => sum + project.capacityMwh, 0)
+  const pendingMwh = pendingProjects.reduce((sum, project) => sum + project.capacityMwh, 0)
+  const connectedRatio = totalMwh > 0 ? (connectedMwh / totalMwh) * 100 : 0
+  const pendingRatio = totalMwh > 0 ? (pendingMwh / totalMwh) * 100 : 0
+
+  return {
+    totalMwh,
+    projects,
+    connectedMwh,
+    connectedCount: connectedProjects.length,
+    pendingMwh,
+    pendingCount: pendingProjects.length,
+    connectedRatio,
+    pendingRatio,
+    connectedRatioLabel: `${connectedRatio.toFixed(1)}%`,
+    pendingRatioLabel: `${pendingRatio.toFixed(1)}%`,
+  }
 })
 
 const staffModeBadge = computed(() => (staffMode.value ? t('app.staffBadge') : t('app.customerBadge')))
@@ -1029,8 +1053,39 @@ function getCodDayDiff(cod, todayDayValue = getTodayDayValue()) {
   return Math.round((codDayValue - todayDayValue) / 86400000)
 }
 
+function normalizeGridProjectStatus(status) {
+  const normalized = String(status ?? '').trim()
+  const lower = normalized.toLowerCase()
+  if (normalized === '已并网' || normalized === '正式并网' || lower === 'connected' || lower === 'grid_connected') {
+    return 'connected'
+  }
+  if (
+    normalized === '待交付'
+    || normalized === '交付中'
+    || normalized === '清关中'
+    || normalized === '设备上岸'
+    || normalized === '土建施工'
+    || normalized === '调试中'
+    || lower === 'pending'
+    || lower === 'pending_delivery'
+    || lower === 'in_progress'
+    || lower === 'in progress'
+  ) {
+    return 'pending'
+  }
+  return 'pending'
+}
+
+function isGridProjectConnectedStatus(status) {
+  return normalizeGridProjectStatus(status) === 'connected'
+}
+
+function isGridProjectPendingStatus(status) {
+  return normalizeGridProjectStatus(status) === 'pending'
+}
+
 function isGridProjectDelivered(project) {
-  return project.progress_status === '正式并网'
+  return isGridProjectConnectedStatus(project?.progress_status)
 }
 
 function openVideo(url) {
