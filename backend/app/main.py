@@ -299,6 +299,7 @@ grid_scale_router = APIRouter(
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    ensure_default_admin()
     seed_mode = os.getenv("SEED_MODE", "all").strip().lower()
     if seed_mode == "all":
         seed_database()
@@ -312,7 +313,7 @@ def on_startup() -> None:
 def seed_database() -> None:
     with get_session() as session:
         if session.exec(select(User).where(User.username == "JDE")).first() is None:
-            session.add(User(username="JDE", password_hash=hash_password("Jdny_8888"), role="admin", customer_name="JD Energy"))
+            session.add(User(username="JDE", password_hash=hash_password("123"), role="admin", is_staff=True, customer_name="JD Energy", customer_company="JD Energy"))
         if session.exec(select(FaultCode)).first() is None:
             session.add_all(FAULT_CODE_SEED)
         if session.exec(select(GridScaleProject)).first() is None:
@@ -329,6 +330,19 @@ def seed_database() -> None:
             sync_warehouse_inventory_item_seed(session)
         if session.exec(select(TechnicalDoc)).first() is None:
             session.add_all([TechnicalDoc(**item) for item in TECHNICAL_DOCS_SEED])
+        session.commit()
+
+
+def ensure_default_admin() -> None:
+    with get_session() as session:
+        admin = session.exec(select(User).where(User.username == "JDE")).first()
+        if admin is None:
+            admin = User(username="JDE", password_hash=hash_password("123"), role="admin", is_staff=True, customer_name="JD Energy", customer_company="JD Energy")
+        else:
+            admin.role = "admin"
+            admin.is_staff = True
+            admin.is_active = True
+        session.add(admin)
         session.commit()
 
 

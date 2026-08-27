@@ -17,7 +17,7 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     # create_all does not add columns to an existing SQLite database.
     with engine.begin() as connection:
-        for table, column in (("users", "customer_company"), ("gridscaleproject", "customer_id"), ("gridscaleproject", "partner_name"), ("gridscaleproject", "customer_company"), ("cidealerdelivery", "customer_id"), ("cidealerdelivery", "customer_company"), ("customer_tickets", "resolved_at"), ("customer_tickets", "expected_date"), ("customer_tickets", "customer_company"), ("customer_tickets", "serial_number"), ("after_sales_logs", "customer_company"), ("after_sales_logs", "fault_component")):
+        for table, column in (("users", "customer_company"), ("users", "is_staff"), ("gridscaleproject", "customer_id"), ("gridscaleproject", "partner_name"), ("gridscaleproject", "customer_company"), ("cidealerdelivery", "customer_id"), ("cidealerdelivery", "customer_company"), ("customer_tickets", "resolved_at"), ("customer_tickets", "expected_date"), ("customer_tickets", "customer_company"), ("customer_tickets", "serial_number"), ("after_sales_logs", "customer_company"), ("after_sales_logs", "fault_component")):
             try:
                 column_type = "TEXT" if column in {"partner_name", "customer_company", "resolved_at", "fault_component"} else "INTEGER"
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))

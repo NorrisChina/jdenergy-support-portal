@@ -17,6 +17,7 @@ class User(SQLModel, table=True):
     customer_name: Optional[str] = None
     customer_company: Optional[str] = None
     role: str = Field(default="customer", index=True)
+    is_staff: bool = False
     project_ids: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
