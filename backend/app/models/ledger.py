@@ -23,6 +23,9 @@ class GridScaleProject(SQLModel, table=True):
     pcs_model: str
     progress_status: str
     photo_paths: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
+    customer_id: Optional[int] = Field(default=None, index=True)
+    partner_name: str = Field(default="", index=True)
+    customer_company: str = Field(default="", index=True)
 
 
 class CiDealerDelivery(SQLModel, table=True):
@@ -31,6 +34,8 @@ class CiDealerDelivery(SQLModel, table=True):
     dealer_name: str = Field(index=True, unique=True)
     delivered_100c: int
     delivered_250: int
+    customer_id: Optional[int] = Field(default=None, index=True)
+    customer_company: str = Field(default="", index=True)
 
 
 class WarehouseInventory(SQLModel, table=True):

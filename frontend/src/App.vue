@@ -1,28 +1,54 @@
 <template>
-  <div :class="['min-h-screen bg-hero-grid', isLightMode ? 'theme-light text-slate-900' : 'theme-dark text-slate-100']">
-    <main class="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-      <header class="portal-header mb-4 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur-xl sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+  <div
+    :class="[
+      'min-h-screen bg-hero-grid',
+      isLightMode ? 'theme-light text-slate-900' : 'theme-dark text-slate-100',
+    ]"
+  >
+    <main
+      class="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8"
+    >
+      <header
+        class="portal-header mb-4 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur-xl sm:p-5 lg:flex-row lg:items-center lg:justify-between"
+      >
         <div>
-          <p class="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-cyan-200 uppercase">
-            {{ t('app.brand') }}
+          <p
+            class="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-cyan-200 uppercase"
+          >
+            {{ t("app.brand") }}
           </p>
           <h1 class="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-            {{ t('app.title') }}
+            {{ t("app.title") }}
           </h1>
-          <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300 sm:text-base">
-            {{ t('app.description') }}
+          <p
+            class="mt-2 max-w-4xl text-sm leading-6 text-slate-300 sm:text-base"
+          >
+            {{ t("app.description") }}
           </p>
         </div>
 
-        <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          <div class="portal-tabs rounded-2xl border border-white/10 bg-slate-950/70 p-1">
-            <div v-for="(row, rowIndex) in viewRows" :key="`view-row-${rowIndex}`" class="flex flex-wrap gap-1" :class="rowIndex > 0 ? 'mt-1' : ''">
+        <div
+          class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
+        >
+          <div
+            class="portal-tabs rounded-2xl border border-white/10 bg-slate-950/70 p-1"
+          >
+            <div
+              v-for="(row, rowIndex) in viewRows"
+              :key="`view-row-${rowIndex}`"
+              class="flex flex-wrap gap-1"
+              :class="rowIndex > 0 ? 'mt-1' : ''"
+            >
               <button
                 v-for="view in row"
                 :key="view.key"
                 type="button"
                 class="tab-btn rounded-xl px-4 py-2 text-sm font-medium transition"
-                :class="activeView === view.key ? 'tab-btn-active bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20' : 'tab-btn-inactive text-slate-300 hover:bg-white/5 hover:text-white'"
+                :class="
+                  activeView === view.key
+                    ? 'tab-btn-active bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20'
+                    : 'tab-btn-inactive text-slate-300 hover:bg-white/5 hover:text-white'
+                "
                 @click="activeView = view.key"
               >
                 {{ view.label }}
@@ -32,57 +58,263 @@
 
           <button
             type="button"
-              class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+            class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
             @click="toggleTheme"
           >
-              {{ isLightMode ? t('app.themeNight') : t('app.themeDay') }}
+            {{ isLightMode ? t("app.themeNight") : t("app.themeDay") }}
           </button>
 
           <button
             type="button"
-              class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+            class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+            @click="isAuthenticated ? logout() : (loginOpen = true)"
+          >
+            {{ isAuthenticated ? t("portal.logout") : t("portal.login") }}
+          </button>
+
+          <button
+            type="button"
+            class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
             @click="toggleLocale"
           >
-            {{ t('app.languageToggle') }}
+            {{ t("app.languageToggle") }}
           </button>
 
           <button
             type="button"
-              class="toolbar-btn toolbar-btn-staff rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 hover:text-emerald-100"
+            class="toolbar-btn toolbar-btn-staff rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 hover:text-emerald-100"
             @click="handleStaffModeClick"
           >
-            {{ isInternalMode ? t('auth.leave') : t('app.staffMode') }}
+            {{ isInternalMode ? t("auth.leave") : t("app.staffMode") }}
           </button>
         </div>
       </header>
 
-      <div v-if="portalState.notice" class="mb-4 rounded-2xl border px-4 py-3 text-sm" :class="portalState.noticeType === 'error' ? 'border-rose-400/20 bg-rose-500/10 text-rose-100' : portalState.noticeType === 'success' ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-100'">
+      <div
+        v-if="portalState.notice"
+        class="mb-4 rounded-2xl border px-4 py-3 text-sm"
+        :class="
+          portalState.noticeType === 'error'
+            ? 'border-rose-400/20 bg-rose-500/10 text-rose-100'
+            : portalState.noticeType === 'success'
+              ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+              : 'border-white/10 bg-white/5 text-slate-100'
+        "
+      >
         {{ portalState.notice }}
       </div>
 
-      <div class="mode-hint-bar mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-        <span>{{ isInternalMode ? t('common.managedHint') : t('common.readOnlyHint') }}</span>
-        <span class="mode-hint-badge rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-cyan-200">
+      <div
+        v-if="timelineOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+        @click.self="timelineOpen = false"
+      >
+        <div
+          class="w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">
+                {{ t("grid.milestoneTitle") }}
+              </p>
+              <h3 class="mt-2 text-2xl font-semibold text-white">
+                {{ selectedProject?.project_name }}
+              </h3>
+            </div>
+            <button
+              type="button"
+              class="rounded-xl border border-white/10 px-3 py-2 text-sm text-white"
+              @click="timelineOpen = false"
+            >
+              {{ t("portal.close") }}
+            </button>
+          </div>
+          <div class="mt-6 grid gap-3 md:grid-cols-4">
+            <article
+              v-for="item in milestones"
+              :key="item.key"
+              class="rounded-2xl border p-4"
+              :class="
+                milestoneIsOverdue(item)
+                  ? 'border-amber-400/50 bg-amber-400/10'
+                  : 'border-white/10 bg-white/5'
+              "
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span
+                  class="h-3 w-3 rounded-full"
+                  :class="
+                    item.status === '已完成'
+                      ? 'bg-emerald-400'
+                      : item.status === '进行中'
+                        ? 'bg-cyan-400'
+                        : 'bg-slate-500'
+                  "
+                ></span
+                ><span
+                  v-if="milestoneIsOverdue(item)"
+                  class="text-[10px] font-bold text-amber-200"
+                  >{{ t("grid.overdue") }}</span
+                >
+              </div>
+              <h4 class="mt-3 text-sm font-semibold text-white">
+                {{ item.label }}
+              </h4>
+              <p class="mt-3 text-xs text-slate-400">
+                {{ t("grid.planned") }}: {{ item.planned_date || "-" }}
+              </p>
+              <p class="mt-1 text-xs text-slate-300">
+                {{ t("grid.actual") }}: {{ item.actual_date || "-" }}
+              </p>
+              <p class="mt-2 text-xs text-cyan-200">{{ item.status }}</p>
+              <p class="mt-2 text-xs leading-5 text-slate-400">
+                {{ item.notes || "-" }}
+              </p>
+              <button
+                v-if="isInternalMode"
+                type="button"
+                class="mt-3 text-xs font-semibold text-cyan-200"
+                @click="editMilestone(item)"
+              >
+                {{ t("common.edit") }}
+              </button>
+            </article>
+          </div>
+          <div
+            v-if="milestoneEditor"
+            class="mt-5 grid gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 md:grid-cols-4"
+          >
+            <input
+              v-model="milestoneDraft.planned_date"
+              type="date"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+            /><input
+              v-model="milestoneDraft.actual_date"
+              type="date"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+            /><select
+              v-model="serviceLogDraft.customer_company"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">客户/代理商名称</option>
+              <option v-for="company in partnerOptions" :key="company" :value="company">{{ company }}</option>
+            </select><select
+              v-model="serviceLogDraft.project_name"
+              class="service-log-project-select rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">选择项目</option>
+              <option v-for="project in serviceLogProjectOptions" :key="project.project_name" :value="project.project_name">{{ project.project_name }}</option>
+            </select><select
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+            >
+              <option>待开始</option>
+              <option>进行中</option>
+              <option>已完成</option></select
+            ><input
+              v-model="milestoneDraft.notes"
+              placeholder="备注"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+            /><button
+              type="button"
+              class="rounded-xl bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950 md:col-span-4"
+              @click="saveMilestone"
+            >
+              保存节点
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="loginOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+      >
+        <div
+          class="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/95 p-6"
+        >
+          <h3 class="text-2xl font-semibold text-white">
+            {{ t("portal.loginTitle") }}
+          </h3>
+          <input
+            v-model="loginDraft.username"
+            :placeholder="t('portal.username')"
+            class="mt-5 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          /><input
+            v-model="loginDraft.password"
+            type="password"
+            :placeholder="t('portal.password')"
+            class="mt-3 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+            @keyup.enter="submitLogin"
+          />
+          <div class="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-xl border border-white/10 px-4 py-2 text-white"
+              @click="loginOpen = false"
+            >
+              {{ t("portal.cancel") }}</button
+            ><button
+              type="button"
+              class="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950"
+              @click="submitLogin"
+            >
+              {{ t("portal.submit") }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="mode-hint-bar mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"
+      >
+        <span>{{
+          isInternalMode ? t("common.managedHint") : t("common.readOnlyHint")
+        }}</span>
+        <span
+          class="mode-hint-badge rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-cyan-200"
+        >
           {{ staffModeBadge }}
         </span>
       </div>
 
       <section v-if="activeView === 'after-sales'" class="flex-1">
         <div class="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
-          <div class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glow backdrop-blur-xl sm:p-8">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">{{ t('views.afterSales') }}</p>
-            <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div
+            class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-glow backdrop-blur-xl sm:p-8"
+          >
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              {{ t("views.afterSales") }}
+            </p>
+            <div
+              class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div>
-                <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('fault.section') }}</h2>
-                <p class="mt-3 text-sm leading-7 text-slate-300 sm:text-base">{{ t('fault.subtitle') }}</p>
+                <h2 class="text-2xl font-semibold text-white sm:text-3xl">
+                  {{ t("fault.section") }}
+                </h2>
+                <p class="mt-3 text-sm leading-7 text-slate-300 sm:text-base">
+                  {{ t("fault.subtitle") }}
+                </p>
               </div>
-              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openFaultEditor()">
-                {{ t('fault.adminCreate') }}
+              <button
+                v-if="isInternalMode"
+                type="button"
+                class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+                @click="openFaultEditor()"
+              >
+                {{ t("fault.adminCreate") }}
               </button>
             </div>
 
-            <form class="mt-6 flex flex-col gap-3 sm:flex-row" @submit.prevent="handleFaultSearch">
-              <label class="sr-only" for="fault-search">{{ t('fault.placeholder') }}</label>
+            <form
+              class="mt-6 flex flex-col gap-3 sm:flex-row"
+              @submit.prevent="handleFaultSearch"
+            >
+              <label class="sr-only" for="fault-search">{{
+                t("fault.placeholder")
+              }}</label>
               <input
                 id="fault-search"
                 v-model="faultKeyword"
@@ -90,19 +322,41 @@
                 class="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-5 py-4 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-400/60 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.12)]"
                 :placeholder="t('fault.placeholder')"
               />
-              <button type="submit" class="rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-6 py-4 text-base font-semibold text-slate-950 transition hover:brightness-110">
-                {{ t('fault.searchButton') }}
+              <button
+                type="submit"
+                class="rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-6 py-4 text-base font-semibold text-slate-950 transition hover:brightness-110"
+              >
+                {{ t("fault.searchButton") }}
               </button>
             </form>
 
             <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <label class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">模块</label>
-              <select v-model="faultModule" class="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none sm:max-w-xs" @change="handleFaultFilterChange">
-                <option value="">全部模块</option>
-                <option v-for="module in faultModules" :key="module" :value="module">{{ module }}</option>
+              <label
+                class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                >模块</label
+              >
+              <select
+                v-model="faultModule"
+                class="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none sm:max-w-xs"
+                @change="handleFaultFilterChange"
+              >
+                <option
+                  v-for="module in faultModules"
+                  :key="module"
+                  :value="module"
+                >
+                  {{ module }}
+                </option>
               </select>
-              <label class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 sm:ml-2">每页</label>
-              <select v-model.number="faultPageSize" class="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none" @change="handleFaultPageSizeChange">
+              <label
+                class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 sm:ml-2"
+                >每页</label
+              >
+              <select
+                v-model.number="faultPageSize"
+                class="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none"
+                @change="handleFaultPageSizeChange"
+              >
                 <option :value="10">10</option>
                 <option :value="20">20</option>
                 <option :value="50">50</option>
@@ -110,40 +364,81 @@
             </div>
 
             <div class="mt-4 flex flex-wrap gap-2 text-xs text-slate-400">
-              <span v-for="chip in t('fault.chips')" :key="chip" class="rounded-full border border-white/10 bg-white/5 px-3 py-1">{{ chip }}</span>
+              <span
+                v-for="chip in t('fault.chips')"
+                :key="chip"
+                class="rounded-full border border-white/10 bg-white/5 px-3 py-1"
+                >{{ chip }}</span
+              >
             </div>
           </div>
 
-          <aside class="grid gap-4 rounded-3xl border border-white/10 bg-slate-950/55 p-5">
+          <aside
+            class="grid gap-4 rounded-3xl border border-white/10 bg-slate-950/55 p-5"
+          >
             <div class="quick-guide-panel">
-              <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">Quick Guide</p>
-              <p class="quick-guide-text mt-2 text-sm leading-6 text-slate-300">{{ t('fault.quickGuide') }}</p>
+              <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">
+                Quick Guide
+              </p>
+              <p class="quick-guide-text mt-2 text-sm leading-6 text-slate-300">
+                {{ t("fault.quickGuide") }}
+              </p>
             </div>
-            <div class="quick-count rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              {{ t('fault.currentCount') }}：<span class="quick-count-number font-semibold text-white">{{ faultTotal }}</span>
+            <div
+              class="quick-count rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300"
+            >
+              {{ t("fault.currentCount") }}：<span
+                class="quick-count-number font-semibold text-white"
+                >{{ faultTotal }}</span
+              >
             </div>
           </aside>
         </div>
 
-        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div
+          class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+        >
           <div>
-            <h3 class="text-xl font-semibold text-white sm:text-2xl">{{ t('fault.resultTitle') }}</h3>
+            <h3 class="text-xl font-semibold text-white sm:text-2xl">
+              {{ t("fault.resultTitle") }}
+            </h3>
             <p class="mt-1 text-sm text-slate-400">{{ faultHint }}</p>
           </div>
-          <div class="result-meta text-sm text-slate-500">{{ faultLoading ? 'Loading...' : `${faultResults.length} / ${faultTotal} item(s)` }}</div>
+          <div class="result-meta text-sm text-slate-500">
+            {{
+              faultLoading
+                ? "Loading..."
+                : `${faultResults.length} / ${faultTotal} item(s)`
+            }}
+          </div>
         </div>
 
-        <div v-if="faultLoading" class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div v-for="index in 3" :key="index" class="h-56 animate-pulse rounded-3xl border border-white/10 bg-white/5"></div>
+        <div
+          v-if="faultLoading"
+          class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div
+            v-for="index in 3"
+            :key="index"
+            class="h-56 animate-pulse rounded-3xl border border-white/10 bg-white/5"
+          ></div>
         </div>
 
-        <div v-else-if="faultError" class="mt-4 rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100">
+        <div
+          v-else-if="faultError"
+          class="mt-4 rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100"
+        >
           {{ faultError }}
         </div>
 
-        <div v-else-if="faultResults.length > 0" class="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+        <div
+          v-else-if="faultResults.length > 0"
+          class="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-white/5"
+        >
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-white/10 text-left text-sm">
+            <table
+              class="min-w-full divide-y divide-white/10 text-left text-sm"
+            >
               <thead class="bg-slate-950/50 text-slate-400">
                 <tr>
                   <th class="px-5 py-4 font-medium">模块</th>
@@ -154,109 +449,254 @@
                   <th class="px-5 py-4 font-medium">恢复机制</th>
                   <th class="px-5 py-4 font-medium">可能原因</th>
                   <th class="px-5 py-4 font-medium">解决措施</th>
-                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
+                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">
+                    {{ t("common.actions") }}
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
-                <tr v-for="item in faultResults" :key="`${item.module}-${item.fault_code}-${item.id}`" class="bg-white/[0.02] hover:bg-white/[0.04]">
-                  <td class="px-5 py-4"><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200">{{ item.module || '-' }}</span></td>
-                  <td class="px-5 py-4 font-semibold text-white">{{ item.fault_code || '-' }}</td>
-                  <td class="px-5 py-4 text-white">{{ item.fault_name || '-' }}</td>
-                  <td class="px-5 py-4">{{ item.fault_level || '-' }}</td>
-                  <td class="px-5 py-4">{{ item.is_stop || '-' }}</td>
-                  <td class="px-5 py-4">{{ item.recovery || '-' }}</td>
-                  <td class="max-w-xs px-5 py-4 text-slate-300">{{ item.possible_cause || '-' }}</td>
-                  <td class="max-w-xs px-5 py-4 text-slate-300">{{ item.solution || '-' }}</td>
+                <tr
+                  v-for="item in faultResults"
+                  :key="`${item.module}-${item.fault_code}-${item.id}`"
+                  class="bg-white/[0.02] hover:bg-white/[0.04]"
+                >
+                  <td class="px-5 py-4">
+                    <span
+                      class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200"
+                      >{{ item.module || "-" }}</span
+                    >
+                  </td>
+                  <td class="px-5 py-4 font-semibold text-white">
+                    {{ item.fault_code || "-" }}
+                  </td>
+                  <td class="px-5 py-4 text-white">
+                    {{ item.fault_name || "-" }}
+                  </td>
+                  <td class="px-5 py-4">{{ item.fault_level || "-" }}</td>
+                  <td class="px-5 py-4">{{ item.is_stop || "-" }}</td>
+                  <td class="px-5 py-4">{{ item.recovery || "-" }}</td>
+                  <td class="max-w-xs px-5 py-4 text-slate-300">
+                    {{ item.possible_cause || "-" }}
+                  </td>
+                  <td class="max-w-xs px-5 py-4 text-slate-300">
+                    {{ item.solution || "-" }}
+                  </td>
                   <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openFaultEditor(item)">{{ t('common.edit') }}</button>
-                      <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('fault', String(item.id), `${item.module}-${item.fault_code}`, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                      <button
+                        type="button"
+                        class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                        @click="openFaultEditor(item)"
+                      >
+                        {{ t("common.edit") }}
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15"
+                        @click="
+                          openDeleteDialog(
+                            'fault',
+                            String(item.id),
+                            `${item.module}-${item.fault_code}`,
+                            t('common.deleteConfirm'),
+                          )
+                        "
+                      >
+                        {{ t("common.delete") }}
+                      </button>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <div class="flex flex-col items-center justify-between gap-3 border-t border-white/10 px-5 py-4 sm:flex-row">
-            <p class="text-xs text-slate-400">第 {{ faultPage }} / {{ faultTotalPages }} 页，共 {{ faultTotal }} 条</p>
+          <div
+            class="flex flex-col items-center justify-between gap-3 border-t border-white/10 px-5 py-4 sm:flex-row"
+          >
+            <p class="text-xs text-slate-400">
+              第 {{ faultPage }} / {{ faultTotalPages }} 页，共
+              {{ faultTotal }} 条
+            </p>
             <div class="flex items-center gap-2">
-              <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40" :disabled="faultPage <= 1" @click="goFaultPage(faultPage - 1)">上一页</button>
-              <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40" :disabled="faultPage >= faultTotalPages" @click="goFaultPage(faultPage + 1)">下一页</button>
+              <button
+                type="button"
+                class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="faultPage <= 1"
+                @click="goFaultPage(faultPage - 1)"
+              >
+                上一页
+              </button>
+              <button
+                type="button"
+                class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="faultPage >= faultTotalPages"
+                @click="goFaultPage(faultPage + 1)"
+              >
+                下一页
+              </button>
             </div>
           </div>
         </div>
 
-        <div v-else class="mt-4 rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-slate-300">
-          <p class="text-lg font-medium text-white">{{ t('fault.noResult') }}</p>
-          <p class="mt-2 text-sm leading-6 text-slate-400">{{ t('fault.noResultHint') }}</p>
+        <div
+          v-else
+          class="mt-4 rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-slate-300"
+        >
+          <p class="text-lg font-medium text-white">
+            {{ t("fault.noResult") }}
+          </p>
+          <p class="mt-2 text-sm leading-6 text-slate-400">
+            {{ t("fault.noResultHint") }}
+          </p>
         </div>
-
       </section>
 
       <section v-else-if="activeView === 'materials-center'" class="flex-1">
         <div class="mb-5">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Materials Center</p>
-          <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <p
+            class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+          >
+            Materials Center
+          </p>
+          <div
+            class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
             <div>
-              <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('views.materialsCenter') }}</h2>
-              <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('materials.subtitle') }}</p>
+              <h2 class="text-2xl font-semibold text-white sm:text-3xl">
+                {{ t("views.materialsCenter") }}
+              </h2>
+              <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
+                {{ t("materials.subtitle") }}
+              </p>
             </div>
-            <button v-if="materialsCanManage" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openTechnicalDocEditor()">
+            <button
+              v-if="materialsCanManage"
+              type="button"
+              class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+              @click="openTechnicalDocEditor()"
+            >
               + 上传新资料
             </button>
           </div>
         </div>
 
-        <div class="mb-5 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/5 p-2">
+        <div
+          class="mb-5 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/5 p-2"
+        >
           <button
             v-for="series in technicalDocProductSeries"
             :key="series"
             type="button"
             class="rounded-xl px-4 py-2 text-sm font-semibold transition"
-            :class="materialsProductSeries === series ? 'bg-cyan-400 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'"
+            :class="
+              materialsProductSeries === series
+                ? 'bg-cyan-400 text-slate-950'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white'
+            "
             @click="changeMaterialsSeries(series)"
           >
             {{ series }}
           </button>
         </div>
 
-        <div v-if="materialsLoading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div v-for="index in 5" :key="index" class="h-56 animate-pulse rounded-3xl border border-white/10 bg-white/5"></div>
+        <div
+          v-if="materialsLoading"
+          class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div
+            v-for="index in 5"
+            :key="index"
+            class="h-56 animate-pulse rounded-3xl border border-white/10 bg-white/5"
+          ></div>
         </div>
 
-        <div v-else-if="materialsError" class="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100">
+        <div
+          v-else-if="materialsError"
+          class="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100"
+        >
           {{ materialsError }}
         </div>
 
         <div v-else class="grid gap-6 xl:grid-cols-2">
-          <section v-for="category in technicalDocCategories" :key="category" class="rounded-3xl border border-white/10 bg-white/5 p-6">
+          <section
+            v-for="category in technicalDocCategories"
+            :key="category"
+            class="rounded-3xl border border-white/10 bg-white/5 p-6"
+          >
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-xl font-semibold text-white">{{ category }}</h3>
-              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{{ materialsByCategory[category]?.length ?? 0 }}</span>
+              <span
+                class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
+                >{{ materialsByCategory[category]?.length ?? 0 }}</span
+              >
             </div>
 
-              <div class="mt-4 grid gap-3">
-              <article v-for="item in materialsByCategory[category]" :key="item.id" class="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+            <div class="mt-4 grid gap-3">
+              <article
+                v-for="item in materialsByCategory[category]"
+                :key="item.id"
+                class="rounded-2xl border border-white/10 bg-slate-950/60 p-4"
+              >
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <p class="text-sm font-semibold text-white">{{ item.title }}</p>
-                    <p class="doc-meta mt-1 text-xs text-slate-400">{{ item.file_type || '-' }} · {{ item.file_size || '-' }}</p>
+                    <p class="text-sm font-semibold text-white">
+                      {{ item.title }}
+                    </p>
+                    <p class="doc-meta mt-1 text-xs text-slate-400">
+                      {{ item.file_type || "-" }} · {{ item.file_size || "-" }}
+                    </p>
                   </div>
-                  <span class="doc-series-badge rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200">{{ item.product_series }}</span>
+                  <span
+                    class="doc-series-badge rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200"
+                    >{{ item.product_series }}</span
+                  >
                 </div>
                 <div class="mt-3 flex flex-wrap gap-2">
-                  <button type="button" class="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110" @click="previewTechnicalDoc(item)">
-                    {{ isVideoFile(item) ? '播放 / Play' : '预览 / Preview' }}
+                  <button
+                    type="button"
+                    class="rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110"
+                    @click="previewTechnicalDoc(item)"
+                  >
+                    {{ isVideoFile(item) ? "播放 / Play" : "预览 / Preview" }}
                   </button>
-                  <a :href="technicalDocActionUrl(item, true)" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">
+                  <a
+                    :href="technicalDocActionUrl(item, true)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                  >
                     下载 / Download
                   </a>
-                  <button v-if="materialsCanManage" type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openTechnicalDocEditor(item)">编辑</button>
-                  <button v-if="materialsCanManage" type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('technical-doc', String(item.id), item.title, t('common.deleteConfirm'))">删除</button>
+                  <button
+                    v-if="materialsCanManage"
+                    type="button"
+                    class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                    @click="openTechnicalDocEditor(item)"
+                  >
+                    编辑
+                  </button>
+                  <button
+                    v-if="materialsCanManage"
+                    type="button"
+                    class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15"
+                    @click="
+                      openDeleteDialog(
+                        'technical-doc',
+                        String(item.id),
+                        item.title,
+                        t('common.deleteConfirm'),
+                      )
+                    "
+                  >
+                    删除
+                  </button>
                 </div>
               </article>
-                <div v-if="(materialsByCategory[category] ?? []).length === 0" class="empty-placeholder rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400">
-                {{ t('common.noData') }}
+              <div
+                v-if="(materialsByCategory[category] ?? []).length === 0"
+                class="empty-placeholder rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400"
+              >
+                {{ t("common.noData") }}
               </div>
             </div>
           </section>
@@ -264,691 +704,2310 @@
       </section>
 
       <section v-else-if="activeView === 'grid-scale'" class="flex-1">
-        <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div
+          class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+        >
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Grid-Scale Delivery</p>
-            <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              Grid-Scale Delivery
+            </p>
+            <div
+              class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div>
-                <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('grid.section') }}</h2>
-                <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('grid.subtitle') }}</p>
+                <h2 class="text-2xl font-semibold text-white sm:text-3xl">
+                  {{ t("grid.section") }}
+                </h2>
+                <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
+                  {{ t("grid.subtitle") }}
+                </p>
               </div>
-              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openProjectEditor()">
-                {{ t('grid.adminCreate') }}
+              <button
+                v-if="isInternalMode"
+                type="button"
+                class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+                @click="openProjectEditor()"
+              >
+                {{ t("grid.adminCreate") }}
               </button>
             </div>
           </div>
           <div class="grid w-full gap-3 lg:max-w-3xl sm:grid-cols-2">
-            <article class="grid-stat-card rounded-3xl border border-emerald-300/30 bg-emerald-400/10 p-4">
+            <article
+              class="grid-stat-card rounded-3xl border border-emerald-300/30 bg-emerald-400/10 p-4"
+            >
               <div class="flex items-center justify-between gap-3">
-                <span class="grid-stat-badge rounded-full border border-emerald-300/40 bg-emerald-100/20 px-3 py-1 text-xs font-semibold text-emerald-200">{{ t('grid.deliveredTag') }}</span>
-                <span class="grid-stat-percent text-xs font-semibold text-emerald-200">{{ gridSummary.connectedRatioLabel }}</span>
+                <span
+                  class="grid-stat-badge rounded-full border border-emerald-300/40 bg-emerald-100/20 px-3 py-1 text-xs font-semibold text-emerald-200"
+                  >{{ t("grid.deliveredTag") }}</span
+                >
+                <span
+                  class="grid-stat-percent text-xs font-semibold text-emerald-200"
+                  >{{ gridSummary.connectedRatioLabel }}</span
+                >
               </div>
               <div class="mt-3 flex items-end gap-2">
-                <span class="grid-stat-value text-3xl font-semibold text-white sm:text-4xl">{{ formatMwh(gridSummary.connectedMwh) }}</span>
-                <span class="grid-stat-unit pb-1 text-sm font-medium text-slate-300">MWh</span>
+                <span
+                  class="grid-stat-value text-3xl font-semibold text-white sm:text-4xl"
+                  >{{ formatMwh(gridSummary.connectedMwh) }}</span
+                >
+                <span
+                  class="grid-stat-unit pb-1 text-sm font-medium text-slate-300"
+                  >MWh</span
+                >
               </div>
-              <p class="grid-stat-meta mt-1 text-sm text-slate-300">{{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridSummary.connectedCount }}</span></p>
-              <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80">
-                <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all" :style="{ width: `${gridSummary.connectedRatio}%` }"></div>
+              <p class="grid-stat-meta mt-1 text-sm text-slate-300">
+                {{ t("grid.projectCount") }}：<span
+                  class="font-semibold text-white"
+                  >{{ gridSummary.connectedCount }}</span
+                >
+              </p>
+              <div
+                class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80"
+              >
+                <div
+                  class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all"
+                  :style="{ width: `${gridSummary.connectedRatio}%` }"
+                ></div>
               </div>
             </article>
 
-            <article class="grid-stat-card rounded-3xl border border-amber-300/35 bg-amber-400/10 p-4">
+            <article
+              class="grid-stat-card rounded-3xl border border-amber-300/35 bg-amber-400/10 p-4"
+            >
               <div class="flex items-center justify-between gap-3">
-                <span class="grid-stat-badge rounded-full border border-amber-300/40 bg-amber-100/20 px-3 py-1 text-xs font-semibold text-amber-200">{{ t('grid.inProgressTag') }}</span>
-                <span class="grid-stat-percent text-xs font-semibold text-amber-200">{{ gridSummary.pendingRatioLabel }}</span>
+                <span
+                  class="grid-stat-badge rounded-full border border-amber-300/40 bg-amber-100/20 px-3 py-1 text-xs font-semibold text-amber-200"
+                  >{{ t("grid.inProgressTag") }}</span
+                >
+                <span
+                  class="grid-stat-percent text-xs font-semibold text-amber-200"
+                  >{{ gridSummary.pendingRatioLabel }}</span
+                >
               </div>
               <div class="mt-3 flex items-end gap-2">
-                <span class="grid-stat-value text-3xl font-semibold text-white sm:text-4xl">{{ formatMwh(gridSummary.pendingMwh) }}</span>
-                <span class="grid-stat-unit pb-1 text-sm font-medium text-slate-300">MWh</span>
+                <span
+                  class="grid-stat-value text-3xl font-semibold text-white sm:text-4xl"
+                  >{{ formatMwh(gridSummary.pendingMwh) }}</span
+                >
+                <span
+                  class="grid-stat-unit pb-1 text-sm font-medium text-slate-300"
+                  >MWh</span
+                >
               </div>
-              <p class="grid-stat-meta mt-1 text-sm text-slate-300">{{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridSummary.pendingCount }}</span></p>
-              <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80">
-                <div class="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all" :style="{ width: `${gridSummary.pendingRatio}%` }"></div>
+              <p class="grid-stat-meta mt-1 text-sm text-slate-300">
+                {{ t("grid.projectCount") }}：<span
+                  class="font-semibold text-white"
+                  >{{ gridSummary.pendingCount }}</span
+                >
+              </p>
+              <div
+                class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900/80"
+              >
+                <div
+                  class="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
+                  :style="{ width: `${gridSummary.pendingRatio}%` }"
+                ></div>
               </div>
             </article>
 
-            <p class="grid-stat-total text-xs font-semibold text-slate-400 sm:col-span-2">{{ t('grid.totalMwh') }}：<span class="font-semibold text-white">{{ formatMwh(gridSummary.totalMwh) }} MWh</span> · {{ t('grid.projectCount') }}：<span class="font-semibold text-white">{{ gridProjects.length }}</span></p>
+            <p
+              class="grid-stat-total text-xs font-semibold text-slate-400 sm:col-span-2"
+            >
+              {{ t("grid.totalMwh") }}：<span class="font-semibold text-white"
+                >{{ formatMwh(gridSummary.totalMwh) }} MWh</span
+              >
+              · {{ t("grid.projectCount") }}：<span
+                class="font-semibold text-white"
+                >{{ gridProjects.length }}</span
+              >
+            </p>
           </div>
         </div>
 
-        <div v-if="ledgerLoading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div v-for="index in 3" :key="index" class="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/5"></div>
+        <div
+          v-if="ledgerLoading"
+          class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div
+            v-for="index in 3"
+            :key="index"
+            class="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/5"
+          ></div>
         </div>
 
         <div v-else class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <article v-for="project in gridSummary.projects" :key="project.project_name" class="grid-project-card rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-cyan-400/30">
+          <article
+            v-for="project in gridSummary.projects"
+            :key="project.project_name"
+            class="grid-project-card rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-cyan-400/30"
+          >
             <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t('grid.location') }}</p>
-                <h3 class="mt-1 text-lg font-semibold text-white">{{ project.project_name }}</h3>
+                <h3 class="text-lg font-semibold text-white">
+                  {{ project.project_name }}
+                </h3>
+                <p
+                  v-if="project.partner_name"
+                  class="mt-1 text-xs font-medium text-cyan-200"
+                >
+                  {{ project.partner_name }}
+                </p>
               </div>
-              <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="project.deliveryBadgeClass">{{ project.deliveryState }}</span>
+              <div class="flex flex-col items-end gap-1">
+                <span
+                  class="rounded-full px-3 py-1 text-xs font-semibold"
+                  :class="project.deliveryBadgeClass"
+                  >{{ project.deliveryState }}</span
+                >
+                <span
+                  v-if="project.daysLabel.includes(t('grid.overdueDays'))"
+                  class="rounded-full bg-amber-400/20 px-2 py-1 text-[10px] font-bold text-amber-200"
+                  >{{ t("grid.overdue") }}</span
+                >
+              </div>
             </div>
 
-            <div class="grid-capacity-panel mt-5 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+            <div
+              class="grid-capacity-panel mt-5 rounded-2xl border border-white/10 bg-slate-950/60 p-4"
+            >
               <div class="flex items-end justify-between gap-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t('grid.capacity') }}</p>
-                <p class="grid-ratio text-xs font-semibold text-cyan-200">{{ project.ratioLabel }}</p>
+                <p class="grid-ratio text-xs font-semibold text-cyan-200">
+                  {{ project.ratioLabel }}
+                </p>
               </div>
               <div class="mt-2 flex items-end justify-between gap-3">
-                <p class="text-2xl font-semibold text-white">{{ formatMwh(project.capacityMwh) }} <span class="text-base text-slate-300">MWh</span></p>
-                <p class="pb-1 text-sm font-medium text-slate-300">{{ project.ratioLabel }}</p>
+                <p class="text-2xl font-semibold text-white">
+                  {{ formatMwh(project.capacityMwh) }}
+                  <span class="text-base text-slate-300">MWh</span>
+                </p>
+                <p class="pb-1 text-sm font-medium text-slate-300">
+                  {{ project.ratioLabel }}
+                </p>
               </div>
               <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-900">
-                <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${project.capacityRatio}%` }"></div>
+                <div
+                  class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all"
+                  :style="{ width: `${project.capacityRatio}%` }"
+                ></div>
               </div>
             </div>
 
-            <div class="grid-day-block mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
-              <p class="grid-day-label text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">{{ t('grid.daySummary') }}</p>
-              <p class="grid-day-value mt-1 text-sm font-semibold text-white">{{ project.daysLabel }}</p>
+            <div
+              class="grid-day-block mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3"
+            >
+              <p class="grid-day-value mt-1 text-sm font-semibold text-white">
+                {{ project.daysLabel }}
+              </p>
             </div>
 
+            <button
+              type="button"
+              class="mt-3 w-full rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+              @click="openMilestoneTimeline(project)"
+            >
+              查看交付里程碑
+            </button>
+
             <div v-if="isInternalMode" class="mt-4 flex flex-wrap gap-2">
-              <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openProjectEditor(project)">{{ t('common.edit') }}</button>
-              <button type="button" class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('grid', project.project_name, project.project_name, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+              <button
+                type="button"
+                class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                @click="openProjectEditor(project)"
+              >
+                {{ t("common.edit") }}
+              </button>
+              <button
+                type="button"
+                class="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15"
+                @click="
+                  openDeleteDialog(
+                    'grid',
+                    project.project_name,
+                    project.project_name,
+                    t('common.deleteConfirm'),
+                  )
+                "
+              >
+                {{ t("common.delete") }}
+              </button>
             </div>
           </article>
         </div>
       </section>
 
       <section v-else-if="activeView === 'ci-dashboard'" class="flex-1">
-        <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div
+          class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+        >
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">C&I Delivery Dashboard</p>
-            <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              C&I Delivery Dashboard
+            </p>
+            <div
+              class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div>
-                <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('ci.section') }}</h2>
-                <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('ci.subtitle') }}</p>
+                <h2 class="text-2xl font-semibold text-white sm:text-3xl">
+                  {{ t("ci.section") }}
+                </h2>
+                <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
+                  {{ t("ci.subtitle") }}
+                </p>
               </div>
-              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openCiEditor()">
-                {{ t('ci.createDealer') }}
+              <button
+                v-if="isInternalMode"
+                type="button"
+                class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+                @click="openCiEditor()"
+              >
+                {{ t("ci.createDealer") }}
               </button>
             </div>
           </div>
           <div class="ci-kpi-grid grid gap-3 sm:grid-cols-3">
-            <div class="ci-kpi-card rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-              {{ t('ci.dealerCount') }}：<span class="kpi-number font-semibold text-white">{{ ciDeliveries.length }}</span>
+            <div
+              class="ci-kpi-card rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"
+            >
+              {{ t("ci.dealerCount") }}：<span
+                class="kpi-number font-semibold text-white"
+                >{{ ciDeliveries.length }}</span
+              >
             </div>
-            <div class="ci-kpi-card ci-kpi-card-100c rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-              <p class="text-xs uppercase tracking-[0.2em] text-cyan-200">100C</p>
-              <p class="kpi-number mt-1 font-semibold text-white">{{ ciSummary.total100c }} 台</p>
-              <p class="kpi-number kpi-number-sub text-xs text-cyan-200">{{ formatCiMwh(ciSummary.total100cMwh) }} MWh</p>
+            <div
+              class="ci-kpi-card ci-kpi-card-100c rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"
+            >
+              <p class="text-xs uppercase tracking-[0.2em] text-cyan-200">
+                100C
+              </p>
+              <p class="kpi-number mt-1 font-semibold text-white">
+                {{ ciSummary.total100c }} 台
+              </p>
+              <p class="kpi-number kpi-number-sub text-xs text-cyan-200">
+                {{ formatCiMwh(ciSummary.total100cMwh) }} MWh
+              </p>
             </div>
-            <div class="ci-kpi-card ci-kpi-card-250 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-              <p class="text-xs uppercase tracking-[0.2em] text-emerald-200">250</p>
-              <p class="kpi-number mt-1 font-semibold text-white">{{ ciSummary.total250 }} 台</p>
-              <p class="kpi-number kpi-number-sub text-xs text-emerald-200">{{ formatCiMwh(ciSummary.total250Mwh) }} MWh</p>
+            <div
+              class="ci-kpi-card ci-kpi-card-250 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100"
+            >
+              <p class="text-xs uppercase tracking-[0.2em] text-emerald-200">
+                250
+              </p>
+              <p class="kpi-number mt-1 font-semibold text-white">
+                {{ ciSummary.total250 }} 台
+              </p>
+              <p class="kpi-number kpi-number-sub text-xs text-emerald-200">
+                {{ formatCiMwh(ciSummary.total250Mwh) }} MWh
+              </p>
             </div>
           </div>
         </div>
 
-        <div class="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+        <div
+          class="overflow-hidden rounded-3xl border border-white/10 bg-white/5"
+        >
           <div class="overflow-x-auto">
-            <table class="data-table ci-data-table min-w-full divide-y divide-white/10 text-left text-sm">
+            <table
+              class="data-table ci-data-table min-w-full divide-y divide-white/10 text-left text-sm"
+            >
               <thead class="bg-slate-950/50 text-slate-400">
                 <tr>
-                  <th class="px-5 py-4 font-medium">{{ t('ci.region') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('ci.dealer') }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("ci.region") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("ci.dealer") }}</th>
                   <th class="px-5 py-4 font-medium">100C 已交付</th>
                   <th class="px-5 py-4 font-medium">250 已交付</th>
-                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
+                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">
+                    {{ t("common.actions") }}
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
-                <tr v-for="item in ciCapacityRows" :key="item.dealer_name" class="bg-white/[0.02] hover:bg-white/[0.04]">
+                <tr
+                  v-for="item in ciCapacityRows"
+                  :key="item.dealer_name"
+                  class="bg-white/[0.02] hover:bg-white/[0.04]"
+                >
                   <td class="key-cell px-5 py-4">{{ item.region }}</td>
-                  <td class="key-cell px-5 py-4 font-medium text-white">{{ item.dealer_name }}</td>
+                  <td class="key-cell px-5 py-4 font-medium text-white">
+                    {{ item.dealer_name }}
+                  </td>
                   <td class="px-5 py-4">
-                    <p class="delivery-metric delivery-metric-100c font-semibold text-cyan-200">{{ item.delivered_100c }} 台 ({{ formatCiMwh(item.mwh100c) }} MWh)</p>
-                    <div class="delivery-track mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
-                      <div class="delivery-fill delivery-fill-100c h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio100c}%` }"></div>
+                    <p
+                      class="delivery-metric delivery-metric-100c font-semibold text-cyan-200"
+                    >
+                      {{ item.delivered_100c }} 台 ({{
+                        formatCiMwh(item.mwh100c)
+                      }}
+                      MWh)
+                    </p>
+                    <div
+                      class="delivery-track mt-2 h-2 overflow-hidden rounded-full bg-slate-900"
+                    >
+                      <div
+                        class="delivery-fill delivery-fill-100c h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all"
+                        :style="{ width: `${item.ratio100c}%` }"
+                      ></div>
                     </div>
                   </td>
                   <td class="px-5 py-4">
-                    <p class="delivery-metric delivery-metric-250 font-semibold text-emerald-200">{{ item.delivered_250 }} 台 ({{ formatCiMwh(item.mwh250) }} MWh)</p>
-                    <div class="delivery-track mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
-                      <div class="delivery-fill delivery-fill-250 h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all" :style="{ width: `${item.ratio250}%` }"></div>
+                    <p
+                      class="delivery-metric delivery-metric-250 font-semibold text-emerald-200"
+                    >
+                      {{ item.delivered_250 }} 台 ({{
+                        formatCiMwh(item.mwh250)
+                      }}
+                      MWh)
+                    </p>
+                    <div
+                      class="delivery-track mt-2 h-2 overflow-hidden rounded-full bg-slate-900"
+                    >
+                      <div
+                        class="delivery-fill delivery-fill-250 h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all"
+                        :style="{ width: `${item.ratio250}%` }"
+                      ></div>
                     </div>
                   </td>
                   <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="table-action-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openCiEditor(item)">{{ t('common.edit') }}</button>
-                      <button type="button" class="table-action-btn table-action-danger rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('ci', item.dealer_name, item.dealer_name, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                      <button
+                        type="button"
+                        class="table-action-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                        @click="openCiEditor(item)"
+                      >
+                        {{ t("common.edit") }}
+                      </button>
+                      <button
+                        type="button"
+                        class="table-action-btn table-action-danger rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15"
+                        @click="
+                          openDeleteDialog(
+                            'ci',
+                            item.dealer_name,
+                            item.dealer_name,
+                            t('common.deleteConfirm'),
+                          )
+                        "
+                      >
+                        {{ t("common.delete") }}
+                      </button>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section
+        v-else-if="activeView === 'service-logs'"
+        class="service-log-view flex-1"
+      >
+        <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              After-Sales Operations
+            </p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+              {{ t("portal.serviceLogs") }}
+            </h2>
+          </div>
+          <div class="flex gap-2">
+            <button
+              v-if="isInternalMode"
+              type="button"
+              class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+              @click="serviceLogFormOpen = true"
+            >
+              {{ t("portal.addLog") }}</button
+            ><button
+              v-if="isInternalMode"
+              type="button"
+              class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white"
+              @click="downloadServiceLogs"
+            >
+              {{ t("portal.exportCsv") }}
+            </button>
+          </div>
+        </div>
+        <div
+          v-if="serviceLogFormOpen"
+          class="mb-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5"
+        >
+          <div class="grid gap-3 md:grid-cols-3">
+            <input
+              v-model="serviceLogDraft.event_date"
+              type="date"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            /><input
+              v-model="serviceLogDraft.country"
+              placeholder="国家"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            /><select
+              v-model="serviceLogDraft.customer_company"
+              required
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">客户/代理商名称</option>
+              <option v-for="company in partnerOptions" :key="company" :value="company">{{ company }}</option>
+            </select><select
+              v-model="serviceLogDraft.project_name"
+              required
+              class="service-log-project-select rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">选择项目</option>
+              <option v-for="project in serviceLogProjectOptions" :key="project.project_name" :value="project.project_name">{{ project.project_name }}</option>
+            </select><select
+              v-model="serviceLogDraft.product_model"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option>418</option>
+              <option>250</option>
+              <option>100C</option></select
+            ><select
+              v-model="serviceLogDraft.support_type"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option>远程 (Remote)</option>
+              <option>现场 (On-site)</option></select
+            ><select
+              v-model="serviceLogDraft.fault_component"
+              required
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">Faulty Component</option>
+              <option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option>
+            </select><input
+              v-model="serviceLogDraft.serial_number"
+              placeholder="设备序列号"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            /><select
+              v-model="serviceLogDraft.status"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option>处理中 (Pending)</option>
+              <option>已解决 (Resolved)</option></select
+            ><input
+              v-model="serviceLogDraft.created_by"
+              placeholder="登记人"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            /><label class="block"><span class="mb-1 block text-xs text-slate-400">Attachments</span><input type="file" multiple class="block w-full text-xs text-slate-300" @change="handlePortalAttachments($event, 'log')" /></label><textarea
+              v-model="serviceLogDraft.pending_reason"
+              placeholder="跟进说明"
+              class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            ></textarea>
+          </div>
+          <div class="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-xl border border-white/10 px-4 py-2 text-white"
+              @click="serviceLogFormOpen = false"
+            >
+              取消</button
+            ><button
+              type="button"
+              class="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950"
+              @click="submitServiceLog"
+            >
+              保存
+            </button>
+          </div>
+        </div>
+        <div
+          class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
+        >
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">日期</th>
+                <th class="px-4 py-3">国家 (Country)</th>
+                <th class="px-4 py-3">客户 (Customer)</th>
+                <th class="px-4 py-3">项目</th>
+                <th class="px-4 py-3">型号</th>
+                <th class="px-4 py-3">远程/现场 (Support Type)</th>
+                <th class="px-4 py-3">故障部位</th>
+                <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3">登记人</th>
+                <th v-if="isInternalMode" class="px-4 py-3">
+                  {{ t("common.actions") }}
+                </th>
+              </tr>
+              <tr class="ticket-filter-row">
+                <th><input v-model="serviceLogDateFilter" type="date" placeholder="筛选日期" /></th>
+                <th><select v-model="serviceLogCountryFilter"><option value="">{{ t('common.all') }}</option><option v-for="country in serviceLogCountries" :key="country" :value="country">{{ country }}</option></select></th>
+                <th><select v-model="serviceLogCustomerFilter"><option value="">{{ t('common.all') }}</option><option v-for="customer in partnerOptions" :key="customer" :value="customer">{{ customer }}</option></select></th>
+                <th><input v-model="serviceLogProjectFilter" placeholder="搜索项目" /></th>
+                <th><select v-model="serviceLogModelFilter"><option value="">{{ t('common.all') }}</option><option>418</option><option>250</option><option>100C</option></select></th>
+                <th><select v-model="serviceLogSupportFilter"><option value="">{{ t('common.all') }}</option><option value="远程 (Remote)">远程 (Remote)</option><option value="现场 (On-site)">现场 (On-site)</option></select></th>
+                <th><select v-model="serviceLogComponentFilter"><option value="">{{ t('common.all') }}</option><option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option></select></th>
+                <th><select v-model="serviceLogStatusFilter"><option value="">{{ t('common.all') }}</option><option value="处理中 (Pending)">处理中 (Pending)</option><option value="已解决 (Resolved)">已解决 (Resolved)</option></select></th>
+                <th><input v-model="serviceLogCreatedByFilter" placeholder="搜索登记人" /></th>
+                <th v-if="isInternalMode"><button type="button" class="text-xs text-cyan-200" @click="clearAfterSalesFilters">{{ t('common.clearFilters') }}</button></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="item in computedFilteredAfterSalesLogs" :key="item.id">
+                <td class="px-4 py-3">{{ item.event_date }}</td>
+                <td class="px-4 py-3">{{ item.country || '-' }}</td>
+                <td class="px-4 py-3">{{ item.customer_company || item.customer || '-' }}</td>
+                <td class="px-4 py-3 font-medium text-white">
+                  {{ item.project_name }}
+                </td>
+                <td class="px-4 py-3">{{ item.product_model }}</td>
+                <td class="px-4 py-3">{{ item.support_type }}</td>
+                <td class="px-4 py-3">{{ item.fault_component || item.faulty_component || "-" }}</td>
+                <td class="px-4 py-3">{{ item.status }}</td>
+                <td class="px-4 py-3">{{ item.created_by }}</td>
+                <td v-if="isInternalMode" class="px-4 py-3">
+                  <button
+                    type="button"
+                    class="mr-2 text-cyan-200"
+                    @click="editServiceLog(item)"
+                  >
+                    {{ t("common.edit") }}</button
+                  ><button
+                    type="button"
+                    class="text-rose-200"
+                    @click="
+                      openDeleteDialog(
+                        'service-log',
+                        String(item.id),
+                        item.project_name,
+                        t('common.deleteConfirm'),
+                      )
+                    "
+                  >
+                    {{ t("common.delete") }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'customer-tickets'" class="flex-1">
+        <div
+          v-if="isInternalMode"
+          class="mb-3 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/5 p-3"
+        >
+          <select
+            v-model="ticketUpdate.id"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+          >
+            <option value="">{{ t("portal.selectTicket") }}</option>
+            <option v-for="item in tickets" :key="item.id" :value="item.id">
+              #{{ item.id }} {{ item.project_name || "-" }}
+            </option></select
+          ><select
+            v-model="ticketUpdate.status"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+          >
+            <option value="待处理 (Pending)">{{ t("portal.pending") }}</option>
+            <option value="处理中 (In Progress)">
+              {{ t("portal.inProgress") }}
+            </option>
+            <option value="已回复/已解决 (Resolved)">
+              {{ t("portal.resolved") }}
+            </option>
+            <option value="已关闭 (Closed)">
+              {{ t("portal.closed") }}
+            </option></select
+          ><input
+            v-model="ticketUpdate.resolved_at"
+            type="datetime-local"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+          /><input
+            v-model="ticketUpdate.staff_reply"
+            :placeholder="t('portal.reply')"
+            class="min-w-52 flex-1 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
+          /><button
+            type="button"
+            class="rounded-xl bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950"
+            @click="updateTicketStatus"
+          >
+            {{ t("portal.update") }}
+          </button>
+        </div>
+        <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              Customer Care
+            </p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+              {{ t("portal.customerTickets") }}
+            </h2>
+          </div>
+          <button
+            v-if="isCustomer"
+            type="button"
+            class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+            @click="ticketFormOpen = true"
+          >
+            {{ t("portal.submitTicket") }}
+          </button>
+        </div>
+        <div
+          v-if="ticketFormOpen"
+          class="mb-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5"
+        >
+          <div class="grid gap-3 md:grid-cols-2">
+            <select
+              v-if="ticketDraft.product_model === '418'"
+              v-model="ticketDraft.project_name"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">{{ t("portal.selectProject") }}</option>
+              <option
+                v-for="project in gridProjects"
+                :key="project.project_name"
+                :value="project.project_name"
+              >
+                {{ project.project_name }}
+              </option></select
+            ><select
+              v-model="ticketDraft.product_model"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option>418</option>
+              <option>250</option>
+              <option>100C</option></select
+            ><label class="block"
+              ><span class="mb-2 block text-xs font-semibold text-slate-300">{{
+                t("portal.serialNumber")
+              }}</span
+              ><input
+                v-model="ticketDraft.serial_number"
+                required
+                :placeholder="t('portal.serialNumberRequired')"
+                class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label
+            ><select
+              v-model="ticketDraft.ticket_type"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="产品需求 (Feature Request)">
+                {{ t("portal.featureRequest") }}
+              </option>
+              <option value="故障报修/Bug (Issue Report)">
+                {{ t("portal.issueReport") }}
+              </option></select
+            ><select
+              v-model="ticketDraft.suspected_component"
+              required
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            >
+              <option value="">{{ t("portal.faultyComponent") }}</option>
+              <option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option>
+            </select><textarea
+              v-model="ticketDraft.description"
+              :placeholder="t('portal.detailedDescription')"
+              rows="4"
+              class="md:col-span-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            ></textarea
+            ><input
+              v-model="ticketDraft.contact"
+              :placeholder="t('portal.contact')"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            /><label class="block"
+              ><span class="mb-2 block text-xs font-semibold text-slate-300">{{
+                t("portal.expectedDate")
+              }}</span
+              ><input
+                v-model="ticketDraft.expected_date"
+                type="date"
+                class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label
+            ><label class="block md:col-span-2"
+              ><span class="mb-2 block text-xs font-semibold text-slate-300">{{
+                t("portal.upload")
+              }}</span
+              ><input
+                type="file"
+                multiple
+                class="block w-full text-sm text-slate-300"
+                @change="handlePortalAttachments($event, 'ticket')"
+            /></label>
+          </div>
+          <div class="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-xl border border-white/10 px-4 py-2 text-white"
+              @click="ticketFormOpen = false"
+            >
+              {{ t("portal.cancel") }}</button
+            ><button
+              type="button"
+              class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+              @click="submitTicket"
+            >
+              {{ t("portal.submitTicket") }}
+            </button>
+          </div>
+        </div>
+        <div
+          class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
+        >
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">{{ t("portal.submitTime") }}</th>
+                <th class="px-4 py-3">{{ t("common.customerName") }}</th>
+                <th class="px-4 py-3">{{ t("portal.project") }}</th>
+                <th class="px-4 py-3">{{ t("portal.model") }}</th>
+                <th class="px-4 py-3">{{ t("portal.faultyComponent") }}</th>
+                <th class="px-4 py-3">{{ t("portal.serialNumber") }}</th>
+                <th class="px-4 py-3">{{ t("portal.ticketType") }}</th>
+                <th class="px-4 py-3">{{ t("portal.description") }}</th>
+                <th class="px-4 py-3">{{ t("portal.ticketStatus") }}</th>
+                <th class="px-4 py-3">{{ t("portal.reply") }}</th>
+                <th class="px-4 py-3">{{ t("portal.resolvedTime") }}</th>
+              </tr>
+              <tr class="ticket-filter-row bg-slate-900/40">
+                <th></th>
+                <th><select v-model="ticketFilters.customer_company"><option value="">{{ t('common.all') }}</option><option v-for="company in customerOptions" :key="company" :value="company">{{ company }}</option></select></th>
+                <th><input v-model="ticketFilters.project_name" :placeholder="t('portal.project')" /></th>
+                <th><select v-model="ticketFilters.product_model"><option value="">{{ t('common.all') }}</option><option>418</option><option>250</option><option>100C</option></select></th>
+                <th><select v-model="ticketFilters.faulty_component"><option value="">{{ t('common.all') }}</option><option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option></select></th>
+                <th><input v-model="ticketFilters.serial_number" placeholder="SN" /></th>
+                <th><select v-model="ticketFilters.ticket_type"><option value="">{{ t('common.all') }}</option><option value="故障报修/Bug (Issue Report)">{{ t('portal.issueReport') }}</option><option value="产品需求 (Feature Request)">{{ t('portal.featureRequest') }}</option></select></th>
+                <th></th>
+                <th><select v-model="ticketFilters.status"><option value="">{{ t('common.all') }}</option><option value="待处理 (Pending)">{{ t('portal.pending') }}</option><option value="处理中 (In Progress)">{{ t('portal.inProgress') }}</option><option value="已回复/已解决 (Resolved)">{{ t('portal.resolved') }}</option><option value="已关闭 (Closed)">{{ t('portal.closed') }}</option></select></th>
+                <th></th><th><button type="button" class="text-xs text-cyan-200" @click="clearTicketFilters">{{ t('common.clearFilters') }}</button></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="item in filteredTickets" :key="item.id">
+                <td class="px-4 py-3">
+                  {{ formatTicketDate(item.submit_time) }}
+                </td>
+                <td class="px-4 py-3 font-medium text-white">
+                  {{ item.customer_company || item.partner_name || "-" }}
+                </td>
+                <td class="px-4 py-3 font-medium text-white">
+                  {{ item.project_name || "-" }}
+                </td>
+                <td class="px-4 py-3">{{ item.product_model }}</td>
+                <td class="px-4 py-3">{{ item.suspected_component || '-' }}</td>
+                <td class="px-4 py-3">{{ item.serial_number || "-" }}</td>
+                <td class="px-4 py-3">{{ item.ticket_type }}</td>
+                <td class="max-w-sm px-4 py-3">{{ item.description }}</td>
+                <td class="px-4 py-3">{{ item.status }}</td>
+                <td class="px-4 py-3">{{ item.staff_reply || "-" }}</td>
+                <td class="px-4 py-3">
+                  {{ formatTicketDate(item.resolved_at) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'account-management'" class="flex-1">
+        <div class="mb-5 flex items-end justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200">
+              Tenant Administration
+            </p>
+            <h2 class="mt-2 text-2xl font-semibold text-white">
+              {{ t("portal.account") }}
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+            @click="accountFormOpen = !accountFormOpen"
+          >
+            {{ t("portal.addAccount") }}
+          </button>
+        </div>
+        <div
+          v-if="accountFormOpen"
+          class="mb-5 grid gap-3 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5 md:grid-cols-3"
+        >
+          <input
+            v-model="accountDraft.username"
+            :disabled="Boolean(accountEditingId)"
+            :placeholder="t('portal.username')"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white disabled:opacity-50"
+          /><input
+            v-model="accountDraft.password"
+            :placeholder="t('portal.password')"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+          /><input
+            v-model="accountDraft.customer_company"
+            :placeholder="t('portal.customer')"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white md:col-span-2"
+          />
+          <p
+            class="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-slate-300 md:col-span-3"
+          >
+            {{ t("portal.automaticHint") }}
+          </p>
+          <button
+            type="button"
+            class="rounded-xl bg-cyan-400 px-3 py-2 font-semibold text-slate-950 md:col-span-3"
+            @click="createCustomerAccount"
+          >
+            {{ accountEditingId ? t("common.save") : t("portal.saveAccount") }}
+          </button>
+        </div>
+        <div
+          class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
+        >
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">{{ t("portal.username") }}</th>
+                <th class="px-4 py-3">{{ t("portal.customer") }}</th>
+                <th class="px-4 py-3">{{ t("portal.projectAccess") }}</th>
+                <th class="px-4 py-3">{{ t("portal.ticketStatus") }}</th>
+                <th class="px-4 py-3">{{ t("common.actions") }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="user in users" :key="user.id">
+                <td class="px-4 py-3 font-medium text-white">
+                  {{ user.username }}
+                </td>
+                <td class="px-4 py-3">
+                  {{ user.customer_company || user.customer_name || "-" }}
+                </td>
+                <td class="px-4 py-3">
+                  <details>
+                    <summary class="cursor-pointer text-cyan-200">
+                      {{ user.customer_company || user.customer_name }} ({{
+                        user.automatic_project_count || 0
+                      }})
+                    </summary>
+                    <p class="mt-2 max-w-md text-xs leading-5 text-slate-400">
+                      {{
+                        (user.automatic_projects || []).join("、") ||
+                        t("portal.noMatches")
+                      }}
+                    </p>
+                  </details>
+                </td>
+                <td class="px-4 py-3">
+                  {{ user.is_active ? "启用" : "停用" }}
+                </td>
+                <td class="px-4 py-3">
+                  <button
+                    v-if="user.role !== 'admin'"
+                    type="button"
+                    class="mr-2 text-cyan-200"
+                    @click="editCustomerAccount(user)"
+                  >
+                    {{ t("common.edit") }}</button
+                  ><button
+                    v-if="user.role !== 'admin'"
+                    type="button"
+                    class="text-rose-200"
+                    @click="removeCustomerAccount(user.id)"
+                  >
+                    {{ t("common.delete") }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section v-else class="flex-1">
-        <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div
+          class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+        >
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Warehouse & Inventory</p>
-            <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              Warehouse & Inventory
+            </p>
+            <div
+              class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+            >
               <div>
-                <h2 class="text-2xl font-semibold text-white sm:text-3xl">{{ t('inventory.section') }}</h2>
-                <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t('inventory.subtitle') }}</p>
+                <h2 class="text-2xl font-semibold text-white sm:text-3xl">
+                  {{ t("inventory.section") }}
+                </h2>
+                <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
+                  {{ t("inventory.subtitle") }}
+                </p>
               </div>
-              <button v-if="isInternalMode" type="button" class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15" @click="openInventoryEditor()">
-                {{ t('inventory.addItem') }}
+              <button
+                v-if="isInternalMode"
+                type="button"
+                class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+                @click="openInventoryEditor()"
+              >
+                {{ t("inventory.addItem") }}
               </button>
             </div>
           </div>
-          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-            {{ t('inventory.count') }}：<span class="font-semibold text-white">{{ inventoryItems.length }}</span>
+          <div
+            class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"
+          >
+            {{ t("inventory.count") }}：<span
+              class="font-semibold text-white"
+              >{{ inventoryItems.length }}</span
+            >
           </div>
         </div>
 
-        <div v-if="inventoryLoading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div v-for="index in 6" :key="index" class="h-64 animate-pulse rounded-3xl border border-white/10 bg-white/5"></div>
+        <div
+          v-if="inventoryLoading"
+          class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div
+            v-for="index in 6"
+            :key="index"
+            class="h-64 animate-pulse rounded-3xl border border-white/10 bg-white/5"
+          ></div>
         </div>
 
-        <div v-else-if="inventoryError" class="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100">
+        <div
+          v-else-if="inventoryError"
+          class="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-rose-100"
+        >
           {{ inventoryError }}
         </div>
 
-        <div v-else class="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+        <div
+          v-else
+          class="overflow-hidden rounded-3xl border border-white/10 bg-white/5"
+        >
           <div class="overflow-x-auto">
-            <table class="data-table inventory-data-table min-w-full divide-y divide-white/10 text-left text-sm">
+            <table
+              class="data-table inventory-data-table min-w-full divide-y divide-white/10 text-left text-sm"
+            >
               <thead class="bg-slate-950/50 text-slate-400">
                 <tr>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.itemNo') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.descriptionZh') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.specification') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.totalQuantity') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.damagedQuantity') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.availableQuantity') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.photoPaths') }}</th>
-                  <th class="px-5 py-4 font-medium">{{ t('inventory.remarks') }}</th>
-                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">{{ t('common.actions') }}</th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.itemNo") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.descriptionZh") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.specification") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.totalQuantity") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.damagedQuantity") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.availableQuantity") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.photoPaths") }}
+                  </th>
+                  <th class="px-5 py-4 font-medium">
+                    {{ t("inventory.remarks") }}
+                  </th>
+                  <th v-if="isInternalMode" class="px-5 py-4 font-medium">
+                    {{ t("common.actions") }}
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
-                <tr v-for="item in inventoryItems" :key="item.item_no" class="bg-white/[0.02] hover:bg-white/[0.04]">
-                  <td class="px-5 py-4 whitespace-nowrap font-semibold text-white">{{ item.item_no }}</td>
+                <tr
+                  v-for="item in inventoryItems"
+                  :key="item.item_no"
+                  class="bg-white/[0.02] hover:bg-white/[0.04]"
+                >
+                  <td
+                    class="px-5 py-4 whitespace-nowrap font-semibold text-white"
+                  >
+                    {{ item.item_no }}
+                  </td>
                   <td class="px-5 py-4">{{ item.description_zh }}</td>
                   <td class="px-5 py-4">{{ item.specification }}</td>
                   <td class="px-5 py-4">{{ item.total_quantity }}</td>
                   <td class="px-5 py-4">{{ item.damaged_quantity }}</td>
-                  <td class="px-5 py-4 font-semibold text-emerald-200">{{ item.available_quantity }}</td>
+                  <td class="px-5 py-4 font-semibold text-emerald-200">
+                    {{ item.available_quantity }}
+                  </td>
                   <td class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button v-for="photo in item.photo_paths" :key="photo" type="button" class="overflow-hidden rounded-xl border border-white/10 bg-slate-950/80" @click="openImagePreview(photo)">
-                        <img :src="resolvePhotoUrl(photo)" :alt="item.item_no" class="h-12 w-12 object-cover" />
+                      <button
+                        v-for="photo in item.photo_paths"
+                        :key="photo"
+                        type="button"
+                        class="overflow-hidden rounded-xl border border-white/10 bg-slate-950/80"
+                        @click="openImagePreview(photo)"
+                      >
+                        <img
+                          :src="resolvePhotoUrl(photo)"
+                          :alt="item.item_no"
+                          class="h-12 w-12 object-cover"
+                        />
                       </button>
-                      <span v-if="(item.photo_paths || []).length === 0" class="text-xs text-slate-400">{{ t('common.noData') }}</span>
+                      <span
+                        v-if="(item.photo_paths || []).length === 0"
+                        class="text-xs text-slate-400"
+                        >{{ t("common.noData") }}</span
+                      >
                     </div>
                   </td>
-                  <td class="px-5 py-4 text-slate-300">{{ item.remarks || '-' }}</td>
+                  <td class="px-5 py-4 text-slate-300">
+                    {{ item.remarks || "-" }}
+                  </td>
                   <td v-if="isInternalMode" class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="table-action-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="openInventoryEditor(item)">{{ t('common.edit') }}</button>
-                      <button type="button" class="table-action-btn table-action-danger rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15" @click="openDeleteDialog('inventory', item.item_no, item.item_no, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                      <button
+                        type="button"
+                        class="table-action-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                        @click="openInventoryEditor(item)"
+                      >
+                        {{ t("common.edit") }}
+                      </button>
+                      <button
+                        type="button"
+                        class="table-action-btn table-action-danger rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/15"
+                        @click="
+                          openDeleteDialog(
+                            'inventory',
+                            item.item_no,
+                            item.item_no,
+                            t('common.deleteConfirm'),
+                          )
+                        "
+                      >
+                        {{ t("common.delete") }}
+                      </button>
                     </div>
                   </td>
                 </tr>
                 <tr v-if="inventoryItems.length === 0">
-                  <td :colspan="isInternalMode ? 9 : 8" class="px-4 py-10 text-center text-slate-400">{{ t('common.noData') }}</td>
+                  <td
+                    :colspan="isInternalMode ? 9 : 8"
+                    class="px-4 py-10 text-center text-slate-400"
+                  >
+                    {{ t("common.noData") }}
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
       </section>
-      <div v-if="portalState.staffAuthOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
-        <div class="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">{{ t('auth.title') }}</p>
-          <h3 class="mt-3 text-2xl font-semibold text-white">{{ t('auth.title') }}</h3>
-          <p class="mt-2 text-sm leading-6 text-slate-300">{{ t('auth.description') }}</p>
-          <input v-model="portalState.staffPassword" type="password" class="mt-5 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none transition focus:border-cyan-400/60" :placeholder="t('auth.placeholder')" @keyup.enter="confirmPassword" />
-          <p v-if="portalState.staffAuthError" class="mt-3 text-sm text-rose-200">{{ portalState.staffAuthError }}</p>
+      <div
+        v-if="portalState.staffAuthOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+      >
+        <div
+          class="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30"
+        >
+          <p
+            class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+          >
+            {{ t("auth.title") }}
+          </p>
+          <h3 class="mt-3 text-2xl font-semibold text-white">
+            {{ t("auth.title") }}
+          </h3>
+          <p class="mt-2 text-sm leading-6 text-slate-300">
+            {{ t("auth.description") }}
+          </p>
+          <input
+            v-model="portalState.staffPassword"
+            type="password"
+            class="mt-5 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none transition focus:border-cyan-400/60"
+            :placeholder="t('auth.placeholder')"
+            @keyup.enter="confirmPassword"
+          />
+          <p
+            v-if="portalState.staffAuthError"
+            class="mt-3 text-sm text-rose-200"
+          >
+            {{ portalState.staffAuthError }}
+          </p>
           <div class="mt-6 flex justify-end gap-3">
-            <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="cancelStaffAuth">{{ t('auth.cancel') }}</button>
-            <button type="button" class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110" @click="confirmPassword">{{ t('auth.confirm') }}</button>
+            <button
+              type="button"
+              class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              @click="cancelStaffAuth"
+            >
+              {{ t("auth.cancel") }}
+            </button>
+            <button
+              type="button"
+              class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
+              @click="confirmPassword"
+            >
+              {{ t("auth.confirm") }}
+            </button>
           </div>
         </div>
       </div>
 
-      <div v-if="crudModal.open" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 px-4 py-8 backdrop-blur-sm">
-        <div class="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30">
+      <div
+        v-if="crudModal.open"
+        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 px-4 py-8 backdrop-blur-sm"
+      >
+        <div
+          class="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30"
+        >
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">CRUD</p>
-              <h3 class="mt-2 text-2xl font-semibold text-white">{{ crudModal.kind === 'fault' ? t('fault.adminCreate') : crudModal.kind === 'grid' ? t('grid.createTitle') : crudModal.kind === 'ci' ? t('ci.createTitle') : crudModal.kind === 'technical-doc' ? t('materials.createTitle') : t('inventory.createTitle') }}</h3>
+              <p
+                class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+              >
+                CRUD
+              </p>
+              <h3 class="mt-2 text-2xl font-semibold text-white">
+                {{
+                  crudModal.kind === "fault"
+                    ? t("fault.adminCreate")
+                    : crudModal.kind === "grid"
+                      ? t("grid.createTitle")
+                      : crudModal.kind === "ci"
+                        ? t("ci.createTitle")
+                        : crudModal.kind === "technical-doc"
+                          ? t("materials.createTitle")
+                          : t("inventory.createTitle")
+                }}
+              </h3>
             </div>
-            <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="closeCrudModal">{{ t('common.close') }}</button>
+            <button
+              type="button"
+              class="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+              @click="closeCrudModal"
+            >
+              {{ t("common.close") }}
+            </button>
           </div>
 
           <div class="mt-5 grid gap-4 md:grid-cols-2">
             <template v-if="crudModal.kind === 'fault'">
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">模块</span>
-                <input v-model="crudDraft.module" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >模块</span
+                >
+                <input
+                  v-model="crudDraft.module"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">故障码</span>
-                <input v-model="crudDraft.fault_code" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >故障码</span
+                >
+                <input
+                  v-model="crudDraft.fault_code"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">故障名称</span>
-                <input v-model="crudDraft.fault_name" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >故障名称</span
+                >
+                <input
+                  v-model="crudDraft.fault_name"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">故障等级</span>
-                <input v-model="crudDraft.fault_level" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >故障等级</span
+                >
+                <input
+                  v-model="crudDraft.fault_level"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">停机</span>
-                <input v-model="crudDraft.is_stop" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >停机</span
+                >
+                <input
+                  v-model="crudDraft.is_stop"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">恢复机制</span>
-                <input v-model="crudDraft.recovery" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >恢复机制</span
+                >
+                <input
+                  v-model="crudDraft.recovery"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">触发逻辑</span>
-                <input v-model="crudDraft.trigger_logic" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >触发逻辑</span
+                >
+                <input
+                  v-model="crudDraft.trigger_logic"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">检测条件</span>
-                <textarea v-model="crudDraft.detection_condition" rows="3" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >检测条件</span
+                >
+                <textarea
+                  v-model="crudDraft.detection_condition"
+                  rows="3"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                ></textarea>
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">可能原因</span>
-                <textarea v-model="crudDraft.possible_cause" rows="4" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >可能原因</span
+                >
+                <textarea
+                  v-model="crudDraft.possible_cause"
+                  rows="4"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                ></textarea>
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">解决措施</span>
-                <textarea v-model="crudDraft.solution" rows="4" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >解决措施</span
+                >
+                <textarea
+                  v-model="crudDraft.solution"
+                  rows="4"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                ></textarea>
               </label>
             </template>
             <template v-else-if="crudModal.kind === 'grid'">
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Project Name</span>
-                <input v-model="crudDraft.project_name" :disabled="crudModal.mode === 'edit'" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >Project Name</span
+                >
+                <input
+                  v-model="crudDraft.project_name"
+                  :disabled="crudModal.mode === 'edit'"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('grid.codDate') }}</span>
-                <input v-model="crudDraft.cod" type="date" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("portal.customer") }}</span
+                >
+                <input
+                  v-model="crudDraft.customer_company"
+                  list="partner-options"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
+                <datalist id="partner-options">
+                  <option
+                    v-for="partner in partnerOptions"
+                    :key="partner"
+                    :value="partner"
+                  />
+                </datalist>
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Capacity (MWh)</span>
-                <input v-model.number="crudDraft.capacity_mwh" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("grid.codDate") }}</span
+                >
+                <input
+                  v-model="crudDraft.cod"
+                  type="date"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">PCS Model</span>
-                <input v-model="crudDraft.pcs_model" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >Capacity (MWh)</span
+                >
+                <input
+                  v-model.number="crudDraft.capacity_mwh"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Cell Version</span>
-                <input v-model="crudDraft.cell_version" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >PCS Model</span
+                >
+                <input
+                  v-model="crudDraft.pcs_model"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Status</span>
-                <select v-model="crudDraft.progress_status" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none">
-                  <option v-for="status in projectStatuses" :key="status" :value="status">{{ status }}</option>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >Cell Version</span
+                >
+                <input
+                  v-model="crudDraft.cell_version"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
+              </label>
+              <label class="block">
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >Status</span
+                >
+                <select
+                  v-model="crudDraft.progress_status"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                >
+                  <option
+                    v-for="status in projectStatuses"
+                    :key="status"
+                    :value="status"
+                  >
+                    {{ status }}
+                  </option>
                 </select>
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('grid.photoUpload') }}</span>
-                <input ref="photoInputRef" type="file" accept="image/*" multiple class="hidden" @change="handlePhotoFiles" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("grid.photoUpload") }}</span
+                >
+                <input
+                  ref="photoInputRef"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  class="hidden"
+                  @change="handlePhotoFiles"
+                />
                 <div class="flex flex-wrap items-center gap-3">
-                  <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="openPhotoPicker">
-                    {{ t('grid.chooseImages') }}
+                  <button
+                    type="button"
+                    class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                    @click="openPhotoPicker"
+                  >
+                    {{ t("grid.chooseImages") }}
                   </button>
-                  <span class="text-xs text-slate-400">{{ photoUploading ? t('common.loading') : t('grid.photoHint') }}</span>
+                  <span class="text-xs text-slate-400">{{
+                    photoUploading ? t("common.loading") : t("grid.photoHint")
+                  }}</span>
                 </div>
                 <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div v-for="(photo, index) in crudDraft.photo_paths" :key="photo" class="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80">
-                    <img :src="resolvePhotoUrl(photo)" :alt="`${crudDraft.project_name} ${index + 1}`" class="h-28 w-full object-cover" />
-                    <button type="button" class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-xs font-bold text-white" @click="removePhotoPath(index)">×</button>
+                  <div
+                    v-for="(photo, index) in crudDraft.photo_paths"
+                    :key="photo"
+                    class="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80"
+                  >
+                    <img
+                      :src="resolvePhotoUrl(photo)"
+                      :alt="`${crudDraft.project_name} ${index + 1}`"
+                      class="h-28 w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-xs font-bold text-white"
+                      @click="removePhotoPath(index)"
+                    >
+                      ×
+                    </button>
                   </div>
-                  <div v-if="crudDraft.photo_paths.length === 0" class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400">{{ t('grid.noPhotos') }}</div>
+                  <div
+                    v-if="crudDraft.photo_paths.length === 0"
+                    class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400"
+                  >
+                    {{ t("grid.noPhotos") }}
+                  </div>
                 </div>
               </label>
             </template>
             <template v-else-if="crudModal.kind === 'ci'">
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Dealer Name</span>
-                <input v-model="crudDraft.dealer_name" :disabled="crudModal.mode === 'edit'" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >Dealer Name</span
+                >
+                <input
+                  v-model="crudDraft.dealer_name"
+                  :disabled="crudModal.mode === 'edit'"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Region</span>
-                <input v-model="crudDraft.region" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >Region</span
+                >
+                <input
+                  v-model="crudDraft.region"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">100C</span>
-                <input v-model.number="crudDraft.delivered_100c" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >100C</span
+                >
+                <input
+                  v-model.number="crudDraft.delivered_100c"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">250</span>
-                <input v-model.number="crudDraft.delivered_250" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >250</span
+                >
+                <input
+                  v-model.number="crudDraft.delivered_250"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
             </template>
             <template v-else-if="crudModal.kind === 'technical-doc'">
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">产品系列</span>
-                <select v-model="crudDraft.product_series" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none">
-                  <option v-for="series in technicalDocProductSeries" :key="series" :value="series">{{ series }}</option>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >产品系列</span
+                >
+                <select
+                  v-model="crudDraft.product_series"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                >
+                  <option
+                    v-for="series in technicalDocProductSeries"
+                    :key="series"
+                    :value="series"
+                  >
+                    {{ series }}
+                  </option>
                 </select>
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">资料分类</span>
-                <select v-model="crudDraft.category" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none">
-                  <option v-for="category in technicalDocCategories" :key="category" :value="category">{{ category }}</option>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >资料分类</span
+                >
+                <select
+                  v-model="crudDraft.category"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                >
+                  <option
+                    v-for="category in technicalDocCategories"
+                    :key="category"
+                    :value="category"
+                  >
+                    {{ category }}
+                  </option>
                 </select>
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">标题</span>
-                <input v-model="crudDraft.title" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >标题</span
+                >
+                <input
+                  v-model="crudDraft.title"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
-              <label v-if="crudModal.mode === 'create'" class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">上传文件</span>
-                <input ref="technicalDocFileInputRef" type="file" class="hidden" @change="handleTechnicalDocFile" />
+              <label
+                v-if="crudModal.mode === 'create'"
+                class="block md:col-span-2"
+              >
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >上传文件</span
+                >
+                <input
+                  ref="technicalDocFileInputRef"
+                  type="file"
+                  class="hidden"
+                  @change="handleTechnicalDocFile"
+                />
                 <div class="flex flex-wrap items-center gap-3">
-                  <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="openTechnicalDocFilePicker">
+                  <button
+                    type="button"
+                    class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                    @click="openTechnicalDocFilePicker"
+                  >
                     选择文件
                   </button>
-                  <span class="text-xs text-slate-400">{{ crudDraft.technical_doc_file ? crudDraft.technical_doc_file.name : '未选择文件' }}</span>
+                  <span class="text-xs text-slate-400">{{
+                    crudDraft.technical_doc_file
+                      ? crudDraft.technical_doc_file.name
+                      : "未选择文件"
+                  }}</span>
                 </div>
               </label>
-              <div v-else class="md:col-span-2 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
-                当前文件：{{ crudDraft.file_url || '-' }}
+              <div
+                v-else
+                class="md:col-span-2 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-xs text-slate-300"
+              >
+                当前文件：{{ crudDraft.file_url || "-" }}
               </div>
             </template>
             <template v-else>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.itemNo') }}</span>
-                <input v-model="crudDraft.item_no" :disabled="crudModal.mode === 'edit'" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.itemNo") }}</span
+                >
+                <input
+                  v-model="crudDraft.item_no"
+                  :disabled="crudModal.mode === 'edit'"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                />
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.descriptionZh') }}</span>
-                <input v-model="crudDraft.description_zh" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.descriptionZh") }}</span
+                >
+                <input
+                  v-model="crudDraft.description_zh"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.specification') }}</span>
-                <input v-model="crudDraft.specification" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.specification") }}</span
+                >
+                <input
+                  v-model="crudDraft.specification"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.totalQuantity') }}</span>
-                <input v-model.number="crudDraft.total_quantity" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" @input="recomputeAvailableQuantity" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.totalQuantity") }}</span
+                >
+                <input
+                  v-model.number="crudDraft.total_quantity"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                  @input="recomputeAvailableQuantity"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.damagedQuantity') }}</span>
-                <input v-model.number="crudDraft.damaged_quantity" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" @input="recomputeAvailableQuantity" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.damagedQuantity") }}</span
+                >
+                <input
+                  v-model.number="crudDraft.damaged_quantity"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                  @input="recomputeAvailableQuantity"
+                />
               </label>
               <label class="block">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.availableQuantity') }}</span>
-                <input v-model.number="crudDraft.available_quantity" type="number" min="0" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.availableQuantity") }}</span
+                >
+                <input
+                  v-model.number="crudDraft.available_quantity"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.remarks') }}</span>
-                <textarea v-model="crudDraft.remarks" rows="3" class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"></textarea>
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.remarks") }}</span
+                >
+                <textarea
+                  v-model="crudDraft.remarks"
+                  rows="3"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                ></textarea>
               </label>
               <label class="block md:col-span-2">
-                <span class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ t('inventory.photoPaths') }}</span>
-                <input ref="photoInputRef" type="file" accept="image/*" multiple class="hidden" @change="handlePhotoFiles" />
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("inventory.photoPaths") }}</span
+                >
+                <input
+                  ref="photoInputRef"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  class="hidden"
+                  @change="handlePhotoFiles"
+                />
                 <div class="flex flex-wrap items-center gap-3">
-                  <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="openPhotoPicker">
-                    {{ t('inventory.chooseImages') }}
+                  <button
+                    type="button"
+                    class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                    @click="openPhotoPicker"
+                  >
+                    {{ t("inventory.chooseImages") }}
                   </button>
-                  <span class="text-xs text-slate-400">{{ photoUploading ? t('common.loading') : t('inventory.photoHint') }}</span>
+                  <span class="text-xs text-slate-400">{{
+                    photoUploading
+                      ? t("common.loading")
+                      : t("inventory.photoHint")
+                  }}</span>
                 </div>
                 <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div v-for="(photo, index) in crudDraft.photo_paths" :key="photo" class="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80">
-                    <img :src="resolvePhotoUrl(photo)" :alt="`${crudDraft.item_no} ${index + 1}`" class="h-28 w-full object-cover" />
-                    <button type="button" class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-xs font-bold text-white" @click="removePhotoPath(index)">×</button>
+                  <div
+                    v-for="(photo, index) in crudDraft.photo_paths"
+                    :key="photo"
+                    class="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80"
+                  >
+                    <img
+                      :src="resolvePhotoUrl(photo)"
+                      :alt="`${crudDraft.item_no} ${index + 1}`"
+                      class="h-28 w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-xs font-bold text-white"
+                      @click="removePhotoPath(index)"
+                    >
+                      ×
+                    </button>
                   </div>
-                  <div v-if="crudDraft.photo_paths.length === 0" class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400">{{ t('inventory.noPhotos') }}</div>
+                  <div
+                    v-if="crudDraft.photo_paths.length === 0"
+                    class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-slate-400"
+                  >
+                    {{ t("inventory.noPhotos") }}
+                  </div>
                 </div>
               </label>
             </template>
           </div>
 
           <div class="mt-6 flex justify-end gap-3">
-            <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="closeCrudModal">{{ t('common.cancel') }}</button>
-            <button type="button" class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110" @click="submitCrud">{{ t('common.save') }}</button>
+            <button
+              type="button"
+              class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              @click="closeCrudModal"
+            >
+              {{ t("common.cancel") }}
+            </button>
+            <button
+              type="button"
+              class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
+              @click="submitCrud"
+            >
+              {{ t("common.save") }}
+            </button>
           </div>
         </div>
       </div>
 
-      <div v-if="deleteDialog.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
-        <div class="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-rose-200">{{ t('common.delete') }}</p>
-          <h3 class="mt-3 text-2xl font-semibold text-white">{{ deleteDialog.title }}</h3>
-          <p class="mt-2 text-sm leading-6 text-slate-300">{{ deleteDialog.message }}</p>
+      <div
+        v-if="deleteDialog.open"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+      >
+        <div
+          class="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30"
+        >
+          <p
+            class="text-xs font-semibold uppercase tracking-[0.24em] text-rose-200"
+          >
+            {{ t("common.delete") }}
+          </p>
+          <h3 class="mt-3 text-2xl font-semibold text-white">
+            {{ deleteDialog.title }}
+          </h3>
+          <p class="mt-2 text-sm leading-6 text-slate-300">
+            {{ deleteDialog.message }}
+          </p>
           <div class="mt-6 flex justify-end gap-3">
-            <button type="button" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10" @click="closeDeleteDialog">{{ t('common.cancel') }}</button>
-            <button type="button" class="rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110" @click="confirmDelete">{{ t('common.delete') }}</button>
+            <button
+              type="button"
+              class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              @click="closeDeleteDialog"
+            >
+              {{ t("common.cancel") }}
+            </button>
+            <button
+              type="button"
+              class="rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+              @click="confirmDelete"
+            >
+              {{ t("common.delete") }}
+            </button>
           </div>
         </div>
       </div>
 
-      <div v-if="imagePreviewUrl" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 backdrop-blur-sm" @click.self="closeImagePreview">
-        <div class="max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/30">
-          <div class="flex items-center justify-between border-b border-white/10 px-5 py-3">
-            <p class="text-sm font-semibold text-white">{{ t('inventory.photoPreview') }}</p>
-            <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10" @click="closeImagePreview">{{ t('common.close') }}</button>
+      <div
+        v-if="imagePreviewUrl"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 backdrop-blur-sm"
+        @click.self="closeImagePreview"
+      >
+        <div
+          class="max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/30"
+        >
+          <div
+            class="flex items-center justify-between border-b border-white/10 px-5 py-3"
+          >
+            <p class="text-sm font-semibold text-white">
+              {{ t("inventory.photoPreview") }}
+            </p>
+            <button
+              type="button"
+              class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+              @click="closeImagePreview"
+            >
+              {{ t("common.close") }}
+            </button>
           </div>
-          <img :src="imagePreviewUrl" alt="preview" class="max-h-[80vh] w-full object-contain bg-black" />
+          <img
+            :src="imagePreviewUrl"
+            alt="preview"
+            class="max-h-[80vh] w-full object-contain bg-black"
+          />
         </div>
       </div>
-
     </main>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { messages } from './locales/messages'
-import { portalApi } from './services/portalApi'
-import { usePortalState } from './composables/usePortalState'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { messages } from "./locales/messages";
+import { portalApi } from "./services/portalApi";
+import { usePortalState } from "./composables/usePortalState";
 
-const { state: portalState, setLocale, toggleLocale, requestStaffMode, cancelStaffAuth, confirmStaffAuth, leaveStaffMode, setNotice } = usePortalState()
+const {
+  state: portalState,
+  setLocale,
+  toggleLocale,
+  requestStaffMode,
+  cancelStaffAuth,
+  confirmStaffAuth,
+  leaveStaffMode,
+  setNotice,
+} = usePortalState();
 
-const THEME_STORAGE_KEY = 'jd-portal-theme'
-const themeMode = ref('dark')
+const THEME_STORAGE_KEY = "jd-portal-theme";
+const themeMode = ref("dark");
 
-const activeView = ref('after-sales')
+const activeView = ref("after-sales");
 
 const views = computed(() => [
-  { key: 'after-sales', label: t('views.afterSales') },
-  { key: 'materials-center', label: t('views.materialsCenter') },
-  { key: 'warehouse', label: t('views.warehouse') },
-  { key: 'grid-scale', label: t('views.gridScale') },
-  { key: 'ci-dashboard', label: t('views.ciDashboard') },
-])
+  { key: "after-sales", label: t("views.afterSales") },
+  { key: "materials-center", label: t("views.materialsCenter") },
+  ...(!isCustomer.value
+    ? [{ key: "warehouse", label: t("views.warehouse") }]
+    : []),
+  { key: "grid-scale", label: t("views.gridScale") },
+  { key: "ci-dashboard", label: t("views.ciDashboard") },
+  { key: "service-logs", label: t("views.serviceLogs") },
+  { key: "customer-tickets", label: t("views.customerTickets") },
+  ...(!isCustomer.value && isInternalMode.value
+    ? [{ key: "account-management", label: t("views.accounts") }]
+    : []),
+]);
 const viewRows = computed(() => [
-  [views.value[0], views.value[1], views.value[2]],
-  [views.value[3], views.value[4]],
-])
+  views.value.slice(0, 3),
+  views.value.slice(3),
+]);
 
 const warehouseOptions = [
-  { key: 'europe', label: '欧洲仓 / Europe' },
-  { key: 'north_america', label: '北美仓 / North America' },
-]
+  { key: "europe", label: "欧洲仓 / Europe" },
+  { key: "north_america", label: "北美仓 / North America" },
+];
 
-const technicalDocProductSeries = ['418', '250', '100C']
-const technicalDocCategories = ['安装手册', '调试手册', '运维手册', '安装视频', '其他手册']
+const technicalDocProductSeries = ["418", "250", "100C"];
+const technicalDocCategories = [
+  "安装手册",
+  "调试手册",
+  "运维手册",
+  "安装视频",
+  "其他手册",
+];
 
-const projectStatuses = ['待交付', '已并网', '交付中', '清关中', '设备上岸', '土建施工', '调试中', '正式并网']
+const projectStatuses = [
+  "待交付",
+  "已并网",
+  "交付中",
+  "清关中",
+  "设备上岸",
+  "土建施工",
+  "调试中",
+  "正式并网",
+];
 
-const faultKeyword = ref('')
-const faultModule = ref('')
-const faultModules = ref(['PCS', 'BMS', 'EMS', '消防', '水机'])
-const faultPage = ref(1)
-const faultPageSize = ref(20)
-const faultTotal = ref(0)
-const faultLoading = ref(false)
-const faultError = ref('')
-const faultResults = ref([])
-const faultHasSearched = ref(false)
+const faultKeyword = ref("");
+const faultModule = ref("");
+const faultModules = ref(["PCS", "BMS", "EMS", "消防", "水机"]);
+const faultPage = ref(1);
+const faultPageSize = ref(20);
+const faultTotal = ref(0);
+const faultLoading = ref(false);
+const faultError = ref("");
+const faultResults = ref([]);
+const faultHasSearched = ref(false);
 
-const ledgerLoading = ref(false)
-const gridProjects = ref([])
-const ciDeliveries = ref([])
-const projectDraftStatus = reactive({})
+const ledgerLoading = ref(false);
+const gridProjects = ref([]);
+const ciDeliveries = ref([]);
+const projectDraftStatus = reactive({});
 
-const selectedWarehouse = ref('europe')
-const warehouseLoading = ref(false)
-const warehouseError = ref('')
-const warehouseSummary = ref({ warehouse_name: 'europe', inventory: [], grouped_inventory: {}, transactions: [] })
-const warehouseForm = reactive({ tx_type: '国内到货入库', product_model: '100C', quantity: 1, related_project: '', tx_no: '' })
-const inventoryLoading = ref(false)
-const inventoryError = ref('')
-const inventoryItems = ref([])
-const materialsProductSeries = ref(technicalDocProductSeries[0])
-const materialsLoading = ref(false)
-const materialsError = ref('')
-const materialsItems = ref([])
-const photoInputRef = ref(null)
-const technicalDocFileInputRef = ref(null)
-const photoUploading = ref(false)
-const imagePreviewUrl = ref('')
-let gridDashboardTimerId = null
+const selectedWarehouse = ref("europe");
+const warehouseLoading = ref(false);
+const warehouseError = ref("");
+const warehouseSummary = ref({
+  warehouse_name: "europe",
+  inventory: [],
+  grouped_inventory: {},
+  transactions: [],
+});
+const warehouseForm = reactive({
+  tx_type: "国内到货入库",
+  product_model: "100C",
+  quantity: 1,
+  related_project: "",
+  tx_no: "",
+});
+const inventoryLoading = ref(false);
+const inventoryError = ref("");
+const inventoryItems = ref([]);
+const materialsProductSeries = ref(technicalDocProductSeries[0]);
+const materialsLoading = ref(false);
+const materialsError = ref("");
+const materialsItems = ref([]);
+const photoInputRef = ref(null);
+const technicalDocFileInputRef = ref(null);
+const photoUploading = ref(false);
+const imagePreviewUrl = ref("");
+const serviceLogs = ref([]);
+const serviceLogComponentFilter = ref("");
+const serviceLogSupportFilter = ref("");
+const serviceLogCountryFilter = ref("");
+const serviceLogCustomerFilter = ref("");
+const serviceLogDateFilter = ref("");
+const serviceLogProjectFilter = ref("");
+const serviceLogModelFilter = ref("");
+const serviceLogStatusFilter = ref("");
+const serviceLogCreatedByFilter = ref("");
+const tickets = ref([]);
+const users = ref([]);
+const loginOpen = ref(false);
+const loginDraft = reactive({ username: "", password: "" });
+const serviceLogFormOpen = ref(false);
+const serviceLogEditingId = ref(null);
+const serviceLogDraft = reactive({
+  event_date: new Date().toISOString().slice(0, 10),
+  country: "",
+  customer: "",
+  customer_company: "",
+  project_name: "",
+  product_model: "418",
+  support_type: "远程 (Remote)",
+  issue_category: "软件 (Software)",
+  fault_component: "",
+  faulty_component: "",
+  serial_number: "",
+  status: "处理中 (Pending)",
+  pending_reason: "",
+  created_by: "",
+  attachments: [],
+});
+const accountFormOpen = ref(false);
+const accountEditingId = ref(null);
+const accountDraft = reactive({
+  username: "",
+  password: "",
+  customer_company: "",
+});
+const partnerOptions = computed(() => [
+  ...new Set(
+    [
+      ...ciDeliveries.value.map(
+        (item) => item.customer_company || item.dealer_name,
+      ),
+      ...users.value.map((item) => item.customer_company || item.customer_name),
+      ...gridProjects.value.map(
+        (item) => item.customer_company || item.partner_name,
+      ),
+    ].filter(Boolean),
+  ),
+]);
+const customerOptions = computed(() =>
+  [...new Set(users.value.map((item) => item.customer_company || item.customer_name).filter(Boolean))].sort(),
+);
+const serviceLogProjectOptions = computed(() => {
+  const company = serviceLogDraft.customer_company.trim().toLowerCase();
+  const options = [
+    ...gridProjects.value,
+    ...ciDeliveries.value.map((item) => ({
+      project_name: item.dealer_name,
+      customer_company: item.customer_company || item.dealer_name,
+      country: item.region,
+    })),
+  ];
+  if (!company) return options;
+  return options.filter(
+    (project) =>
+      (project.customer_company || project.partner_name || "")
+        .trim()
+        .toLowerCase() === company,
+  );
+});
+const timelineOpen = ref(false);
+const selectedProject = ref(null);
+const milestones = ref([]);
+const milestoneEditor = ref(null);
+const milestoneDraft = reactive({
+  planned_date: "",
+  actual_date: "",
+  status: "待开始",
+  notes: "",
+});
+const ticketFormOpen = ref(false);
+const ticketDraft = reactive({
+  project_name: "",
+  product_model: "418",
+  serial_number: "",
+  ticket_type: "故障报修/Bug (Issue Report)",
+  suspected_scope: "软件",
+  suspected_component: "",
+  description: "",
+  expected_date: "",
+  contact: "",
+  attachments: [],
+});
+ticketDraft.attachments = [];
+const ticketUpdate = reactive({
+  id: "",
+  status: "处理中 (In Progress)",
+  staff_reply: "",
+  resolved_at: "",
+});
+const ticketFilters = reactive({
+  customer_company: "",
+  project_name: "",
+  serial_number: "",
+  status: "",
+  product_model: '',
+  ticket_type: '',
+  faulty_component: '',
+});
+const faultyComponentOptions = ["PACK", "Chiller", "PCS", "eLink", "Cabinet", "Software", "Transformer", "Other"];
+const filteredServiceLogs = computed(() => serviceLogs.value.filter((item) => (!serviceLogComponentFilter.value || (item.fault_component || item.faulty_component) === serviceLogComponentFilter.value) && (!serviceLogSupportFilter.value || item.support_type === serviceLogSupportFilter.value)));
+const serviceLogCountries = computed(() => [...new Set(serviceLogs.value.map((item) => item.country).filter(Boolean))].sort());
+const computedFilteredAfterSalesLogs = computed(() => filteredServiceLogs.value.filter((item) => (!serviceLogDateFilter.value || item.event_date === serviceLogDateFilter.value) && (!serviceLogCountryFilter.value || item.country === serviceLogCountryFilter.value) && (!serviceLogCustomerFilter.value || (item.customer_company || item.customer) === serviceLogCustomerFilter.value) && (!serviceLogProjectFilter.value || (item.project_name || '').toLowerCase().includes(serviceLogProjectFilter.value.toLowerCase())) && (!serviceLogModelFilter.value || item.product_model === serviceLogModelFilter.value) && (!serviceLogStatusFilter.value || item.status === serviceLogStatusFilter.value) && (!serviceLogCreatedByFilter.value || (item.created_by || '').toLowerCase().includes(serviceLogCreatedByFilter.value.toLowerCase()))));
+const filteredTickets = computed(() => tickets.value.filter((ticket) => {
+  const company = ticket.customer_company || ticket.partner_name || ticket.customer_name || ''
+  return (!ticketFilters.customer_company || company.toLowerCase().includes(ticketFilters.customer_company.toLowerCase()))
+    && (!ticketFilters.project_name || (ticket.project_name || '').toLowerCase().includes(ticketFilters.project_name.toLowerCase()))
+    && (!ticketFilters.serial_number || (ticket.serial_number || '').toLowerCase().includes(ticketFilters.serial_number.toLowerCase()))
+    && (!ticketFilters.product_model || ticket.product_model === ticketFilters.product_model)
+    && (!ticketFilters.ticket_type || ticket.ticket_type === ticketFilters.ticket_type)
+    && (!ticketFilters.status || ticket.status === ticketFilters.status)
+    && (!ticketFilters.faulty_component || ticket.suspected_component === ticketFilters.faulty_component)
+}))
+let gridDashboardTimerId = null;
 
-const crudModal = reactive({ open: false, kind: '', mode: 'create', originalKey: '' })
-const crudDraft = reactive(createEmptyCrudDraft())
-const deleteDialog = reactive({ open: false, kind: '', key: '', title: '', message: '' })
+const crudModal = reactive({
+  open: false,
+  kind: "",
+  mode: "create",
+  originalKey: "",
+});
+const crudDraft = reactive(createEmptyCrudDraft());
+const deleteDialog = reactive({
+  open: false,
+  kind: "",
+  key: "",
+  title: "",
+  message: "",
+});
 
-const selectedWarehouseLabel = computed(() => warehouseOptions.find((item) => item.key === selectedWarehouse.value)?.label ?? selectedWarehouse.value)
+watch(
+  () => ticketUpdate.status,
+  (status) => {
+    if (
+      ["已回复/已解决 (Resolved)", "已关闭 (Closed)"].includes(status) &&
+      !ticketUpdate.resolved_at
+    ) {
+      const now = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      ticketUpdate.resolved_at = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+    if (!["已回复/已解决 (Resolved)", "已关闭 (Closed)"].includes(status))
+      ticketUpdate.resolved_at = "";
+  },
+);
+
+const selectedWarehouseLabel = computed(
+  () =>
+    warehouseOptions.find((item) => item.key === selectedWarehouse.value)
+      ?.label ?? selectedWarehouse.value,
+);
 const warehouseProductOptions = computed(() => {
-  const inventory = warehouseSummary.value.inventory ?? []
-  return [...new Set(inventory.map((item) => item.product_model))]
-})
+  const inventory = warehouseSummary.value.inventory ?? [];
+  return [...new Set(inventory.map((item) => item.product_model))];
+});
 const warehouseTopCards = computed(() => {
-  const inventory = warehouseSummary.value.inventory ?? []
-  const lookup = (productModel) => inventory.find((item) => item.product_model === productModel)?.quantity ?? 0
+  const inventory = warehouseSummary.value.inventory ?? [];
+  const lookup = (productModel) =>
+    inventory.find((item) => item.product_model === productModel)?.quantity ??
+    0;
   return [
-    { key: '100C', label: '100C 储能柜', quantity: lookup('100C'), note: '柜体库存' },
-    { key: '250', label: '250 储能柜', quantity: lookup('250'), note: '柜体库存' },
-    { key: 'PCS', label: 'PCS 主机', quantity: lookup('PCS'), note: '核心配件' },
-    { key: 'BMS', label: 'BMS 主控板', quantity: lookup('BMS'), note: '核心配件' },
-    { key: 'CableKit', label: '线缆包', quantity: lookup('CableKit'), note: '核心配件' },
-  ]
-})
-const isInternalMode = computed(() => portalState.staffMode)
-const staffMode = isInternalMode
-const locale = computed(() => portalState.locale)
-const isEnglish = computed(() => locale.value === 'en-US')
-const isLightMode = computed(() => themeMode.value === 'light')
+    {
+      key: "100C",
+      label: "100C 储能柜",
+      quantity: lookup("100C"),
+      note: "柜体库存",
+    },
+    {
+      key: "250",
+      label: "250 储能柜",
+      quantity: lookup("250"),
+      note: "柜体库存",
+    },
+    {
+      key: "PCS",
+      label: "PCS 主机",
+      quantity: lookup("PCS"),
+      note: "核心配件",
+    },
+    {
+      key: "BMS",
+      label: "BMS 主控板",
+      quantity: lookup("BMS"),
+      note: "核心配件",
+    },
+    {
+      key: "CableKit",
+      label: "线缆包",
+      quantity: lookup("CableKit"),
+      note: "核心配件",
+    },
+  ];
+});
+const isInternalMode = computed(
+  () =>
+    portalState.staffMode ||
+    ["admin", "staff"].includes(loggedUser.value?.role),
+);
+const loggedUser = computed(() => {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem("portal-user") || "null");
+  } catch {
+    return null;
+  }
+});
+const isAuthenticated = computed(() =>
+  Boolean(
+    loggedUser.value &&
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("token"),
+  ),
+);
+const isCustomer = computed(() => loggedUser.value?.role === "customer");
+
+watch(
+  () => serviceLogDraft.customer_company,
+  (company) => {
+    if (
+      serviceLogDraft.project_name &&
+      !serviceLogProjectOptions.value.some(
+        (project) => project.project_name === serviceLogDraft.project_name,
+      )
+    ) {
+      serviceLogDraft.project_name = "";
+    }
+  },
+);
+
+watch(
+  () => serviceLogDraft.project_name,
+  (projectName) => {
+    const project = serviceLogProjectOptions.value.find(
+      (item) => item.project_name === projectName,
+    );
+    if (project) {
+      serviceLogDraft.customer_company =
+        project.customer_company || project.partner_name || "";
+      serviceLogDraft.country = project.country || serviceLogDraft.country;
+    }
+  },
+);
+const staffMode = isInternalMode;
+const locale = computed(() => portalState.locale);
+const isEnglish = computed(() => locale.value === "en-US");
+const isLightMode = computed(() => themeMode.value === "light");
 const materialsCanManage = computed(() => {
   if (isInternalMode.value) {
-    return true
+    return true;
   }
-  if (typeof window === 'undefined') {
-    return false
+  if (typeof window === "undefined") {
+    return false;
   }
-  return Boolean(window.localStorage.getItem('token'))
-})
+  return Boolean(window.localStorage.getItem("token"));
+});
 const materialsByCategory = computed(() => {
-  const grouped = Object.fromEntries(technicalDocCategories.map((category) => [category, []]))
+  const grouped = Object.fromEntries(
+    technicalDocCategories.map((category) => [category, []]),
+  );
   for (const item of materialsItems.value) {
     if (!grouped[item.category]) {
-      grouped[item.category] = []
+      grouped[item.category] = [];
     }
-    grouped[item.category].push(item)
+    grouped[item.category].push(item);
   }
-  return grouped
-})
+  return grouped;
+});
 
 function t(path) {
-  return path.split('.').reduce((accumulator, key) => accumulator?.[key], messages[locale.value]) ?? path
+  return (
+    path
+      .split(".")
+      .reduce(
+        (accumulator, key) => accumulator?.[key],
+        messages[locale.value],
+      ) ?? path
+  );
 }
 
 function applyTheme(mode) {
-  if (typeof document === 'undefined') {
-    return
+  if (typeof document === "undefined") {
+    return;
   }
-  document.documentElement.setAttribute('data-theme', mode)
-  document.documentElement.classList.toggle('light', mode === 'light')
+  document.documentElement.setAttribute("data-theme", mode);
+  document.documentElement.classList.toggle("light", mode === "light");
 }
 
 function restoreTheme() {
-  if (typeof window === 'undefined') {
-    applyTheme(themeMode.value)
-    return
+  if (typeof window === "undefined") {
+    applyTheme(themeMode.value);
+    return;
   }
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark') {
-    themeMode.value = stored
-  } else if (stored === 'day') {
-    themeMode.value = 'light'
-  } else if (stored === 'night') {
-    themeMode.value = 'dark'
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") {
+    themeMode.value = stored;
+  } else if (stored === "day") {
+    themeMode.value = "light";
+  } else if (stored === "night") {
+    themeMode.value = "dark";
   }
-  applyTheme(themeMode.value)
+  applyTheme(themeMode.value);
 }
 
 function toggleTheme() {
-  themeMode.value = isLightMode.value ? 'dark' : 'light'
-  applyTheme(themeMode.value)
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode.value)
+  themeMode.value = isLightMode.value ? "dark" : "light";
+  applyTheme(themeMode.value);
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode.value);
   }
 }
 
-const todayTick = ref(Date.now())
+const todayTick = ref(Date.now());
 
 const faultHint = computed(() => {
   if (!faultHasSearched.value) {
-    return isEnglish.value ? 'Showing the full simulated fault library by default.' : '默认展示全部模拟故障库，输入关键字后即可快速筛选。'
+    return isEnglish.value
+      ? "Showing the full simulated fault library by default."
+      : "默认展示全部模拟故障库，输入关键字后即可快速筛选。";
   }
-  return faultKeyword.value.trim() ? `${isEnglish.value ? 'Current keyword' : '当前搜索词'}: ${faultKeyword.value.trim()}` : (isEnglish.value ? 'Showing all results.' : '显示全部结果。')
-})
+  return faultKeyword.value.trim()
+    ? `${isEnglish.value ? "Current keyword" : "当前搜索词"}: ${faultKeyword.value.trim()}`
+    : isEnglish.value
+      ? "Showing all results."
+      : "显示全部结果。";
+});
 
-const faultTotalPages = computed(() => Math.max(1, Math.ceil((faultTotal.value || 0) / (faultPageSize.value || 1))))
+const faultTotalPages = computed(() =>
+  Math.max(1, Math.ceil((faultTotal.value || 0) / (faultPageSize.value || 1))),
+);
 
 const gridSummary = computed(() => {
-  const totalMwh = gridProjects.value.reduce((sum, project) => sum + (Number(project.capacity_mwh) || 0), 0)
-  const totalDayValue = getTodayDayValue()
+  const totalMwh = gridProjects.value.reduce(
+    (sum, project) => sum + (Number(project.capacity_mwh) || 0),
+    0,
+  );
+  const totalDayValue = getTodayDayValue();
   const palette = [
-    'bg-cyan-400/80',
-    'bg-emerald-400/80',
-    'bg-violet-400/80',
-    'bg-amber-400/80',
-    'bg-fuchsia-400/80',
-    'bg-sky-400/80',
-  ]
+    "bg-cyan-400/80",
+    "bg-emerald-400/80",
+    "bg-violet-400/80",
+    "bg-amber-400/80",
+    "bg-fuchsia-400/80",
+    "bg-sky-400/80",
+  ];
 
   const projects = gridProjects.value.map((project, index) => {
-    const capacityMwh = Number(project.capacity_mwh) || 0
-    const ratio = totalMwh > 0 ? (capacityMwh / totalMwh) * 100 : 0
-    const codDiff = getCodDayDiff(project.cod, totalDayValue)
-    const delivered = isGridProjectDelivered(project)
-    const daysLabel = codDiff === null
-      ? t('common.noData')
-      : delivered
-        ? `${t('grid.deliveredDays')}: ${Math.max(-codDiff, 0)} ${isEnglish.value ? 'days' : '天'}`
-        : codDiff >= 0
-          ? `${t('grid.remainingDays')}: ${codDiff} ${isEnglish.value ? 'days' : '天'}`
-          : `${t('grid.overdueDays')}: ${Math.abs(codDiff)} ${isEnglish.value ? 'days' : '天'}`
+    const capacityMwh = Number(project.capacity_mwh) || 0;
+    const ratio = totalMwh > 0 ? (capacityMwh / totalMwh) * 100 : 0;
+    const codDiff = getCodDayDiff(project.cod, totalDayValue);
+    const delivered = isGridProjectDelivered(project);
+    const daysLabel =
+      codDiff === null
+        ? t("common.noData")
+        : delivered
+          ? `${t("grid.deliveredDays")}: ${Math.max(-codDiff, 0)} ${isEnglish.value ? "days" : "天"}`
+          : codDiff >= 0
+            ? `${t("grid.remainingDays")}: ${codDiff} ${isEnglish.value ? "days" : "天"}`
+            : `${t("grid.overdueDays")}: ${Math.abs(codDiff)} ${isEnglish.value ? "days" : "天"}`;
 
     return {
       ...project,
       capacityMwh,
       capacityRatio: ratio,
       ratioLabel: `${ratio.toFixed(1)}%`,
-      deliveryState: delivered ? t('grid.deliveredTag') : t('grid.inProgressTag'),
+      deliveryState: delivered
+        ? t("grid.deliveredTag")
+        : t("grid.inProgressTag"),
       deliveryBadgeClass: delivered
-        ? 'border border-emerald-300/20 bg-emerald-400/15 text-emerald-200'
-        : 'border border-amber-300/20 bg-amber-400/15 text-amber-200',
+        ? "border border-emerald-300/20 bg-emerald-400/15 text-emerald-200"
+        : "border border-amber-300/20 bg-amber-400/15 text-amber-200",
       ratioBarClass: palette[index % palette.length],
       daysLabel,
-    }
-  })
+    };
+  });
 
-  const connectedProjects = projects.filter((project) => isGridProjectConnectedStatus(project.progress_status))
-  const pendingProjects = projects.filter((project) => isGridProjectPendingStatus(project.progress_status))
-  const connectedMwh = connectedProjects.reduce((sum, project) => sum + project.capacityMwh, 0)
-  const pendingMwh = pendingProjects.reduce((sum, project) => sum + project.capacityMwh, 0)
-  const connectedRatio = totalMwh > 0 ? (connectedMwh / totalMwh) * 100 : 0
-  const pendingRatio = totalMwh > 0 ? (pendingMwh / totalMwh) * 100 : 0
+  const connectedProjects = projects.filter((project) =>
+    isGridProjectConnectedStatus(project.progress_status),
+  );
+  const pendingProjects = projects.filter((project) =>
+    isGridProjectPendingStatus(project.progress_status),
+  );
+  const connectedMwh = connectedProjects.reduce(
+    (sum, project) => sum + project.capacityMwh,
+    0,
+  );
+  const pendingMwh = pendingProjects.reduce(
+    (sum, project) => sum + project.capacityMwh,
+    0,
+  );
+  const connectedRatio = totalMwh > 0 ? (connectedMwh / totalMwh) * 100 : 0;
+  const pendingRatio = totalMwh > 0 ? (pendingMwh / totalMwh) * 100 : 0;
 
   return {
     totalMwh,
@@ -961,616 +3020,1013 @@ const gridSummary = computed(() => {
     pendingRatio,
     connectedRatioLabel: `${connectedRatio.toFixed(1)}%`,
     pendingRatioLabel: `${pendingRatio.toFixed(1)}%`,
-  }
-})
+  };
+});
 
-const staffModeBadge = computed(() => (staffMode.value ? t('app.staffBadge') : t('app.customerBadge')))
+const staffModeBadge = computed(() =>
+  staffMode.value ? t("app.staffBadge") : t("app.customerBadge"),
+);
 
-const CI_100C_MWH_PER_UNIT = 0.12
-const CI_250_MWH_PER_UNIT = 0.25
+const CI_100C_MWH_PER_UNIT = 0.12;
+const CI_250_MWH_PER_UNIT = 0.25;
 
 const ciCapacityRows = computed(() => {
   const baseRows = ciDeliveries.value.map((item) => {
-    const delivered100c = Number(item.delivered_100c) || 0
-    const delivered250 = Number(item.delivered_250) || 0
+    const delivered100c = Number(item.delivered_100c) || 0;
+    const delivered250 = Number(item.delivered_250) || 0;
     return {
       ...item,
       delivered_100c: delivered100c,
       delivered_250: delivered250,
       mwh100c: delivered100c * CI_100C_MWH_PER_UNIT,
       mwh250: delivered250 * CI_250_MWH_PER_UNIT,
-    }
-  })
+    };
+  });
 
-  const max100cMwh = Math.max(0, ...baseRows.map((item) => item.mwh100c))
-  const max250Mwh = Math.max(0, ...baseRows.map((item) => item.mwh250))
+  const max100cMwh = Math.max(0, ...baseRows.map((item) => item.mwh100c));
+  const max250Mwh = Math.max(0, ...baseRows.map((item) => item.mwh250));
 
   return baseRows.map((item) => ({
     ...item,
     ratio100c: max100cMwh > 0 ? (item.mwh100c / max100cMwh) * 100 : 0,
     ratio250: max250Mwh > 0 ? (item.mwh250 / max250Mwh) * 100 : 0,
-  }))
-})
+  }));
+});
 
 const ciSummary = computed(() => {
-  const total100c = ciCapacityRows.value.reduce((sum, item) => sum + item.delivered_100c, 0)
-  const total250 = ciCapacityRows.value.reduce((sum, item) => sum + item.delivered_250, 0)
+  const total100c = ciCapacityRows.value.reduce(
+    (sum, item) => sum + item.delivered_100c,
+    0,
+  );
+  const total250 = ciCapacityRows.value.reduce(
+    (sum, item) => sum + item.delivered_250,
+    0,
+  );
   return {
     total100c,
     total250,
     total100cMwh: total100c * CI_100C_MWH_PER_UNIT,
     total250Mwh: total250 * CI_250_MWH_PER_UNIT,
-  }
-})
+  };
+});
 
 function makeTextDownload(content, filename) {
-  return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}#${encodeURIComponent(filename)}`
+  return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}#${encodeURIComponent(filename)}`;
 }
 
 function formatMwh(value) {
-  const numericValue = Number(value) || 0
-  return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1)
+  const numericValue = Number(value) || 0;
+  return Number.isInteger(numericValue)
+    ? String(numericValue)
+    : numericValue.toFixed(1);
 }
 
 function formatCiMwh(value) {
-  return (Number(value) || 0).toFixed(2)
+  return (Number(value) || 0).toFixed(2);
 }
 
 function currentTimestampStamp() {
-  return new Date().toISOString().replaceAll('-', '').replaceAll(':', '').replaceAll('T', '').replaceAll('Z', '').replaceAll('.', '').slice(0, 14)
+  return new Date()
+    .toISOString()
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replaceAll("T", "")
+    .replaceAll("Z", "")
+    .replaceAll(".", "")
+    .slice(0, 14);
 }
 
 function prefillWarehouseTxNo() {
-  warehouseForm.tx_no = `WH-${selectedWarehouse.value.toUpperCase()}-${currentTimestampStamp()}`
+  warehouseForm.tx_no = `WH-${selectedWarehouse.value.toUpperCase()}-${currentTimestampStamp()}`;
 }
 
 function statusClass(status) {
   const map = {
-    '清关中': 'bg-amber-400/15 text-amber-200 border border-amber-300/20',
-    '设备上岸': 'bg-sky-400/15 text-sky-200 border border-sky-300/20',
-    '土建施工': 'bg-violet-400/15 text-violet-200 border border-violet-300/20',
-    '调试中': 'bg-cyan-400/15 text-cyan-200 border border-cyan-300/20',
-    '正式并网': 'bg-emerald-400/15 text-emerald-200 border border-emerald-300/20',
-  }
-  return map[status] ?? 'bg-white/10 text-slate-200 border border-white/10'
+    清关中: "bg-amber-400/15 text-amber-200 border border-amber-300/20",
+    设备上岸: "bg-sky-400/15 text-sky-200 border border-sky-300/20",
+    土建施工: "bg-violet-400/15 text-violet-200 border border-violet-300/20",
+    调试中: "bg-cyan-400/15 text-cyan-200 border border-cyan-300/20",
+    正式并网: "bg-emerald-400/15 text-emerald-200 border border-emerald-300/20",
+  };
+  return map[status] ?? "bg-white/10 text-slate-200 border border-white/10";
 }
 
 function getTodayDayValue(epochMs = todayTick.value) {
-  const now = new Date(epochMs)
-  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const now = new Date(epochMs);
+  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 function getCodDayValue(cod) {
-  if (!cod) return null
-  const [year, month, day] = String(cod).split('-').map((part) => Number(part))
-  if (!year || !month || !day) return null
-  return Date.UTC(year, month - 1, day)
+  if (!cod) return null;
+  const [year, month, day] = String(cod)
+    .split("-")
+    .map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return Date.UTC(year, month - 1, day);
 }
 
 function getCodDayDiff(cod, todayDayValue = getTodayDayValue()) {
-  const codDayValue = getCodDayValue(cod)
-  if (codDayValue === null) return null
-  return Math.round((codDayValue - todayDayValue) / 86400000)
+  const codDayValue = getCodDayValue(cod);
+  if (codDayValue === null) return null;
+  return Math.round((codDayValue - todayDayValue) / 86400000);
 }
 
 function normalizeGridProjectStatus(status) {
-  const normalized = String(status ?? '').trim()
-  const lower = normalized.toLowerCase()
-  if (normalized === '已并网' || normalized === '正式并网' || lower === 'connected' || lower === 'grid_connected') {
-    return 'connected'
+  const normalized = String(status ?? "").trim();
+  const lower = normalized.toLowerCase();
+  if (
+    normalized === "已并网" ||
+    normalized === "正式并网" ||
+    lower === "connected" ||
+    lower === "grid_connected"
+  ) {
+    return "connected";
   }
   if (
-    normalized === '待交付'
-    || normalized === '交付中'
-    || normalized === '清关中'
-    || normalized === '设备上岸'
-    || normalized === '土建施工'
-    || normalized === '调试中'
-    || lower === 'pending'
-    || lower === 'pending_delivery'
-    || lower === 'in_progress'
-    || lower === 'in progress'
+    normalized === "待交付" ||
+    normalized === "交付中" ||
+    normalized === "清关中" ||
+    normalized === "设备上岸" ||
+    normalized === "土建施工" ||
+    normalized === "调试中" ||
+    lower === "pending" ||
+    lower === "pending_delivery" ||
+    lower === "in_progress" ||
+    lower === "in progress"
   ) {
-    return 'pending'
+    return "pending";
   }
-  return 'pending'
+  return "pending";
 }
 
 function isGridProjectConnectedStatus(status) {
-  return normalizeGridProjectStatus(status) === 'connected'
+  return normalizeGridProjectStatus(status) === "connected";
 }
 
 function isGridProjectPendingStatus(status) {
-  return normalizeGridProjectStatus(status) === 'pending'
+  return normalizeGridProjectStatus(status) === "pending";
 }
 
 function isGridProjectDelivered(project) {
-  return isGridProjectConnectedStatus(project?.progress_status)
+  return isGridProjectConnectedStatus(project?.progress_status);
 }
 
 function openVideo(url) {
-  window.open(url, '_blank', 'noopener,noreferrer')
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function isVideoFile(item) {
-  const fileType = String(item?.file_type ?? '').toLowerCase()
-  const fileUrl = String(item?.file_url ?? '').toLowerCase()
-  return fileType.startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(fileUrl) || item?.category === '安装视频'
+  const fileType = String(item?.file_type ?? "").toLowerCase();
+  const fileUrl = String(item?.file_url ?? "").toLowerCase();
+  return (
+    fileType.startsWith("video/") ||
+    /\.(mp4|mov|webm|m4v)$/i.test(fileUrl) ||
+    item?.category === "安装视频"
+  );
 }
 
 function previewTechnicalDoc(item) {
-  const previewUrl = technicalDocActionUrl(item, false)
-  if (!previewUrl) return
+  const previewUrl = technicalDocActionUrl(item, false);
+  if (!previewUrl) return;
   if (isVideoFile(item)) {
-    openVideo(previewUrl)
-    return
+    openVideo(previewUrl);
+    return;
   }
-  window.open(previewUrl, '_blank', 'noopener,noreferrer')
+  window.open(previewUrl, "_blank", "noopener,noreferrer");
 }
 
 function technicalDocActionUrl(item, download = false) {
-  const id = item?.id
+  const id = item?.id;
   if (!id) {
-    return item?.file_url || ''
+    return item?.file_url || "";
   }
-  return `/api/technical-docs/${encodeURIComponent(String(id))}/file${download ? '?download=1' : ''}`
+  return `/api/technical-docs/${encodeURIComponent(String(id))}/file${download ? "?download=1" : ""}`;
 }
 
 function changeMaterialsSeries(series) {
   if (materialsProductSeries.value === series) {
-    return
+    return;
   }
-  materialsProductSeries.value = series
-  loadTechnicalDocs()
+  materialsProductSeries.value = series;
+  loadTechnicalDocs();
 }
 
 async function loadTechnicalDocs() {
-  materialsLoading.value = true
-  materialsError.value = ''
+  materialsLoading.value = true;
+  materialsError.value = "";
   try {
-    const payload = await portalApi.listTechnicalDocs({ product: materialsProductSeries.value })
-    materialsItems.value = payload.items ?? []
+    const payload = await portalApi.listTechnicalDocs({
+      product: materialsProductSeries.value,
+    });
+    materialsItems.value = payload.items ?? [];
   } catch (error) {
-    materialsItems.value = []
-    materialsError.value = formatApiError(error, `${t('notices.loadFailed')} / Materials load failed`)
+    materialsItems.value = [];
+    materialsError.value = formatApiError(
+      error,
+      `${t("notices.loadFailed")} / Materials load failed`,
+    );
   } finally {
-    materialsLoading.value = false
+    materialsLoading.value = false;
   }
 }
 
 function openTechnicalDocEditor(record = null) {
   if (!materialsCanManage.value) {
-    setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
-    return
+    setNotice(
+      isEnglish.value
+        ? "No permission to modify materials."
+        : "当前无资料管理权限。",
+      "error",
+    );
+    return;
   }
-  openCrudModal('technical-doc', record ? 'edit' : 'create', record)
+  openCrudModal("technical-doc", record ? "edit" : "create", record);
 }
 
 function openTechnicalDocFilePicker() {
-  technicalDocFileInputRef.value?.click()
+  technicalDocFileInputRef.value?.click();
 }
 
 function handleTechnicalDocFile(event) {
-  const files = [...(event.target.files ?? [])]
-  const file = files[0]
-  if (!file) return
-  crudDraft.technical_doc_file = file
+  const files = [...(event.target.files ?? [])];
+  const file = files[0];
+  if (!file) return;
+  crudDraft.technical_doc_file = file;
   if (!crudDraft.title.trim()) {
-    crudDraft.title = file.name.replace(/\.[^.]+$/, '')
+    crudDraft.title = file.name.replace(/\.[^.]+$/, "");
   }
 }
 
 function handleStaffModeClick() {
   if (isInternalMode.value) {
-    leaveStaffMode(isEnglish.value ? 'Staff mode disabled.' : '已退出内部员工模式')
-    return
+    leaveStaffMode(
+      isEnglish.value ? "Staff mode disabled." : "已退出内部员工模式",
+    );
+    return;
   }
-  requestStaffMode()
+  requestStaffMode();
 }
 
 function ensureInternalMode() {
   if (isInternalMode.value) {
-    return true
+    return true;
   }
-  setNotice(isEnglish.value ? 'Read-only mode: switch to Staff Mode to modify data.' : '当前为只读模式，请切换到内部员工模式后再执行修改。', 'error')
-  return false
+  setNotice(
+    isEnglish.value
+      ? "Read-only mode: switch to Staff Mode to modify data."
+      : "当前为只读模式，请切换到内部员工模式后再执行修改。",
+    "error",
+  );
+  return false;
 }
 
 function confirmPassword() {
-  confirmStaffAuth(t('auth.success'), t('auth.error'))
+  confirmStaffAuth(t("auth.success"), t("auth.error"));
 }
 
-function openCrudModal(kind, mode = 'create', record = null) {
-  if (kind === 'technical-doc') {
+function openCrudModal(kind, mode = "create", record = null) {
+  if (kind === "technical-doc") {
     if (!materialsCanManage.value) {
-      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
-      return
+      setNotice(
+        isEnglish.value
+          ? "No permission to modify materials."
+          : "当前无资料管理权限。",
+        "error",
+      );
+      return;
     }
   } else if (!ensureInternalMode()) {
-    return
+    return;
   }
-  crudModal.kind = kind
-  crudModal.mode = mode
-  crudModal.originalKey = getRecordKey(kind, record) ?? ''
-  crudModal.open = true
-  resetCrudDraft(kind, record)
+  crudModal.kind = kind;
+  crudModal.mode = mode;
+  crudModal.originalKey = getRecordKey(kind, record) ?? "";
+  crudModal.open = true;
+  resetCrudDraft(kind, record);
 }
 
 function closeCrudModal() {
-  crudModal.open = false
-  crudModal.kind = ''
-  crudModal.mode = 'create'
-  crudModal.originalKey = ''
+  crudModal.open = false;
+  crudModal.kind = "";
+  crudModal.mode = "create";
+  crudModal.originalKey = "";
 }
 
 function openDeleteDialog(kind, key, title, message) {
-  if (kind === 'technical-doc') {
+  if (kind === "technical-doc") {
     if (!materialsCanManage.value) {
-      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
-      return
+      setNotice(
+        isEnglish.value
+          ? "No permission to modify materials."
+          : "当前无资料管理权限。",
+        "error",
+      );
+      return;
     }
   } else if (!ensureInternalMode()) {
-    return
+    return;
   }
-  deleteDialog.kind = kind
-  deleteDialog.key = key
-  deleteDialog.title = title
-  deleteDialog.message = message
-  deleteDialog.open = true
+  deleteDialog.kind = kind;
+  deleteDialog.key = key;
+  deleteDialog.title = title;
+  deleteDialog.message = message;
+  deleteDialog.open = true;
 }
 
 function closeDeleteDialog() {
-  deleteDialog.open = false
-  deleteDialog.kind = ''
-  deleteDialog.key = ''
-  deleteDialog.title = ''
-  deleteDialog.message = ''
+  deleteDialog.open = false;
+  deleteDialog.kind = "";
+  deleteDialog.key = "";
+  deleteDialog.title = "";
+  deleteDialog.message = "";
 }
 
 function createEmptyCrudDraft() {
   return {
     id: null,
-    module: '',
-    fault_code: '',
-    fault_name: '',
-    fault_level: '',
-    is_stop: '',
-    recovery: '',
-    detection_condition: '',
-    trigger_logic: '',
-    possible_cause: '',
-    solution: '',
-    project_name: '',
-    cod: '',
+    module: "",
+    fault_code: "",
+    fault_name: "",
+    fault_level: "",
+    is_stop: "",
+    recovery: "",
+    detection_condition: "",
+    trigger_logic: "",
+    possible_cause: "",
+    solution: "",
+    project_name: "",
+    customer_company: "",
+    cod: "",
     capacity_mwh: 0,
-    cell_version: '',
-    pcs_model: '',
+    cell_version: "",
+    pcs_model: "",
     progress_status: projectStatuses[0],
     photo_paths: [],
-    region: '',
-    dealer_name: '',
+    region: "",
+    dealer_name: "",
     delivered_100c: 0,
     delivered_250: 0,
     warehouse_name: selectedWarehouse.value,
-    tx_type: '国内到货入库',
-    product_model: '100C',
+    tx_type: "国内到货入库",
+    product_model: "100C",
     quantity: 1,
-    related_project: '',
-    tx_no: '',
-    item_no: '',
-    description_zh: '',
-    specification: '',
+    related_project: "",
+    tx_no: "",
+    item_no: "",
+    description_zh: "",
+    specification: "",
     total_quantity: 0,
     damaged_quantity: 0,
     available_quantity: 0,
     product_series: materialsProductSeries.value,
     category: technicalDocCategories[0],
-    title: '',
-    file_url: '',
-    file_type: '',
-    file_size: '',
+    title: "",
+    file_url: "",
+    file_type: "",
+    file_size: "",
     technical_doc_file: null,
-    remarks: '',
-  }
+    remarks: "",
+  };
 }
 
 function resetCrudDraft(kind, record) {
-  const nextDraft = createEmptyCrudDraft()
-  if (kind === 'fault' && record) {
-    nextDraft.id = record.id
-    nextDraft.module = record.module
-    nextDraft.fault_code = record.fault_code
-    nextDraft.fault_name = record.fault_name
-    nextDraft.fault_level = record.fault_level
-    nextDraft.is_stop = record.is_stop
-    nextDraft.recovery = record.recovery
-    nextDraft.detection_condition = record.detection_condition
-    nextDraft.trigger_logic = record.trigger_logic
-    nextDraft.possible_cause = record.possible_cause
-    nextDraft.solution = record.solution
+  const nextDraft = createEmptyCrudDraft();
+  if (kind === "fault" && record) {
+    nextDraft.id = record.id;
+    nextDraft.module = record.module;
+    nextDraft.fault_code = record.fault_code;
+    nextDraft.fault_name = record.fault_name;
+    nextDraft.fault_level = record.fault_level;
+    nextDraft.is_stop = record.is_stop;
+    nextDraft.recovery = record.recovery;
+    nextDraft.detection_condition = record.detection_condition;
+    nextDraft.trigger_logic = record.trigger_logic;
+    nextDraft.possible_cause = record.possible_cause;
+    nextDraft.solution = record.solution;
   }
-  if (kind === 'grid' && record) {
-    nextDraft.project_name = record.project_name
-    nextDraft.cod = record.cod
-    nextDraft.capacity_mwh = record.capacity_mwh
-    nextDraft.cell_version = record.cell_version
-    nextDraft.pcs_model = record.pcs_model
-    nextDraft.progress_status = record.progress_status
-    nextDraft.photo_paths = [...(record.photo_paths ?? [])]
+  if (kind === "grid" && record) {
+    nextDraft.project_name = record.project_name;
+    nextDraft.customer_company =
+      record.customer_company || record.partner_name || "";
+    nextDraft.cod = record.cod;
+    nextDraft.capacity_mwh = record.capacity_mwh;
+    nextDraft.cell_version = record.cell_version;
+    nextDraft.pcs_model = record.pcs_model;
+    nextDraft.progress_status = record.progress_status;
+    nextDraft.photo_paths = [...(record.photo_paths ?? [])];
   }
-  if (kind === 'ci' && record) {
-    nextDraft.region = record.region
-    nextDraft.dealer_name = record.dealer_name
-    nextDraft.delivered_100c = record.delivered_100c
-    nextDraft.delivered_250 = record.delivered_250
+  if (kind === "ci" && record) {
+    nextDraft.region = record.region;
+    nextDraft.dealer_name = record.dealer_name;
+    nextDraft.delivered_100c = record.delivered_100c;
+    nextDraft.delivered_250 = record.delivered_250;
   }
-  if (kind === 'inventory' && record) {
-    nextDraft.item_no = record.item_no
-    nextDraft.description_zh = record.description_zh
-    nextDraft.specification = record.specification
-    nextDraft.total_quantity = record.total_quantity
-    nextDraft.damaged_quantity = record.damaged_quantity
-    nextDraft.available_quantity = record.available_quantity
-    nextDraft.photo_paths = [...(record.photo_paths ?? [])]
-    nextDraft.remarks = record.remarks ?? ''
+  if (kind === "inventory" && record) {
+    nextDraft.item_no = record.item_no;
+    nextDraft.description_zh = record.description_zh;
+    nextDraft.specification = record.specification;
+    nextDraft.total_quantity = record.total_quantity;
+    nextDraft.damaged_quantity = record.damaged_quantity;
+    nextDraft.available_quantity = record.available_quantity;
+    nextDraft.photo_paths = [...(record.photo_paths ?? [])];
+    nextDraft.remarks = record.remarks ?? "";
   }
-  if (kind === 'technical-doc' && record) {
-    nextDraft.product_series = record.product_series
-    nextDraft.category = record.category
-    nextDraft.title = record.title
-    nextDraft.file_url = record.file_url
-    nextDraft.file_type = record.file_type
-    nextDraft.file_size = record.file_size
-    nextDraft.technical_doc_file = null
+  if (kind === "technical-doc" && record) {
+    nextDraft.product_series = record.product_series;
+    nextDraft.category = record.category;
+    nextDraft.title = record.title;
+    nextDraft.file_url = record.file_url;
+    nextDraft.file_type = record.file_type;
+    nextDraft.file_size = record.file_size;
+    nextDraft.technical_doc_file = null;
   }
-  Object.assign(crudDraft, nextDraft)
-  if (kind === 'warehouse' && !crudDraft.tx_no) {
-    prefillWarehouseTxNo()
+  Object.assign(crudDraft, nextDraft);
+  if (kind === "warehouse" && !crudDraft.tx_no) {
+    prefillWarehouseTxNo();
   }
-  if (kind === 'inventory') {
-    crudDraft.available_quantity = Number(crudDraft.available_quantity) || Math.max(Number(crudDraft.total_quantity) - Number(crudDraft.damaged_quantity), 0)
+  if (kind === "inventory") {
+    crudDraft.available_quantity =
+      Number(crudDraft.available_quantity) ||
+      Math.max(
+        Number(crudDraft.total_quantity) - Number(crudDraft.damaged_quantity),
+        0,
+      );
   }
 }
 
 function getRecordKey(kind, record) {
-  if (!record) return ''
-  if (kind === 'fault') return String(record.id)
-  if (kind === 'grid') return record.project_name
-  if (kind === 'ci') return record.dealer_name
-  if (kind === 'technical-doc') return String(record.id)
-  if (kind === 'inventory') return record.item_no
-  if (kind === 'warehouse') return record.tx_no
-  return ''
+  if (!record) return "";
+  if (kind === "fault") return String(record.id);
+  if (kind === "grid") return record.project_name;
+  if (kind === "ci") return record.dealer_name;
+  if (kind === "technical-doc") return String(record.id);
+  if (kind === "inventory") return record.item_no;
+  if (kind === "warehouse") return record.tx_no;
+  return "";
 }
 
 function normalizePhotoPaths(text) {
-  return text.split(/[\n,;]/).map((item) => item.trim()).filter(Boolean)
+  return text
+    .split(/[\n,;]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function recomputeAvailableQuantity() {
-  crudDraft.available_quantity = Math.max(Number(crudDraft.total_quantity) - Number(crudDraft.damaged_quantity), 0)
+  crudDraft.available_quantity = Math.max(
+    Number(crudDraft.total_quantity) - Number(crudDraft.damaged_quantity),
+    0,
+  );
 }
 
 function openPhotoPicker() {
-  if (!ensureInternalMode()) return
-  photoInputRef.value?.click()
+  if (!ensureInternalMode()) return;
+  photoInputRef.value?.click();
 }
 
 async function handlePhotoFiles(event) {
-  if (!ensureInternalMode()) return
-  const files = [...(event.target.files ?? [])]
-  if (files.length === 0) return
-  photoUploading.value = true
+  if (!ensureInternalMode()) return;
+  const files = [...(event.target.files ?? [])];
+  if (files.length === 0) return;
+  photoUploading.value = true;
   try {
     for (const file of files) {
-      const result = await portalApi.uploadImage(file)
-      crudDraft.photo_paths.push(result.url)
+      const result = await portalApi.uploadImage(file);
+      crudDraft.photo_paths.push(result.url);
     }
   } finally {
-    photoUploading.value = false
-    event.target.value = ''
+    photoUploading.value = false;
+    event.target.value = "";
   }
 }
 
 function removePhotoPath(index) {
-  crudDraft.photo_paths.splice(index, 1)
+  crudDraft.photo_paths.splice(index, 1);
 }
 
 function openImagePreview(url) {
-  imagePreviewUrl.value = resolvePhotoUrl(url)
+  imagePreviewUrl.value = resolvePhotoUrl(url);
 }
 
 function resolvePhotoUrl(photo) {
-  if (!photo) return ''
-  if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
-    return photo
+  if (!photo) return "";
+  if (
+    photo.startsWith("http://") ||
+    photo.startsWith("https://") ||
+    photo.startsWith("data:")
+  ) {
+    return photo;
   }
-  if (photo.startsWith('/static_uploads/')) {
-    return photo
+  if (photo.startsWith("/static_uploads/")) {
+    return photo;
   }
-  return `/static_uploads/${photo.replace(/^\/+/, '')}`
+  return `/static_uploads/${photo.replace(/^\/+/, "")}`;
 }
 
 function closeImagePreview() {
-  imagePreviewUrl.value = ''
+  imagePreviewUrl.value = "";
 }
 
 function formatApiError(error, fallback) {
-  return `${fallback}: ${error instanceof Error ? error.message : 'Unknown error'}`
+  return `${fallback}: ${error instanceof Error ? error.message : "Unknown error"}`;
+}
+
+function milestoneIsOverdue(item) {
+  return (
+    item?.status !== "已完成" &&
+    item?.planned_date &&
+    new Date(`${item.planned_date}T23:59:59`) < new Date()
+  );
+}
+
+async function openMilestoneTimeline(project) {
+  selectedProject.value = project;
+  timelineOpen.value = true;
+  milestoneEditor.value = null;
+  try {
+    const payload = await portalApi.listMilestones(project.project_name);
+    milestones.value = payload.items ?? [];
+  } catch (error) {
+    milestones.value = [];
+    setNotice(formatApiError(error, "请先登录后查看项目里程碑。"), "error");
+  }
+}
+
+function editMilestone(item) {
+  milestoneEditor.value = item.key;
+  Object.assign(milestoneDraft, {
+    planned_date: item.planned_date || "",
+    actual_date: item.actual_date || "",
+    status: item.status,
+    notes: item.notes || "",
+  });
+}
+
+async function saveMilestone() {
+  if (!selectedProject.value || !milestoneEditor.value) return;
+  await portalApi.updateMilestone(
+    selectedProject.value.project_name,
+    milestoneEditor.value,
+    { ...milestoneDraft },
+  );
+  const payload = await portalApi.listMilestones(
+    selectedProject.value.project_name,
+  );
+  milestones.value = payload.items ?? [];
+  milestoneEditor.value = null;
+  setNotice(t("notices.gridSaved"), "success");
+}
+
+async function loadPortalExtras() {
+  if (!isAuthenticated.value) return;
+  try {
+    const [logsPayload, ticketPayload] = await Promise.all([
+      portalApi.listAfterSalesLogs(),
+      portalApi.listTickets(isInternalMode.value ? ticketFilters : {}),
+    ]);
+    serviceLogs.value = logsPayload.items ?? [];
+    tickets.value = ticketPayload.items ?? [];
+    if (isInternalMode.value) {
+      const userPayload = await portalApi.listUsers();
+      users.value = userPayload.items ?? [];
+    }
+  } catch (error) {
+    setNotice(formatApiError(error, "客户数据加载失败"), "error");
+  }
+}
+
+async function createCustomerAccount() {
+  if (
+    !accountDraft.username ||
+    (!accountEditingId.value && !accountDraft.password) ||
+    !accountDraft.customer_company
+  ) {
+    setNotice(t("portal.customer"), "error");
+    return;
+  }
+  const editing = Boolean(accountEditingId.value);
+  if (editing) {
+    await portalApi.updateUser(accountEditingId.value, {
+      password: accountDraft.password || null,
+      customer_company: accountDraft.customer_company,
+    });
+  } else {
+    await portalApi.createUser({ ...accountDraft });
+  }
+  accountDraft.username = "";
+  accountDraft.password = "";
+  accountDraft.customer_company = "";
+  accountFormOpen.value = false;
+  accountEditingId.value = null;
+  await loadPortalExtras();
+  setNotice(
+    t(editing ? "notices.accountUpdated" : "notices.accountCreated"),
+    "success",
+  );
+}
+
+function editCustomerAccount(user) {
+  accountEditingId.value = user.id;
+  accountDraft.username = user.username;
+  accountDraft.password = "";
+  accountDraft.customer_company =
+    user.customer_company || user.customer_name || "";
+  accountFormOpen.value = true;
+}
+
+async function removeCustomerAccount(id) {
+  await portalApi.deleteUser(id);
+  await loadPortalExtras();
+  setNotice(t("notices.accountDeleted"), "success");
+}
+
+function formatTicketDate(value) {
+  return value ? new Date(value).toLocaleString() : "-";
+}
+
+function clearTicketFilters() {
+  Object.assign(ticketFilters, {
+    customer_company: "",
+    project_name: "",
+    serial_number: "",
+    status: "",
+    product_model: "",
+    ticket_type: "",
+    fault_component: "",
+    faulty_component: "",
+  });
+}
+
+function clearAfterSalesFilters() {
+  serviceLogCountryFilter.value = "";
+  serviceLogCustomerFilter.value = "";
+  serviceLogSupportFilter.value = "";
+  serviceLogComponentFilter.value = "";
+  serviceLogDateFilter.value = "";
+  serviceLogProjectFilter.value = "";
+  serviceLogModelFilter.value = "";
+  serviceLogStatusFilter.value = "";
+  serviceLogCreatedByFilter.value = "";
+}
+
+async function submitTicket() {
+  if (
+    !ticketDraft.project_name ||
+    !ticketDraft.description ||
+    !ticketDraft.contact
+  ) {
+    setNotice(t("notices.requiredTicket"), "error");
+    return;
+  }
+  if (ticketDraft.product_model === "418" && !ticketDraft.project_name) {
+    setNotice(t("notices.requiredProject418"), "error");
+    return;
+  }
+  if (!ticketDraft.serial_number.trim()) {
+    setNotice(t("notices.requiredSerialNumber"), "error");
+    return;
+  }
+  await portalApi.createTicket({
+    ...ticketDraft,
+    suspected_scope: ticketDraft.suspected_scope,
+  });
+  ticketFormOpen.value = false;
+  Object.assign(ticketDraft, {
+    project_name: "",
+    serial_number: "",
+    suspected_component: "",
+    description: "",
+    expected_date: "",
+    contact: "",
+    attachments: [],
+  });
+  await loadPortalExtras();
+  setNotice(t("notices.ticketSubmitted"), "success");
+}
+
+async function updateTicketStatus() {
+  if (!ticketUpdate.id) return;
+  const resolvedAt =
+    ticketUpdate.resolved_at ||
+    (["已回复/已解决 (Resolved)", "已关闭 (Closed)"].includes(
+      ticketUpdate.status,
+    )
+      ? new Date().toISOString()
+      : null);
+  await portalApi.updateTicket(ticketUpdate.id, {
+    status: ticketUpdate.status,
+    staff_reply: ticketUpdate.staff_reply,
+    resolved_at: resolvedAt,
+  });
+  await loadPortalExtras();
+  setNotice(t("notices.ticketUpdated"), "success");
+}
+
+async function submitLogin() {
+  try {
+    const result = await portalApi.login(
+      loginDraft.username,
+      loginDraft.password,
+    );
+    window.localStorage.setItem("token", result.token);
+    window.localStorage.setItem("portal-user", JSON.stringify(result.user));
+    loginOpen.value = false;
+    loginDraft.password = "";
+    window.location.reload();
+  } catch (error) {
+    setNotice(formatApiError(error, t("notices.loginFailed")), "error");
+  }
+}
+
+function logout() {
+  window.localStorage.removeItem("token");
+  window.localStorage.removeItem("portal-user");
+  window.location.reload();
+}
+
+async function submitServiceLog() {
+  serviceLogDraft.customer = serviceLogDraft.customer_company;
+  serviceLogDraft.faulty_component = serviceLogDraft.fault_component;
+  if (
+    !serviceLogDraft.project_name ||
+    !serviceLogDraft.fault_component ||
+    !serviceLogDraft.created_by
+  ) {
+    setNotice(t("notices.requiredLog"), "error");
+    return;
+  }
+  try {
+    if (serviceLogEditingId.value) {
+      await portalApi.updateAfterSalesLog(serviceLogEditingId.value, {
+        ...serviceLogDraft,
+      });
+    } else {
+      await portalApi.createAfterSalesLog({ ...serviceLogDraft });
+    }
+    serviceLogFormOpen.value = false;
+    serviceLogEditingId.value = null;
+    await loadPortalExtras();
+    setNotice(t("notices.logSaved"), "success");
+  } catch (error) {
+    setNotice(formatApiError(error, t("notices.logSaveFailed")), "error");
+  }
+}
+
+function editServiceLog(item) {
+  serviceLogEditingId.value = item.id;
+  Object.assign(serviceLogDraft, {
+    event_date: item.event_date || "",
+    country: item.country || "",
+    customer: item.customer || "",
+    customer_company: item.customer_company || item.customer || "",
+    project_name: item.project_name || "",
+    product_model: item.product_model || "418",
+    support_type: item.support_type || "远程 (Remote)",
+    issue_category: item.issue_category || "软件 (Software)",
+    fault_component: item.fault_component || item.faulty_component || "",
+    faulty_component: item.fault_component || item.faulty_component || "",
+    serial_number: item.serial_number || "",
+    status: item.status || "处理中 (Pending)",
+    pending_reason: item.pending_reason || "",
+    created_by: item.created_by || "",
+    attachments: [...(item.attachments || [])],
+  });
+  serviceLogFormOpen.value = true;
+}
+
+async function handlePortalAttachments(event, target) {
+  for (const file of [...(event.target.files || [])]) {
+    const result = await portalApi.uploadImage(file);
+    if (target === "ticket") ticketDraft.attachments.push(result.url);
+    if (target === "log") serviceLogDraft.attachments.push(result.url);
+  }
+  event.target.value = "";
+}
+
+async function downloadServiceLogs() {
+  const response = await fetch(portalApi.exportAfterSalesLogs(), {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  });
+  if (!response.ok) {
+    setNotice(t("notices.exportFailed"), "error");
+    return;
+  }
+  const blob = await response.blob();
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "after-sales-logs.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 async function handleFaultSearch() {
-  faultPage.value = 1
-  await loadAfterSalesFaultCodes()
+  faultPage.value = 1;
+  await loadAfterSalesFaultCodes();
 }
 
 async function loadAfterSalesFaultCodes() {
-  faultLoading.value = true
-  faultError.value = ''
-  faultHasSearched.value = true
+  faultLoading.value = true;
+  faultError.value = "";
+  faultHasSearched.value = true;
   try {
     const payload = await portalApi.listAfterSalesFaultCodes({
       page: faultPage.value,
       pageSize: faultPageSize.value,
       module: faultModule.value,
       keyword: faultKeyword.value.trim(),
-    })
-    faultResults.value = payload.items ?? []
-    faultTotal.value = Number(payload.total) || faultResults.value.length
-    const moduleSet = new Set(faultModules.value)
+    });
+    faultResults.value = payload.items ?? [];
+    faultTotal.value = Number(payload.total) || faultResults.value.length;
+    const moduleSet = new Set(faultModules.value);
     for (const item of faultResults.value) {
       if (item?.module) {
-        moduleSet.add(item.module)
+        moduleSet.add(item.module);
       }
     }
-    faultModules.value = [...moduleSet]
+    faultModules.value = [...moduleSet];
   } catch (error) {
-    faultError.value = formatApiError(error, `${t('notices.loadFailed')} / API request failed`)
-    faultResults.value = []
-    faultTotal.value = 0
+    faultError.value = formatApiError(
+      error,
+      `${t("notices.loadFailed")} / API request failed`,
+    );
+    faultResults.value = [];
+    faultTotal.value = 0;
   } finally {
-    faultLoading.value = false
+    faultLoading.value = false;
   }
 }
 
 async function handleFaultFilterChange() {
-  faultPage.value = 1
-  await loadAfterSalesFaultCodes()
+  faultPage.value = 1;
+  await loadAfterSalesFaultCodes();
 }
 
 async function handleFaultPageSizeChange() {
-  faultPage.value = 1
-  await loadAfterSalesFaultCodes()
+  faultPage.value = 1;
+  await loadAfterSalesFaultCodes();
 }
 
 async function goFaultPage(nextPage) {
-  const page = Number(nextPage) || 1
+  const page = Number(nextPage) || 1;
   if (page < 1 || page > faultTotalPages.value || page === faultPage.value) {
-    return
+    return;
   }
-  faultPage.value = page
-  await loadAfterSalesFaultCodes()
+  faultPage.value = page;
+  await loadAfterSalesFaultCodes();
 }
 
 async function loadLedgerData() {
-  ledgerLoading.value = true
+  ledgerLoading.value = true;
   try {
-    const [gridPayload, ciPayload] = await Promise.all([portalApi.listGridProjects(), portalApi.listCiDeliveries()])
-    gridProjects.value = gridPayload.items ?? []
-    ciDeliveries.value = ciPayload.items ?? []
+    const [gridPayload, ciPayload] = await Promise.all([
+      isCustomer.value
+        ? portalApi.listPortalProjects()
+        : portalApi.listGridProjects(),
+      isCustomer.value
+        ? portalApi.listPortalCiDeliveries()
+        : portalApi.listCiDeliveries(),
+    ]);
+    gridProjects.value = gridPayload.items ?? [];
+    ciDeliveries.value = ciPayload.items ?? [];
     for (const project of gridProjects.value) {
-      projectDraftStatus[project.project_name] = project.progress_status
+      projectDraftStatus[project.project_name] = project.progress_status;
     }
   } catch (error) {
-    setNotice(formatApiError(error, `${t('notices.loadFailed')} / Ledger load failed`), 'error')
+    setNotice(
+      formatApiError(error, `${t("notices.loadFailed")} / Ledger load failed`),
+      "error",
+    );
   } finally {
-    ledgerLoading.value = false
+    ledgerLoading.value = false;
   }
 }
 
 async function loadWarehouseData() {
-  warehouseLoading.value = true
-  warehouseError.value = ''
+  warehouseLoading.value = true;
+  warehouseError.value = "";
   try {
-    const payload = await portalApi.getWarehouseSummary(selectedWarehouse.value)
-    warehouseSummary.value = payload
+    const payload = await portalApi.getWarehouseSummary(
+      selectedWarehouse.value,
+    );
+    warehouseSummary.value = payload;
     if (!warehouseForm.tx_no) {
-      prefillWarehouseTxNo()
+      prefillWarehouseTxNo();
     }
     if (!warehouseProductOptions.value.includes(warehouseForm.product_model)) {
-      warehouseForm.product_model = warehouseProductOptions.value[0] ?? '100C'
+      warehouseForm.product_model = warehouseProductOptions.value[0] ?? "100C";
     }
   } catch (error) {
-    warehouseError.value = formatApiError(error, `${t('notices.loadFailed')} / Warehouse load failed`)
+    warehouseError.value = formatApiError(
+      error,
+      `${t("notices.loadFailed")} / Warehouse load failed`,
+    );
   } finally {
-    warehouseLoading.value = false
+    warehouseLoading.value = false;
   }
 }
 
 async function loadWarehouseInventory() {
-  inventoryLoading.value = true
-  inventoryError.value = ''
+  inventoryLoading.value = true;
+  inventoryError.value = "";
   try {
-    const payload = await portalApi.listWarehouseInventory()
-    inventoryItems.value = payload.items ?? []
+    const payload = await portalApi.listWarehouseInventory();
+    inventoryItems.value = payload.items ?? [];
   } catch (error) {
-    inventoryError.value = formatApiError(error, `${t('notices.loadFailed')} / Inventory load failed`)
+    inventoryError.value = formatApiError(
+      error,
+      `${t("notices.loadFailed")} / Inventory load failed`,
+    );
   } finally {
-    inventoryLoading.value = false
+    inventoryLoading.value = false;
   }
 }
 
 async function saveProjectStatus(projectName) {
-  if (!ensureInternalMode()) return
-  const nextStatus = projectDraftStatus[projectName]
-  if (!nextStatus) return
-  await portalApi.updateGridProjectStatus(projectName, nextStatus)
-  await loadLedgerData()
-  setNotice(t('notices.gridSaved'), 'success')
+  if (!ensureInternalMode()) return;
+  const nextStatus = projectDraftStatus[projectName];
+  if (!nextStatus) return;
+  await portalApi.updateGridProjectStatus(projectName, nextStatus);
+  await loadLedgerData();
+  setNotice(t("notices.gridSaved"), "success");
 }
 
 function openProjectEditor(record = null) {
-  openCrudModal('grid', record ? 'edit' : 'create', record)
+  openCrudModal("grid", record ? "edit" : "create", record);
 }
 
 function openCiEditor(record = null) {
-  openCrudModal('ci', record ? 'edit' : 'create', record)
+  openCrudModal("ci", record ? "edit" : "create", record);
 }
 
 function openFaultEditor(record = null) {
-  openCrudModal('fault', record ? 'edit' : 'create', record)
+  openCrudModal("fault", record ? "edit" : "create", record);
 }
 
 function openWarehouseEditor(record = null) {
-  openCrudModal('warehouse', record ? 'edit' : 'create', record)
+  openCrudModal("warehouse", record ? "edit" : "create", record);
 }
 
 function openInventoryEditor(record = null) {
-  openCrudModal('inventory', record ? 'edit' : 'create', record)
+  openCrudModal("inventory", record ? "edit" : "create", record);
 }
 
 async function submitCrud() {
-  if (!crudModal.kind) return
-  if (crudModal.kind === 'technical-doc') {
+  if (!crudModal.kind) return;
+  if (crudModal.kind === "technical-doc") {
     if (!materialsCanManage.value) {
-      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
-      return
+      setNotice(
+        isEnglish.value
+          ? "No permission to modify materials."
+          : "当前无资料管理权限。",
+        "error",
+      );
+      return;
     }
   } else if (!ensureInternalMode()) {
-    return
+    return;
   }
-  if (crudModal.kind === 'technical-doc') {
+  if (crudModal.kind === "technical-doc") {
     const payload = {
       product_series: crudDraft.product_series,
       category: crudDraft.category,
       title: crudDraft.title.trim(),
-    }
+    };
 
     if (!payload.title) {
-      setNotice(isEnglish.value ? 'Title is required.' : '标题不能为空。', 'error')
-      return
+      setNotice(
+        isEnglish.value ? "Title is required." : "标题不能为空。",
+        "error",
+      );
+      return;
     }
 
-    if (crudModal.mode === 'create') {
+    if (crudModal.mode === "create") {
       if (!crudDraft.technical_doc_file) {
-        setNotice(isEnglish.value ? 'Please choose a file first.' : '请先选择上传文件。', 'error')
-        return
+        setNotice(
+          isEnglish.value
+            ? "Please choose a file first."
+            : "请先选择上传文件。",
+          "error",
+        );
+        return;
       }
-      const formData = new FormData()
-      formData.append('product_series', payload.product_series)
-      formData.append('category', payload.category)
-      formData.append('title', payload.title)
-      formData.append('file', crudDraft.technical_doc_file)
-      await portalApi.uploadTechnicalDoc(formData)
+      const formData = new FormData();
+      formData.append("product_series", payload.product_series);
+      formData.append("category", payload.category);
+      formData.append("title", payload.title);
+      formData.append("file", crudDraft.technical_doc_file);
+      await portalApi.uploadTechnicalDoc(formData);
     } else {
-      await portalApi.updateTechnicalDoc(crudModal.originalKey, payload)
+      await portalApi.updateTechnicalDoc(crudModal.originalKey, payload);
     }
 
-    await loadTechnicalDocs()
-    setNotice(t('materials.savedNotice'), 'success')
+    await loadTechnicalDocs();
+    setNotice(t("materials.savedNotice"), "success");
   }
 
-  if (crudModal.kind === 'fault') {
+  if (crudModal.kind === "fault") {
     const payload = {
       module: crudDraft.module.trim(),
       fault_code: crudDraft.fault_code.trim(),
@@ -1582,23 +4038,28 @@ async function submitCrud() {
       trigger_logic: crudDraft.trigger_logic.trim(),
       possible_cause: crudDraft.possible_cause.trim(),
       solution: crudDraft.solution.trim(),
-    }
+    };
 
     if (!payload.module || !payload.fault_code) {
-      setNotice(isEnglish.value ? 'Module and fault code are required.' : '模块和故障码不能为空。', 'error')
-      return
+      setNotice(
+        isEnglish.value
+          ? "Module and fault code are required."
+          : "模块和故障码不能为空。",
+        "error",
+      );
+      return;
     }
 
-    if (crudModal.mode === 'create') {
-      await portalApi.createAfterSalesFaultCode(payload)
+    if (crudModal.mode === "create") {
+      await portalApi.createAfterSalesFaultCode(payload);
     } else {
-      await portalApi.updateAfterSalesFaultCode(crudModal.originalKey, payload)
+      await portalApi.updateAfterSalesFaultCode(crudModal.originalKey, payload);
     }
-    await handleFaultSearch()
-    setNotice(t('notices.faultCreated'), 'success')
+    await handleFaultSearch();
+    setNotice(t("notices.faultCreated"), "success");
   }
 
-  if (crudModal.kind === 'grid') {
+  if (crudModal.kind === "grid") {
     const payload = {
       project_name: crudDraft.project_name.trim(),
       cod: crudDraft.cod.trim(),
@@ -1607,121 +4068,145 @@ async function submitCrud() {
       pcs_model: crudDraft.pcs_model.trim(),
       progress_status: crudDraft.progress_status,
       photo_paths: [...crudDraft.photo_paths],
-    }
-    if (crudModal.mode === 'create') {
-      await portalApi.createGridProject(payload)
+      customer_company: crudDraft.customer_company.trim(),
+      partner_name: crudDraft.customer_company.trim(),
+    };
+    if (crudModal.mode === "create") {
+      await portalApi.createGridProject(payload);
     } else {
-      await portalApi.updateGridProject(crudModal.originalKey, payload)
+      await portalApi.updateGridProject(crudModal.originalKey, payload);
     }
-    await loadLedgerData()
-    setNotice(t('notices.gridSaved'), 'success')
+    await loadLedgerData();
+    setNotice(t("notices.gridSaved"), "success");
   }
 
-  if (crudModal.kind === 'ci') {
+  if (crudModal.kind === "ci") {
     const payload = {
       dealer_name: crudDraft.dealer_name.trim(),
       region: crudDraft.region.trim(),
       delivered_100c: Number(crudDraft.delivered_100c) || 0,
       delivered_250: Number(crudDraft.delivered_250) || 0,
-    }
-    if (crudModal.mode === 'create') {
-      await portalApi.createCiDelivery(payload)
+    };
+    if (crudModal.mode === "create") {
+      await portalApi.createCiDelivery(payload);
     } else {
-      await portalApi.updateCiDelivery(crudModal.originalKey, payload)
+      await portalApi.updateCiDelivery(crudModal.originalKey, payload);
     }
-    await loadLedgerData()
-    setNotice(t('notices.ciSaved'), 'success')
+    await loadLedgerData();
+    setNotice(t("notices.ciSaved"), "success");
   }
 
-  if (crudModal.kind === 'warehouse') {
+  if (crudModal.kind === "warehouse") {
     const payload = {
       warehouse_name: crudDraft.warehouse_name,
       tx_type: crudDraft.tx_type,
       product_model: crudDraft.product_model,
       quantity: Number(crudDraft.quantity) || 0,
       related_project: crudDraft.related_project.trim(),
-      tx_no: crudDraft.tx_no.trim() || `WH-${crudDraft.warehouse_name.toUpperCase()}-${currentTimestampStamp()}`,
-    }
-    if (crudModal.mode === 'create') {
-      await portalApi.createWarehouseTransaction(payload)
+      tx_no:
+        crudDraft.tx_no.trim() ||
+        `WH-${crudDraft.warehouse_name.toUpperCase()}-${currentTimestampStamp()}`,
+    };
+    if (crudModal.mode === "create") {
+      await portalApi.createWarehouseTransaction(payload);
     } else {
-      await portalApi.updateWarehouseTransaction(crudModal.originalKey, payload)
+      await portalApi.updateWarehouseTransaction(
+        crudModal.originalKey,
+        payload,
+      );
     }
-    selectedWarehouse.value = payload.warehouse_name
-    await loadWarehouseData()
-    setNotice(t('notices.txSaved'), 'success')
+    selectedWarehouse.value = payload.warehouse_name;
+    await loadWarehouseData();
+    setNotice(t("notices.txSaved"), "success");
   }
 
-  if (crudModal.kind === 'inventory') {
+  if (crudModal.kind === "inventory") {
     const payload = {
       item_no: crudDraft.item_no.trim(),
       description_zh: crudDraft.description_zh.trim(),
       specification: crudDraft.specification.trim(),
       total_quantity: Number(crudDraft.total_quantity) || 0,
       damaged_quantity: Number(crudDraft.damaged_quantity) || 0,
-      available_quantity: Number(crudDraft.available_quantity) || Math.max(Number(crudDraft.total_quantity) - Number(crudDraft.damaged_quantity), 0),
+      available_quantity:
+        Number(crudDraft.available_quantity) ||
+        Math.max(
+          Number(crudDraft.total_quantity) - Number(crudDraft.damaged_quantity),
+          0,
+        ),
       photo_paths: [...crudDraft.photo_paths],
       remarks: crudDraft.remarks.trim(),
-    }
-    if (crudModal.mode === 'create') {
-      await portalApi.createWarehouseInventoryItem(payload)
+    };
+    if (crudModal.mode === "create") {
+      await portalApi.createWarehouseInventoryItem(payload);
     } else {
-      await portalApi.updateWarehouseInventoryItem(crudModal.originalKey, payload)
+      await portalApi.updateWarehouseInventoryItem(
+        crudModal.originalKey,
+        payload,
+      );
     }
-    await loadWarehouseInventory()
-    setNotice(t('notices.inventorySaved'), 'success')
+    await loadWarehouseInventory();
+    setNotice(t("notices.inventorySaved"), "success");
   }
 
-  closeCrudModal()
+  closeCrudModal();
 }
 
 async function confirmDelete() {
-  const { kind, key } = deleteDialog
-  if (!kind || !key) return
-  if (kind === 'technical-doc') {
+  const { kind, key } = deleteDialog;
+  if (!kind || !key) return;
+  if (kind === "technical-doc") {
     if (!materialsCanManage.value) {
-      setNotice(isEnglish.value ? 'No permission to modify materials.' : '当前无资料管理权限。', 'error')
-      return
+      setNotice(
+        isEnglish.value
+          ? "No permission to modify materials."
+          : "当前无资料管理权限。",
+        "error",
+      );
+      return;
     }
   } else if (!ensureInternalMode()) {
-    return
+    return;
   }
-  if (kind === 'fault') {
-    await portalApi.deleteAfterSalesFaultCode(key)
-    await handleFaultSearch()
+  if (kind === "service-log") {
+    await portalApi.deleteAfterSalesLog(key);
+    await loadPortalExtras();
   }
-  if (kind === 'grid') {
-    await portalApi.deleteGridProject(key)
-    await loadLedgerData()
+  if (kind === "fault") {
+    await portalApi.deleteAfterSalesFaultCode(key);
+    await handleFaultSearch();
   }
-  if (kind === 'ci') {
-    await portalApi.deleteCiDelivery(key)
-    await loadLedgerData()
+  if (kind === "grid") {
+    await portalApi.deleteGridProject(key);
+    await loadLedgerData();
   }
-  if (kind === 'warehouse') {
-    await portalApi.deleteWarehouseTransaction(key)
-    await loadWarehouseData()
+  if (kind === "ci") {
+    await portalApi.deleteCiDelivery(key);
+    await loadLedgerData();
   }
-  if (kind === 'inventory') {
-    await portalApi.deleteWarehouseInventoryItem(key)
-    await loadWarehouseInventory()
+  if (kind === "warehouse") {
+    await portalApi.deleteWarehouseTransaction(key);
+    await loadWarehouseData();
   }
-  if (kind === 'technical-doc') {
-    await portalApi.deleteTechnicalDoc(key)
-    await loadTechnicalDocs()
+  if (kind === "inventory") {
+    await portalApi.deleteWarehouseInventoryItem(key);
+    await loadWarehouseInventory();
   }
-  setNotice(t('notices.deleted'), 'success')
-  closeDeleteDialog()
+  if (kind === "technical-doc") {
+    await portalApi.deleteTechnicalDoc(key);
+    await loadTechnicalDocs();
+  }
+  setNotice(t("notices.deleted"), "success");
+  closeDeleteDialog();
 }
 
 async function applyProjectStatus(projectName) {
-  await saveProjectStatus(projectName)
+  await saveProjectStatus(projectName);
 }
 
 async function submitWarehouseTransaction() {
-  if (!ensureInternalMode()) return
+  if (!ensureInternalMode()) return;
   if (!warehouseForm.tx_no) {
-    prefillWarehouseTxNo()
+    prefillWarehouseTxNo();
   }
   await portalApi.createWarehouseTransaction({
     warehouse_name: selectedWarehouse.value,
@@ -1730,39 +4215,46 @@ async function submitWarehouseTransaction() {
     quantity: Number(warehouseForm.quantity) || 0,
     related_project: warehouseForm.related_project,
     tx_no: warehouseForm.tx_no,
-  })
-  warehouseForm.quantity = 1
-  warehouseForm.related_project = ''
-  prefillWarehouseTxNo()
-  await loadWarehouseData()
-  setNotice(t('notices.txSaved'), 'success')
+  });
+  warehouseForm.quantity = 1;
+  warehouseForm.related_project = "";
+  prefillWarehouseTxNo();
+  await loadWarehouseData();
+  setNotice(t("notices.txSaved"), "success");
 }
 
 watch(selectedWarehouse, async () => {
-  await loadWarehouseData()
-})
+  await loadWarehouseData();
+});
 
 watch(isInternalMode, (enabled) => {
-  if (enabled) return
-  closeCrudModal()
-  closeDeleteDialog()
-})
+  if (enabled) return;
+  closeCrudModal();
+  closeDeleteDialog();
+});
 
 onMounted(async () => {
-  restoreTheme()
-  todayTick.value = Date.now()
+  restoreTheme();
+  todayTick.value = Date.now();
   const timerId = window.setInterval(() => {
-    todayTick.value = Date.now()
-  }, 60000)
-  gridDashboardTimerId = timerId
-  prefillWarehouseTxNo()
-  await Promise.all([handleFaultSearch(), loadLedgerData(), loadWarehouseData(), loadWarehouseInventory(), loadTechnicalDocs()])
-})
+    todayTick.value = Date.now();
+  }, 60000);
+  gridDashboardTimerId = timerId;
+  prefillWarehouseTxNo();
+  await Promise.all([
+    handleFaultSearch(),
+    loadLedgerData(),
+    loadWarehouseData(),
+    loadWarehouseInventory(),
+    loadTechnicalDocs(),
+    loadPortalExtras(),
+  ]);
+});
 
 onUnmounted(() => {
   if (gridDashboardTimerId !== null) {
-    window.clearInterval(gridDashboardTimerId)
-    gridDashboardTimerId = null
+    window.clearInterval(gridDashboardTimerId);
+    gridDashboardTimerId = null;
   }
-})
+});
 </script>

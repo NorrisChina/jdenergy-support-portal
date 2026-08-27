@@ -26,6 +26,7 @@ async function requestJson(path, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       ...buildInternalModeHeaders(method),
+      ...authHeaders(),
       ...customHeaders,
     },
   })
@@ -42,6 +43,62 @@ async function requestJson(path, options = {}) {
 }
 
 export const portalApi = {
+  login(username, password) {
+    return requestJson('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+  },
+  listPortalProjects() {
+    return requestJson('/api/portal/projects', { headers: authHeaders() })
+  },
+  listPortalCiDeliveries() {
+    return requestJson('/api/portal/ci-deliveries', { headers: authHeaders() })
+  },
+  listMilestones(projectName) {
+    return requestJson(`/api/projects/${encodeURIComponent(projectName)}/milestones`, { headers: authHeaders() })
+  },
+  updateMilestone(projectName, key, payload) {
+    return requestJson(`/api/projects/${encodeURIComponent(projectName)}/milestones/${encodeURIComponent(key)}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  listAfterSalesLogs() {
+    return requestJson('/api/after-sales/logs', { headers: authHeaders() })
+  },
+  createAfterSalesLog(payload) {
+    return requestJson('/api/after-sales/logs', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateAfterSalesLog(id, payload) {
+    return requestJson(`/api/after-sales/logs/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteAfterSalesLog(id) {
+    return requestJson(`/api/after-sales/logs/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  exportAfterSalesLogs() {
+    return `${API_BASE}/api/after-sales/logs/export`
+  },
+  listTickets(filters = {}) {
+    const query = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) query.set(key, value)
+    })
+    const suffix = query.toString()
+    return requestJson(`/api/customer/tickets${suffix ? `?${suffix}` : ''}`, { headers: authHeaders() })
+  },
+  createTicket(payload) {
+    return requestJson('/api/customer/tickets', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateTicket(id, payload) {
+    return requestJson(`/api/customer/tickets/${encodeURIComponent(String(id))}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  listUsers() {
+    return requestJson('/api/admin/users', { headers: authHeaders() })
+  },
+  createUser(payload) {
+    return requestJson('/api/admin/users', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateUser(id, payload) {
+    return requestJson(`/api/admin/users/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteUser(id) {
+    return requestJson(`/api/admin/users/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   uploadImage(file) {
     const formData = new FormData()
     formData.append('file', file)
@@ -49,6 +106,7 @@ export const portalApi = {
       method: 'POST',
       headers: {
         ...buildInternalModeHeaders('POST'),
+        ...authHeaders(),
       },
       body: formData,
     }).then(async (response) => {
@@ -115,6 +173,7 @@ export const portalApi = {
       method: 'POST',
       headers: {
         ...buildInternalModeHeaders('POST'),
+        ...authHeaders(),
       },
       body: formData,
     }).then(async (response) => {
@@ -247,4 +306,10 @@ export const portalApi = {
       method: 'DELETE',
     })
   },
+}
+
+function authHeaders() {
+  if (typeof window === 'undefined') return {}
+  const token = window.localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
