@@ -9,6 +9,7 @@ import csv
 import hashlib
 import hmac
 import io
+import logging
 import time
 from datetime import date, datetime
 from collections import defaultdict
@@ -20,7 +21,7 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
-from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -50,10 +51,74 @@ from .models.technical_docs import (
     TECHNICAL_DOC_PRODUCT_SERIES,
     TechnicalDoc,
 )
-from .models.portal import AfterSalesLog, CustomerTicket, ProjectMilestone, User
+from .models.portal import AfterSalesLog, CustomerTicket, EmpowermentRecord, LogisticsShipment, ProjectMilestone, User
 
 
-FAULTY_COMPONENT_OPTIONS = ("PACK", "Chiller", "PCS", "eLink", "Cabinet", "Software", "Transformer", "Other")
+logger = logging.getLogger(__name__)
+
+SUPER_ADMIN_USERNAME = "admin"
+SUPER_ADMIN_PASSWORD = "111"
+VIEWER_USERNAME = "JDE"
+VIEWER_PASSWORD = "123"
+SYSTEM_COMPANY = "JD Energy"
+
+
+FAULTY_COMPONENT_OPTIONS = (
+    "门锁", "通讯线束", "电表", "熔断器", "断路器", "bmu", "pcs", "液冷机",
+    "HIM板", "急停", "io模块", "开关电源", "交换机", "风扇", "pack", "网络控制器", "空调", "其他",
+)
+
+LOGISTICS_SHIPMENT_SEED = [
+    LogisticsShipment(
+        tracking_no="MSCU7712345",
+        customer_company="Munich Energy Partners",
+        related_project="418 项目",
+        destination_country="Germany",
+        destination_port="Hamburg",
+        container_no="MSKU-889021",
+        equipment_model="eBlock-418",
+        equipment_qty=12,
+        status="海上运输中",
+        eta=date(2026, 9, 20),
+        carrier="Maersk",
+        tracking_url="https://www.maersk.com/tracking/MSCU7712345",
+    ),
+    LogisticsShipment(
+        tracking_no="COSU8801122",
+        customer_company="Rotterdam Solar Hub",
+        related_project="Rotterdam Solar Hub",
+        destination_country="Netherlands",
+        destination_port="Rotterdam",
+        container_no="CSNU-441098",
+        equipment_model="eBlock-250",
+        equipment_qty=6,
+        status="清关中",
+        eta=date(2026, 9, 5),
+        carrier="COSCO",
+        tracking_url="https://elines.coscoshipping.com/COSU8801122",
+    ),
+    LogisticsShipment(
+        tracking_no="ONEY9903344",
+        customer_company="Warsaw Green Power",
+        related_project="Warsaw Green Power",
+        destination_country="Poland",
+        destination_port="Koper",
+        container_no="ONEU-772311",
+        equipment_model="eBlock-100C",
+        equipment_qty=8,
+        status="已送达现场",
+        eta=date(2026, 8, 10),
+        ata=date(2026, 8, 9),
+        carrier="ONE",
+        tracking_url="https://ecomm.one-line.com/ONEY9903344",
+    ),
+]
+
+EMPOWERMENT_RECORD_SEED = [
+    EmpowermentRecord(partner_name="意大利 Afore", delivery_250=80, delivery_100c=60, delivery_418=30, troubleshooting=70, spare_parts=65, learning_ability=75, learning_willingness=90, remarks="中国人手把手带训，有团队支持"),
+    EmpowermentRecord(partner_name="德国 Tripme", delivery_250=95, delivery_100c=90, delivery_418=70, troubleshooting=85, spare_parts=80, learning_ability=88, learning_willingness=92, remarks="有独立试验设备"),
+    EmpowermentRecord(partner_name="荷兰 Sietec", delivery_250=60, delivery_100c=55, delivery_418=20, troubleshooting=50, spare_parts=45, learning_ability=60, learning_willingness=70, remarks="需加强备件更换培训"),
+]
 
 
 class FaultCodeRecord(BaseModel):
@@ -189,6 +254,7 @@ class CustomerUserPayload(BaseModel):
     password: str
     customer_name: Optional[str] = None
     customer_company: Optional[str] = None
+    country: Optional[str] = None
     project_ids: List[str] = Field(default_factory=list)
 
 
@@ -196,6 +262,7 @@ class CustomerUserUpdatePayload(BaseModel):
     password: Optional[str] = None
     customer_name: Optional[str] = None
     customer_company: Optional[str] = None
+    country: Optional[str] = None
     project_ids: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
@@ -216,8 +283,10 @@ class AfterSalesLogPayload(BaseModel):
     product_model: Literal["418", "250", "100C"]
     support_type: Literal["远程 (Remote)", "现场 (On-site)"]
     issue_category: Literal["软件 (Software)", "硬件 (Hardware)"]
-    fault_component: Optional[Literal["PACK", "Chiller", "PCS", "eLink", "Cabinet", "Software", "Transformer", "Other"]] = None
-    faulty_component: Optional[Literal["PACK", "Chiller", "PCS", "eLink", "Cabinet", "Software", "Transformer", "Other"]] = None
+    fault_component: Optional[str] = None
+    faulty_component: Optional[str] = None
+    fault_description: str = ""
+    onsite_solution: str = ""
     serial_number: str = ""
     status: Literal["已解决 (Resolved)", "处理中 (Pending)"] = "处理中 (Pending)"
     pending_reason: str = ""
@@ -232,7 +301,7 @@ class TicketPayload(BaseModel):
     product_model: Literal["418", "250", "100C"]
     ticket_type: Literal["产品需求 (Feature Request)", "故障报修/Bug (Issue Report)"]
     suspected_scope: Literal["软件", "硬件"]
-    suspected_component: Literal["PACK", "Chiller", "PCS", "eLink", "Cabinet", "Software", "Transformer", "Other"]
+    suspected_component: str
     description: str
     attachments: List[str] = Field(default_factory=list)
     expected_resolution_date: Optional[date] = None
@@ -245,6 +314,37 @@ class TicketUpdatePayload(BaseModel):
     staff_reply: str = ""
     resolved_at: Optional[datetime] = None
     expected_date: Optional[date] = None
+
+
+LOGISTICS_STATUS_OPTIONS = ("工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场")
+
+
+class LogisticsShipmentPayload(BaseModel):
+    tracking_no: str
+    customer_company: str = ""
+    related_project: str = ""
+    destination_country: str = ""
+    destination_port: str = ""
+    container_no: str = ""
+    equipment_model: str = ""
+    equipment_qty: int = 0
+    status: Literal["工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场"] = "工厂备货"
+    eta: Optional[date] = None
+    ata: Optional[date] = None
+    carrier: str = ""
+    tracking_url: str = ""
+
+
+class EmpowermentRecordPayload(BaseModel):
+    partner_name: str
+    delivery_250: int = 0
+    delivery_100c: int = 0
+    delivery_418: int = 0
+    troubleshooting: int = 0
+    spare_parts: int = 0
+    learning_ability: int = 0
+    learning_willingness: int = 0
+    remarks: str = ""
 
 
 app = FastAPI(
@@ -269,21 +369,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.middleware("http")
-async def deny_customer_warehouse_access(request: Request, call_next):
-    protected_customer_paths = ("/api/warehouse/", "/api/ledger/grid-scale", "/api/ledger/ci-deliveries")
-    if request.url.path.startswith(protected_customer_paths):
-        authorization = request.headers.get("authorization", "")
-        if authorization.lower().startswith("bearer "):
-            try:
-                token_payload = authorization.split(" ", 1)[1].split(".")[1]
-                payload = json.loads(base64.urlsafe_b64decode(token_payload + "=" * (-len(token_payload) % 4)))
-                if payload.get("role") == "customer":
-                    return Response(content=json.dumps({"detail": "Warehouse is not available to customer accounts"}), status_code=403, media_type="application/json")
-            except (ValueError, IndexError, json.JSONDecodeError):
-                pass
-    return await call_next(request)
 
 warehouse_inventory_router = APIRouter(
     prefix="/api/warehouse/inventory",
@@ -312,8 +397,6 @@ def on_startup() -> None:
 
 def seed_database() -> None:
     with get_session() as session:
-        if session.exec(select(User).where(User.username == "JDE")).first() is None:
-            session.add(User(username="JDE", password_hash=hash_password("123"), role="admin", is_staff=True, customer_name="JD Energy", customer_company="JD Energy"))
         if session.exec(select(FaultCode)).first() is None:
             session.add_all(FAULT_CODE_SEED)
         if session.exec(select(GridScaleProject)).first() is None:
@@ -330,20 +413,48 @@ def seed_database() -> None:
             sync_warehouse_inventory_item_seed(session)
         if session.exec(select(TechnicalDoc)).first() is None:
             session.add_all([TechnicalDoc(**item) for item in TECHNICAL_DOCS_SEED])
+        if session.exec(select(LogisticsShipment)).first() is None:
+            session.add_all(LOGISTICS_SHIPMENT_SEED)
+        if session.exec(select(EmpowermentRecord)).first() is None:
+            session.add_all(EMPOWERMENT_RECORD_SEED)
         session.commit()
 
 
 def ensure_default_admin() -> None:
     with get_session() as session:
-        admin = session.exec(select(User).where(User.username == "JDE")).first()
-        if admin is None:
-            admin = User(username="JDE", password_hash=hash_password("123"), role="admin", is_staff=True, customer_name="JD Energy", customer_company="JD Energy")
-        else:
-            admin.role = "admin"
-            admin.is_staff = True
-            admin.is_active = True
-        session.add(admin)
-        session.commit()
+        try:
+            super_admin = session.exec(
+                select(User).where(User.username == SUPER_ADMIN_USERNAME)
+            ).first()
+            if super_admin is None:
+                super_admin = User(username=SUPER_ADMIN_USERNAME, password_hash="")
+            super_admin.password_hash = hash_password(SUPER_ADMIN_PASSWORD)
+            super_admin.role = "super_admin"
+            super_admin.is_staff = True
+            super_admin.is_active = True
+            super_admin.customer_name = SYSTEM_COMPANY
+            super_admin.customer_company = SYSTEM_COMPANY
+            session.add(super_admin)
+
+            viewer = session.exec(
+                select(User).where(User.username == VIEWER_USERNAME)
+            ).first()
+            if viewer is None:
+                viewer = User(username=VIEWER_USERNAME, password_hash="")
+            viewer.password_hash = hash_password(VIEWER_PASSWORD)
+            viewer.role = "viewer"
+            viewer.is_staff = False
+            viewer.is_active = True
+            viewer.customer_name = SYSTEM_COMPANY
+            viewer.customer_company = SYSTEM_COMPANY
+            session.add(viewer)
+
+            session.commit()
+            logger.info("System accounts (admin, JDE) verified successfully.")
+        except Exception:
+            session.rollback()
+            logger.exception("Failed to initialize system accounts (admin, JDE).")
+            raise
 
 
 def sync_warehouse_inventory_item_seed(session) -> None:
@@ -696,13 +807,21 @@ def current_user(authorization: Optional[str] = Header(default=None)) -> User:
 
 
 def require_staff(user: User = Depends(current_user)) -> User:
-    if user.role not in {"admin", "staff"}:
+    """Read access for the two backend-office roles (super_admin, viewer)."""
+    if user.role not in {"super_admin", "viewer"}:
         raise HTTPException(status_code=403, detail="Staff access required")
     return user
 
 
+def require_write_access(user: User = Depends(current_user)) -> User:
+    """Write access is limited to the super_admin role; viewer is read-only."""
+    if user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return user
+
+
 def accessible_project_names(session, user: User) -> set[str]:
-    if user.role in {"admin", "staff"}:
+    if user.role in {"super_admin", "viewer"}:
         return {item.project_name for item in session.exec(select(GridScaleProject)).all()}
     company = (user.customer_company or user.customer_name or "").strip().casefold()
     projects = session.exec(select(GridScaleProject)).all()
@@ -710,6 +829,17 @@ def accessible_project_names(session, user: User) -> set[str]:
     automatic.update(item.project_name for item in session.exec(select(AfterSalesLog)).all() if (item.customer_company or item.customer or "").strip().casefold() == company)
     automatic.update(item.dealer_name for item in session.exec(select(CiDealerDelivery)).all() if (item.customer_company or item.dealer_name or "").strip().casefold() == company)
     return automatic
+
+
+def resolve_customer_country(session, company: str) -> str:
+    normalized = company.strip().casefold()
+    if not normalized:
+        return ""
+    for user in session.exec(select(User).where(User.role == "customer")).all():
+        candidate = (user.customer_company or user.customer_name or "").strip()
+        if candidate.casefold() == normalized and user.country:
+            return user.country
+    return ""
 
 
 def legal_customer_companies(session) -> set[str]:
@@ -750,7 +880,7 @@ def get_current_user(user: User = Depends(current_user)) -> User:
 
 
 @app.get("/api/admin/users")
-def list_users(_: User = Depends(require_staff)) -> Dict[str, object]:
+def list_users(_: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(User).order_by(User.id.asc())).all()
         serialized = [public_user(item, session) for item in items]
@@ -758,14 +888,17 @@ def list_users(_: User = Depends(require_staff)) -> Dict[str, object]:
 
 
 @app.post("/api/admin/users")
-def create_user(payload: CustomerUserPayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+def create_user(payload: CustomerUserPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         if session.exec(select(User).where(User.username == payload.username.strip())).first():
             raise HTTPException(status_code=409, detail="Username already exists")
         company = (payload.customer_company or payload.customer_name or "").strip()
         if not company:
             raise HTTPException(status_code=422, detail="Customer company is required")
-        user = User(username=payload.username.strip(), password_hash=hash_password(payload.password), customer_name=company, customer_company=company, project_ids=[])
+        country = (payload.country or "").strip()
+        if not country:
+            raise HTTPException(status_code=422, detail="Country is required")
+        user = User(username=payload.username.strip(), password_hash=hash_password(payload.password), customer_name=company, customer_company=company, country=country, project_ids=[])
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -773,10 +906,10 @@ def create_user(payload: CustomerUserPayload, _: User = Depends(require_staff)) 
 
 
 @app.put("/api/admin/users/{user_id}")
-def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         user = session.get(User, user_id)
-        if user is None or user.role == "admin":
+        if user is None or user.role != "customer":
             raise HTTPException(status_code=404, detail="Customer user not found")
         if payload.password is not None:
             user.password_hash = hash_password(payload.password)
@@ -784,6 +917,8 @@ def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depe
         if company is not None:
             user.customer_name = company.strip()
             user.customer_company = user.customer_name
+        if payload.country is not None:
+            user.country = payload.country.strip()
         user.project_ids = []
         if payload.is_active is not None:
             user.is_active = payload.is_active
@@ -794,10 +929,10 @@ def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depe
 
 
 @app.delete("/api/admin/users/{user_id}")
-def delete_user(user_id: int, _: User = Depends(require_staff)) -> Dict[str, str]:
+def delete_user(user_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
     with get_session() as session:
         user = session.get(User, user_id)
-        if user is None or user.role == "admin":
+        if user is None or user.role != "customer":
             raise HTTPException(status_code=404, detail="Customer user not found")
         session.delete(user)
         session.commit()
@@ -842,7 +977,7 @@ def list_milestones(project_name: str, user: User = Depends(current_user)) -> Di
 
 
 @app.put("/api/projects/{project_name}/milestones/{milestone_key}")
-def update_milestone(project_name: str, milestone_key: str, payload: MilestonePayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_milestone(project_name: str, milestone_key: str, payload: MilestonePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     if milestone_key not in MILESTONE_KEYS:
         raise HTTPException(status_code=400, detail="Invalid milestone")
     with get_session() as session:
@@ -881,7 +1016,7 @@ def list_after_sales_logs(
 
 
 @app.post("/api/after-sales/logs")
-def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(require_staff)) -> Dict[str, object]:
+def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         company = (payload.customer_company or payload.customer or "").strip()
         component = payload.fault_component or payload.faulty_component
@@ -900,7 +1035,8 @@ def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(r
         project_company = (project.customer_company or project.partner_name or "").strip() if project else (dealer.customer_company or dealer.dealer_name or "").strip()
         if project_company and project_company.casefold() != company.casefold():
             raise HTTPException(status_code=400, detail="Project does not belong to customer company")
-        item = AfterSalesLog(**payload.model_dump(exclude={"customer", "customer_company", "fault_component", "faulty_component"}), customer_company=company, customer=company, fault_component=component, faulty_component=component)
+        bound_country = resolve_customer_country(session, company) or payload.country
+        item = AfterSalesLog(**payload.model_dump(exclude={"customer", "customer_company", "fault_component", "faulty_component", "country"}), customer_company=company, customer=company, fault_component=component, faulty_component=component, country=bound_country)
         session.add(item)
         session.commit()
         session.refresh(item)
@@ -908,7 +1044,7 @@ def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(r
 
 
 @app.put("/api/after-sales/logs/{log_id}")
-def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(AfterSalesLog, log_id)
         if item is None:
@@ -928,12 +1064,14 @@ def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User =
         project_company = (project.customer_company or project.partner_name or "").strip() if project else (dealer.customer_company or dealer.dealer_name or "").strip()
         if project_company and project_company.casefold() != company.casefold():
             raise HTTPException(status_code=400, detail="Project does not belong to customer company")
-        for key, value in payload.model_dump(exclude={"customer_company", "customer", "fault_component", "faulty_component"}).items():
+        bound_country = resolve_customer_country(session, company) or payload.country
+        for key, value in payload.model_dump(exclude={"customer_company", "customer", "fault_component", "faulty_component", "country"}).items():
             setattr(item, key, value)
         item.customer_company = company
         item.customer = company
         item.fault_component = component
         item.faulty_component = component
+        item.country = bound_country
         session.add(item)
         session.commit()
         session.refresh(item)
@@ -941,7 +1079,7 @@ def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User =
 
 
 @app.delete("/api/after-sales/logs/{log_id}")
-def delete_after_sales_log(log_id: int, _: User = Depends(require_staff)) -> Dict[str, str]:
+def delete_after_sales_log(log_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
     with get_session() as session:
         item = session.get(AfterSalesLog, log_id)
         if item is None:
@@ -1009,7 +1147,7 @@ def create_ticket(payload: TicketPayload, user: User = Depends(current_user)) ->
 
 
 @app.patch("/api/customer/tickets/{ticket_id}")
-def update_ticket(ticket_id: int, payload: TicketUpdatePayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_ticket(ticket_id: int, payload: TicketUpdatePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(CustomerTicket, ticket_id)
         if item is None:
@@ -1024,15 +1162,126 @@ def update_ticket(ticket_id: int, payload: TicketUpdatePayload, _: User = Depend
         return {"item": item}
 
 
+@app.get("/api/logistics/shipments")
+def list_logistics_shipments(
+    tracking_no: Optional[str] = Query(default=None),
+    destination: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    user: User = Depends(current_user),
+) -> Dict[str, object]:
+    with get_session() as session:
+        statement = select(LogisticsShipment).order_by(LogisticsShipment.updated_at.desc())
+        if user.role == "customer":
+            company = (user.customer_company or user.customer_name or "").strip()
+            statement = statement.where(LogisticsShipment.customer_company == company)
+        if tracking_no:
+            statement = statement.where(LogisticsShipment.tracking_no.like(f"%{tracking_no}%"))
+        if destination:
+            like_destination = f"%{destination}%"
+            statement = statement.where(
+                or_(
+                    LogisticsShipment.destination_country.like(like_destination),
+                    LogisticsShipment.destination_port.like(like_destination),
+                )
+            )
+        if status:
+            statement = statement.where(LogisticsShipment.status == status)
+        items = session.exec(statement).all()
+    return {"count": len(items), "items": items, "status_options": LOGISTICS_STATUS_OPTIONS}
+
+
+@app.post("/api/logistics/shipments")
+def create_logistics_shipment(payload: LogisticsShipmentPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    with get_session() as session:
+        if session.exec(select(LogisticsShipment).where(LogisticsShipment.tracking_no == payload.tracking_no)).first():
+            raise HTTPException(status_code=409, detail="Tracking number already exists")
+        item = LogisticsShipment(**payload.model_dump())
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/logistics/shipments/{shipment_id}")
+def update_logistics_shipment(shipment_id: int, payload: LogisticsShipmentPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(LogisticsShipment, shipment_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        for key, value in payload.model_dump().items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/logistics/shipments/{shipment_id}")
+def delete_logistics_shipment(shipment_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(LogisticsShipment, shipment_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
+
+
+@app.get("/api/empowerment/records")
+def list_empowerment_records(_: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        items = session.exec(select(EmpowermentRecord).order_by(EmpowermentRecord.partner_name.asc())).all()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/empowerment/records")
+def create_empowerment_record(payload: EmpowermentRecordPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    with get_session() as session:
+        if session.exec(select(EmpowermentRecord).where(EmpowermentRecord.partner_name == payload.partner_name)).first():
+            raise HTTPException(status_code=409, detail="Partner already exists")
+        item = EmpowermentRecord(**payload.model_dump())
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/empowerment/records/{record_id}")
+def update_empowerment_record(record_id: int, payload: EmpowermentRecordPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(EmpowermentRecord, record_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Empowerment record not found")
+        for key, value in payload.model_dump().items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/empowerment/records/{record_id}")
+def delete_empowerment_record(record_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(EmpowermentRecord, record_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Empowerment record not found")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
+
+
 @app.get("/api/after-sales/logs/export")
 def export_after_sales_logs(user: User = Depends(require_staff)):
     with get_session() as session:
         rows = session.exec(select(AfterSalesLog).order_by(AfterSalesLog.event_date.asc())).all()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "Country", "Customer", "Project", "Model", "Support", "Category", "Component", "SN", "Status", "Follow-up", "Created By"])
+    writer.writerow(["Date", "Country", "Customer", "Project", "Model", "Support", "Category", "Component", "Fault Description", "On-site Solution", "SN", "Status", "Follow-up", "Created By"])
     for row in rows:
-        writer.writerow([row.event_date, row.country, row.customer_company or row.customer, row.project_name, row.product_model, row.support_type, row.issue_category, row.fault_component or row.faulty_component, row.serial_number, row.status, row.pending_reason, row.created_by])
+        writer.writerow([row.event_date, row.country, row.customer_company or row.customer, row.project_name, row.product_model, row.support_type, row.issue_category, row.fault_component or row.faulty_component, row.fault_description, row.onsite_solution, row.serial_number, row.status, row.pending_reason, row.created_by])
     return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=after-sales-logs.csv"})
 
 
@@ -1289,7 +1538,7 @@ def list_grid_scale_projects(_: User = Depends(require_staff)) -> Dict[str, obje
 
 
 @grid_scale_router.post("")
-def create_grid_scale_project(payload: GridScaleProjectUpsert, _: User = Depends(require_staff)) -> Dict[str, object]:
+def create_grid_scale_project(payload: GridScaleProjectUpsert, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         if session.get(GridScaleProject, payload.project_name) is not None:
             raise HTTPException(status_code=409, detail="Project already exists")
@@ -1301,7 +1550,7 @@ def create_grid_scale_project(payload: GridScaleProjectUpsert, _: User = Depends
 
 
 @grid_scale_router.put("/{project_name}")
-def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(GridScaleProject, project_name)
         if item is None:
@@ -1321,7 +1570,7 @@ def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert
 
 
 @grid_scale_router.post("/{project_name}/status")
-def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         project = session.get(GridScaleProject, project_name)
         if project is None:
@@ -1334,7 +1583,7 @@ def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate, 
 
 
 @grid_scale_router.delete("/{project_name}")
-def delete_grid_scale_project(project_name: str, _: User = Depends(require_staff)) -> Dict[str, object]:
+def delete_grid_scale_project(project_name: str, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(GridScaleProject, project_name)
         if item is None:
@@ -1345,14 +1594,14 @@ def delete_grid_scale_project(project_name: str, _: User = Depends(require_staff
 
 
 @warehouse_inventory_router.get("")
-def list_warehouse_inventory_items() -> Dict[str, object]:
+def list_warehouse_inventory_items(_: User = Depends(require_staff)) -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(WarehouseInventoryItem)).all()
     return {"count": len(items), "items": items}
 
 
 @warehouse_inventory_router.post("")
-def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> Dict[str, object]:
+def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         if session.get(WarehouseInventoryItem, payload.item_no) is not None:
             raise HTTPException(status_code=409, detail="Inventory item already exists")
@@ -1376,7 +1625,7 @@ def create_warehouse_inventory_item(payload: WarehouseInventoryItemCreate) -> Di
 
 
 @warehouse_inventory_router.put("/{item_no}")
-def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryItemUpdate) -> Dict[str, object]:
+def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryItemUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(WarehouseInventoryItem, item_no)
         if item is None:
@@ -1395,7 +1644,7 @@ def update_warehouse_inventory_item(item_no: str, payload: WarehouseInventoryIte
 
 
 @warehouse_inventory_router.delete("/{item_no}")
-def delete_warehouse_inventory_item(item_no: str) -> Dict[str, object]:
+def delete_warehouse_inventory_item(item_no: str, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.get(WarehouseInventoryItem, item_no)
         if item is None:
@@ -1417,7 +1666,7 @@ def list_ci_deliveries(_: User = Depends(require_staff)) -> Dict[str, object]:
 
 
 @app.post("/api/ledger/ci-deliveries")
-def create_ci_delivery(payload: CiDeliveryCreateUpdate, _: User = Depends(require_staff)) -> Dict[str, object]:
+def create_ci_delivery(payload: CiDeliveryCreateUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         if session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == payload.dealer_name)).first() is not None:
             raise HTTPException(status_code=409, detail="Dealer already exists")
@@ -1429,7 +1678,7 @@ def create_ci_delivery(payload: CiDeliveryCreateUpdate, _: User = Depends(requir
 
 
 @app.put("/api/ledger/ci-deliveries/{dealer_name}")
-def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate, _: User = Depends(require_staff)) -> Dict[str, object]:
+def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == dealer_name)).first()
         if item is None:
@@ -1445,7 +1694,7 @@ def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate, _: User = De
 
 
 @app.delete("/api/ledger/ci-deliveries/{dealer_name}")
-def delete_ci_delivery(dealer_name: str, _: User = Depends(require_staff)) -> Dict[str, object]:
+def delete_ci_delivery(dealer_name: str, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         item = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == dealer_name)).first()
         if item is None:
@@ -1456,7 +1705,7 @@ def delete_ci_delivery(dealer_name: str, _: User = Depends(require_staff)) -> Di
 
 
 @app.get("/api/warehouse/summary")
-def get_warehouse_summary(warehouse_name: str = Query(default="europe")) -> Dict[str, object]:
+def get_warehouse_summary(warehouse_name: str = Query(default="europe"), _: User = Depends(require_staff)) -> Dict[str, object]:
     with get_session() as session:
         inventory_items = session.exec(
             select(WarehouseInventory).where(WarehouseInventory.warehouse_name == warehouse_name)
@@ -1477,7 +1726,7 @@ def get_warehouse_summary(warehouse_name: str = Query(default="europe")) -> Dict
 
 
 @app.post("/api/warehouse/transactions")
-def create_warehouse_transaction(payload: WarehouseTransactionCreate) -> Dict[str, object]:
+def create_warehouse_transaction(payload: WarehouseTransactionCreate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
 
@@ -1502,7 +1751,7 @@ def create_warehouse_transaction(payload: WarehouseTransactionCreate) -> Dict[st
 
 
 @app.put("/api/warehouse/transactions/{tx_no}")
-def update_warehouse_transaction(tx_no: str, payload: WarehouseTransactionUpdate) -> Dict[str, object]:
+def update_warehouse_transaction(tx_no: str, payload: WarehouseTransactionUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
 
@@ -1540,7 +1789,7 @@ def update_warehouse_transaction(tx_no: str, payload: WarehouseTransactionUpdate
 
 
 @app.delete("/api/warehouse/transactions/{tx_no}")
-def delete_warehouse_transaction(tx_no: str) -> Dict[str, object]:
+def delete_warehouse_transaction(tx_no: str, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         transaction = session.exec(select(WarehouseTransaction).where(WarehouseTransaction.tx_no == tx_no)).first()
         if transaction is None:

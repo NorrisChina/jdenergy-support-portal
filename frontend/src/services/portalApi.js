@@ -1,22 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
-function readInternalModeFlag() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-  return window.localStorage.getItem('isInternalMode') === 'true' || window.localStorage.getItem('jd-energy.staff-mode') === 'true'
-}
-
-function buildInternalModeHeaders(method = 'GET') {
-  const normalizedMethod = method.toUpperCase()
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
-    return {}
-  }
-  return {
-    'x-internal-mode': readInternalModeFlag() ? 'true' : 'false',
-  }
-}
-
 async function requestJson(path, options = {}) {
   const { headers: customHeaders = {}, method: customMethod = 'GET', ...restOptions } = options
   const method = customMethod.toUpperCase()
@@ -25,7 +8,6 @@ async function requestJson(path, options = {}) {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...buildInternalModeHeaders(method),
       ...authHeaders(),
       ...customHeaders,
     },
@@ -73,6 +55,35 @@ export const portalApi = {
   exportAfterSalesLogs() {
     return `${API_BASE}/api/after-sales/logs/export`
   },
+  listLogisticsShipments(filters = {}) {
+    const query = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) query.set(key, value)
+    })
+    const suffix = query.toString()
+    return requestJson(`/api/logistics/shipments${suffix ? `?${suffix}` : ''}`, { headers: authHeaders() })
+  },
+  createLogisticsShipment(payload) {
+    return requestJson('/api/logistics/shipments', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateLogisticsShipment(id, payload) {
+    return requestJson(`/api/logistics/shipments/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteLogisticsShipment(id) {
+    return requestJson(`/api/logistics/shipments/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  listEmpowermentRecords() {
+    return requestJson('/api/empowerment/records', { headers: authHeaders() })
+  },
+  createEmpowermentRecord(payload) {
+    return requestJson('/api/empowerment/records', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateEmpowermentRecord(id, payload) {
+    return requestJson(`/api/empowerment/records/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteEmpowermentRecord(id) {
+    return requestJson(`/api/empowerment/records/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   listTickets(filters = {}) {
     const query = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
@@ -105,7 +116,6 @@ export const portalApi = {
     return fetch(`${API_BASE}/api/upload`, {
       method: 'POST',
       headers: {
-        ...buildInternalModeHeaders('POST'),
         ...authHeaders(),
       },
       body: formData,
@@ -172,7 +182,6 @@ export const portalApi = {
     return fetch(`${API_BASE}/api/technical-docs`, {
       method: 'POST',
       headers: {
-        ...buildInternalModeHeaders('POST'),
         ...authHeaders(),
       },
       body: formData,

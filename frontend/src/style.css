@@ -3,39 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --bg-main: #020617;
-  --bg-card: rgba(15, 23, 42, 0.7);
-  --text-primary: #e2e8f0;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --border-color: rgba(148, 163, 184, 0.3);
-  --tab-active-bg: #22d3ee;
-  --tab-active-text: #0f172a;
-  --tab-inactive-bg: rgba(15, 23, 42, 0.65);
-  --tab-inactive-text: #cbd5e1;
-  --kpi-number-100c: #67e8f9;
-  --kpi-number-250: #6ee7b7;
-  --progress-track: #0f172a;
-  --progress-fill-100c: linear-gradient(90deg, #22d3ee 0%, #10b981 100%);
-  --progress-fill-250: linear-gradient(90deg, #22d3ee 0%, #10b981 100%);
-}
-
-html.light,
-html[data-theme='light'] {
-  --bg-main: #f4f6f9;
+  --bg-main: #f8fafc;
   --bg-card: #ffffff;
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
-  --tab-active-bg: #0284c7;
+  --tab-active-bg: #0f172a;
   --tab-active-text: #ffffff;
   --tab-inactive-bg: #f1f5f9;
   --tab-inactive-text: #475569;
   --kpi-number-100c: #0369a1;
   --kpi-number-250: #15803d;
   --progress-track: #e2e8f0;
-  --progress-fill-100c: linear-gradient(90deg, #0d9488 0%, #0891b2 100%);
+  --progress-fill-100c: linear-gradient(90deg, #ff6b00 0%, #0f172a 100%);
+  --progress-fill-250: linear-gradient(90deg, #16a34a 0%, #0d9488 100%);
+  --brand-orange: #ff6b00;
+  --brand-ink: #0f172a;
+}
+
+html.light,
+html[data-theme='light'] {
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --tab-active-bg: #0f172a;
+  --tab-active-text: #ffffff;
+  --tab-inactive-bg: #f1f5f9;
+  --tab-inactive-text: #475569;
+  --kpi-number-100c: #0369a1;
+  --kpi-number-250: #15803d;
+  --progress-track: #e2e8f0;
+  --progress-fill-100c: linear-gradient(90deg, #ff6b00 0%, #0f172a 100%);
   --progress-fill-250: linear-gradient(90deg, #16a34a 0%, #0d9488 100%);
 }
 
@@ -81,6 +83,104 @@ html[data-theme='dark'] .ticket-filter-row {
   background: rgba(56, 189, 248, 0.35);
   color: #f8fafc;
 }
+
+/* Thin, tech-styled horizontal scrollbars for wide data tables. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.45) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 999px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.55), rgba(16, 185, 129, 0.55));
+  border-radius: 999px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.8), rgba(16, 185, 129, 0.8));
+}
+
+/* Modern tech-SaaS surfaces: soft glass panels, deep shadows, subtle borders. */
+.glass-panel {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 20px 45px -20px rgba(2, 132, 199, 0.35);
+}
+
+html.light .glass-panel,
+html[data-theme='light'] .glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 45px -24px rgba(15, 23, 42, 0.18);
+}
+
+/* Smooth micro-interactions on interactive controls. */
+button,
+a,
+select,
+input,
+textarea {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:not(:disabled):hover,
+a.rounded-xl:hover,
+a.rounded-2xl:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Fade + scale entrance for dropdowns, modals, and popovers. */
+@keyframes jd-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.jd-pop-in,
+select:focus,
+.fixed.inset-0 > div[class*="rounded-3xl"],
+.fixed.inset-0 > div[class*="rounded-2xl"] {
+  animation: jd-pop-in 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* jdenergy.com-style minimal tech cards: large radius, soft shadow lift on hover. */
+.grid-project-card,
+.grid-stat-card,
+article[class*="rounded-3xl"],
+article[class*="rounded-2xl"] {
+  border-radius: 1.25rem !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
+}
+
+.grid-project-card:hover,
+article[class*="rounded-3xl"]:hover,
+article[class*="rounded-2xl"]:hover {
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
 
 html.light,
 html[data-theme='light'] {
@@ -159,40 +259,32 @@ html[data-theme='light'] .theme-light .shadow-glow {
   box-shadow: 0 12px 40px rgba(14, 116, 144, 0.08) !important;
 }
 
-html.light .theme-light .portal-header h1,
-html[data-theme='light'] .theme-light .portal-header h1 {
-  color: var(--text-primary) !important;
-}
-
-html.light .theme-light .portal-header p,
-html[data-theme='light'] .theme-light .portal-header p {
-  color: var(--text-secondary) !important;
-}
-
 html.light .theme-light .portal-tabs,
 html[data-theme='light'] .theme-light .portal-tabs {
-  background: #e9eef5 !important;
+  background: #f1f5f9 !important;
   border-color: var(--border-color) !important;
+  border-radius: 9999px !important;
 }
 
 html.light .theme-light .tab-btn,
 html[data-theme='light'] .theme-light .tab-btn {
   border: 1px solid transparent;
+  border-radius: 9999px !important;
 }
 
 html.light .theme-light .tab-btn-inactive,
 html[data-theme='light'] .theme-light .tab-btn-inactive {
-  background: var(--tab-inactive-bg) !important;
+  background: transparent !important;
   color: var(--tab-inactive-text) !important;
-  border-color: #dbe3ee !important;
+  border-color: transparent !important;
 }
 
 html.light .theme-light .tab-btn-active,
 html[data-theme='light'] .theme-light .tab-btn-active {
   background: var(--tab-active-bg) !important;
   color: var(--tab-active-text) !important;
-  border-color: #0369a1 !important;
-  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.3) !important;
+  border-color: var(--brand-ink) !important;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25) !important;
 }
 
 html.light .theme-light .toolbar-btn,
@@ -303,22 +395,6 @@ html[data-theme='light'] .theme-light .table-action-danger {
   border-color: #fda4af !important;
   background: #fff1f2 !important;
   color: #9f1239 !important;
-}
-
-html.light .theme-light .mode-hint-bar,
-html[data-theme='light'] .theme-light .mode-hint-bar {
-  background: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-  color: #0f172a !important;
-  font-weight: 600;
-}
-
-html.light .theme-light .mode-hint-badge,
-html[data-theme='light'] .theme-light .mode-hint-badge {
-  background: #e2e8f0 !important;
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
-  font-weight: 700;
 }
 
 html.light .theme-light button.bg-cyan-400,
@@ -482,6 +558,136 @@ html[data-theme='light'] .theme-light .grid-stat-total span {
   font-weight: 700 !important;
 }
 
+/* Vben-inspired admin shell: restrained surfaces, compact navigation and tables. */
+.admin-shell {
+  background: #f5f6f8 !important;
+}
+
+.admin-content {
+  max-width: none;
+}
+
+.sidebar {
+  background: #0f172a !important;
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-brand {
+  min-height: 88px;
+  background: #111c30;
+}
+
+.sidebar .sidebar-brand h1 {
+  color: #ffffff !important;
+  line-height: 1.5;
+}
+
+.sidebar .sidebar-brand p {
+  color: #bae6fd !important;
+}
+
+.sidebar .sidebar-group-label {
+  color: #94a3b8 !important;
+}
+
+.sidebar .sidebar-item {
+  min-height: 40px;
+  color: #cbd5e1 !important;
+}
+
+.sidebar .sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  filter: none;
+  transform: none;
+}
+
+.sidebar .sidebar-item-active,
+.sidebar .sidebar-item-active:hover {
+  background: #2563eb !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+  color: #ffffff !important;
+}
+
+.sidebar .sidebar-footer .toolbar-btn {
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #e2e8f0 !important;
+}
+
+.sidebar .sidebar-footer .toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: #ffffff !important;
+  filter: none;
+  transform: none;
+}
+
+.admin-content section > div[class*="rounded-3xl"][class*="border"],
+.admin-content article[class*="rounded-3xl"],
+.admin-content article[class*="rounded-2xl"] {
+  border-color: #e5e7eb !important;
+  border-radius: 0.75rem !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+
+.admin-content article[class*="rounded-3xl"]:hover,
+.admin-content article[class*="rounded-2xl"]:hover {
+  border-color: #d1d5db !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+  transform: none;
+}
+
+.admin-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+}
+
+.admin-content table thead {
+  background: #f8fafc !important;
+}
+
+.admin-content table thead th {
+  height: 44px;
+  padding-top: 0.625rem !important;
+  padding-bottom: 0.625rem !important;
+  border-bottom: 1px solid #e5e7eb;
+  color: #475569 !important;
+  font-size: 0.75rem;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.admin-content table tbody td {
+  min-height: 44px;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+  border-bottom-color: #eef0f3 !important;
+  color: #475569 !important;
+}
+
+.admin-content table tbody tr {
+  background: #ffffff !important;
+}
+
+.admin-content table tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+.admin-content .table-action-btn {
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1023px) {
+  .admin-content {
+    width: 100%;
+  }
+}
+
 html.light .theme-light .grid-stat-card:first-child .grid-stat-badge,
 html[data-theme='light'] .theme-light .grid-stat-card:first-child .grid-stat-badge {
   color: #15803d !important;
@@ -502,4 +708,46 @@ html[data-theme='light'] .theme-light .grid-project-card .text-2xl,
 html[data-theme='light'] .theme-light .grid-project-card .text-lg {
   color: #0f172a !important;
   font-weight: 700 !important;
+}
+
+html.light .theme-light .sidebar .sidebar-brand h1,
+html[data-theme='light'] .theme-light .sidebar .sidebar-brand h1 {
+  color: #ffffff !important;
+}
+
+html.light .theme-light .sidebar .sidebar-brand p,
+html[data-theme='light'] .theme-light .sidebar .sidebar-brand p {
+  color: #bae6fd !important;
+}
+
+html.light .theme-light .sidebar .sidebar-group-label,
+html[data-theme='light'] .theme-light .sidebar .sidebar-group-label {
+  color: #94a3b8 !important;
+}
+
+html.light .theme-light .sidebar .sidebar-item,
+html[data-theme='light'] .theme-light .sidebar .sidebar-item {
+  color: #cbd5e1 !important;
+}
+
+html.light .theme-light .sidebar .sidebar-item:hover,
+html[data-theme='light'] .theme-light .sidebar .sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+html.light .theme-light .sidebar .sidebar-item-active,
+html.light .theme-light .sidebar .sidebar-item-active:hover,
+html[data-theme='light'] .theme-light .sidebar .sidebar-item-active,
+html[data-theme='light'] .theme-light .sidebar .sidebar-item-active:hover {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+html.light .theme-light .sidebar .sidebar-footer .toolbar-btn,
+html[data-theme='light'] .theme-light .sidebar .sidebar-footer .toolbar-btn {
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #e2e8f0 !important;
 }

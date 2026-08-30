@@ -5,12 +5,8 @@ export const messages = {
       title: 'JD Energy 海外工程部综合交付与服务门户',
       description: '海外售后+交付+仓储管理统一入口。',
       languageToggle: '中文 / EN',
-      themeDay: '日间模式',
-      themeNight: '夜间模式',
-      staffMode: '切换内部员工模式',
-      staffModeOn: '已进入内部员工模式',
-      customerMode: '当前为客户只读模式',
-      staffBadge: '内部员工模式',
+      staffBadge: '超级管理员 (可编辑)',
+      viewerBadge: 'JDE 只读查看',
       customerBadge: '客户模式',
     },
     auth: {
@@ -43,6 +39,9 @@ export const messages = {
       customerName: '客户名称',
     },
     views: {
+      overview: '海外项目总览',
+      logistics: '发货物流跟踪',
+      empowerment: '客户/供应商赋能计划',
       afterSales: '故障排查与解决',
       materialsCenter: '技术文档与教学多媒体',
       gridScale: '源网侧大储成果展',
@@ -51,6 +50,21 @@ export const messages = {
       serviceLogs: '交付售后记录',
       customerTickets: '客户工单与需求反馈',
       accounts: '账号管理',
+    },
+    nav: {
+      overview: '业务总览',
+      clientCare: '客户协同与赋能',
+      system: '系统配置',
+    },
+    overviewTabs: {
+      gridScale: '⚡ 源网侧大储成果展 (418)',
+      ciDashboard: '🏢 工商业交付看板 (250/100C)',
+    },
+    logistics: {
+      add: '新增物流记录',
+    },
+    empowerment: {
+      add: '新增伙伴记录',
     },
     fault: {
       section: '故障排查与解决',
@@ -89,6 +103,7 @@ export const messages = {
       overdueDays: '已超期',
       daySummary: '动态天数',
       codDate: 'COD / 交付日期',
+      cellVersion: '电芯版本',
       remove: '删除项目',
       createTitle: '新增 / 编辑项目',
       deleteTitle: '删除项目',
@@ -190,12 +205,8 @@ export const messages = {
       title: 'JD Energy Overseas Engineering Delivery & Service Portal',
       description: 'A unified overseas after-sales, delivery, and warehouse management portal.',
       languageToggle: '中文 / EN',
-      themeDay: 'Day Mode',
-      themeNight: 'Night Mode',
-      staffMode: 'Switch to Staff Mode',
-      staffModeOn: 'Staff Mode Enabled',
-      customerMode: 'Customer read-only mode',
-      staffBadge: 'Staff Mode',
+      staffBadge: 'Super Admin (Editable)',
+      viewerBadge: 'JDE Read-only',
       customerBadge: 'Customer Mode',
     },
     auth: {
@@ -228,6 +239,9 @@ export const messages = {
       customerName: 'Customer Name',
     },
     views: {
+      overview: 'Overseas Project Overview',
+      logistics: 'Logistics Tracking',
+      empowerment: 'Customer/Supplier Empowerment Plan',
       afterSales: 'Fault diagnosis & resolution',
       materialsCenter: 'Materials Center',
       gridScale: 'Grid-scale showcase',
@@ -236,6 +250,21 @@ export const messages = {
       serviceLogs: 'After-sales logs',
       customerTickets: 'Customer Tickets & Requests',
       accounts: 'Account management',
+    },
+    nav: {
+      overview: 'Overview',
+      clientCare: 'Client Care & Empowerment',
+      system: 'System',
+    },
+    overviewTabs: {
+      gridScale: '⚡ Utility-scale BESS (418)',
+      ciDashboard: '🏢 C&I Delivery Dashboard (250/100C)',
+    },
+    logistics: {
+      add: 'Add Shipment',
+    },
+    empowerment: {
+      add: 'Add Partner',
     },
     fault: {
       section: 'Fault Diagnosis & Resolution',
@@ -274,6 +303,7 @@ export const messages = {
       overdueDays: 'Overdue by',
       daySummary: 'Dynamic days',
       codDate: 'COD / Delivery date',
+      cellVersion: 'Cell Version',
       remove: 'Delete project',
       createTitle: 'Add / Edit project',
       deleteTitle: 'Delete project',

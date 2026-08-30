@@ -16,6 +16,7 @@ class User(SQLModel, table=True):
     password_hash: str
     customer_name: Optional[str] = None
     customer_company: Optional[str] = None
+    country: str = ""
     role: str = Field(default="customer", index=True)
     is_staff: bool = False
     project_ids: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
@@ -50,6 +51,8 @@ class AfterSalesLog(SQLModel, table=True):
     issue_category: str
     faulty_component: str
     fault_component: str = ""
+    fault_description: str = ""
+    onsite_solution: str = ""
     serial_number: str = ""
     status: str = "处理中 (Pending)"
     pending_reason: str = ""
@@ -81,4 +84,41 @@ class CustomerTicket(SQLModel, table=True):
     status: str = Field(default="待处理 (Pending)")
     staff_reply: str = ""
     resolved_at: Optional[datetime] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LogisticsShipment(SQLModel, table=True):
+    __tablename__ = "logistics_shipments"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tracking_no: str = Field(index=True, unique=True)
+    customer_company: str = Field(default="", index=True)
+    related_project: str = Field(default="", index=True)
+    destination_country: str = ""
+    destination_port: str = ""
+    container_no: str = ""
+    equipment_model: str = ""
+    equipment_qty: int = 0
+    status: str = Field(default="工厂备货")
+    eta: Optional[date] = None
+    ata: Optional[date] = None
+    carrier: str = ""
+    tracking_url: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EmpowermentRecord(SQLModel, table=True):
+    __tablename__ = "empowerment_records"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    partner_name: str = Field(index=True, unique=True)
+    delivery_250: int = 0
+    delivery_100c: int = 0
+    delivery_418: int = 0
+    troubleshooting: int = 0
+    spare_parts: int = 0
+    learning_ability: int = 0
+    learning_willingness: int = 0
+    remarks: str = ""
     updated_at: datetime = Field(default_factory=datetime.utcnow)

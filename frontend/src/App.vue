@@ -1,68 +1,82 @@
 <template>
-  <div
-    :class="[
-      'min-h-screen bg-hero-grid',
-      isLightMode ? 'theme-light text-slate-900' : 'theme-dark text-slate-100',
-    ]"
-  >
-    <main
-      class="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8"
+  <div class="admin-shell flex min-h-screen bg-hero-grid theme-light text-slate-900">
+    <aside
+      class="sidebar sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-slate-950 text-slate-200 lg:flex"
     >
-      <header
-        class="portal-header mb-4 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-glow backdrop-blur-xl sm:p-5 lg:flex-row lg:items-center lg:justify-between"
-      >
-        <div>
-          <p
-            class="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-cyan-200 uppercase"
-          >
-            {{ t("app.brand") }}
-          </p>
-          <h1 class="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-            {{ t("app.title") }}
-          </h1>
-          <p
-            class="mt-2 max-w-4xl text-sm leading-6 text-slate-300 sm:text-base"
-          >
-            {{ t("app.description") }}
-          </p>
-        </div>
-
-        <div
-          class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
+      <div class="sidebar-brand border-b border-white/10 px-5 py-5">
+        <p
+          class="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold tracking-[0.2em] text-cyan-200 uppercase"
         >
-          <div
-            class="portal-tabs rounded-2xl border border-white/10 bg-slate-950/70 p-1"
+          {{ t("app.brand") }}
+        </p>
+        <h1 class="mt-3 text-base font-bold text-white">
+          {{ t("app.title") }}
+        </h1>
+      </div>
+      <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-5">
+        <div v-for="group in navGroups" :key="group.key">
+          <p
+            class="sidebar-group-label mb-2 text-[13px] font-semibold uppercase tracking-wider text-slate-400"
           >
-            <div
-              v-for="(row, rowIndex) in viewRows"
-              :key="`view-row-${rowIndex}`"
-              class="flex flex-wrap gap-1"
-              :class="rowIndex > 0 ? 'mt-1' : ''"
+            {{ group.label }}
+          </p>
+          <div class="space-y-1">
+            <button
+              v-for="view in group.items"
+              :key="view.key"
+              type="button"
+              class="sidebar-item w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition"
+              :class="
+                activeView === view.key
+                  ? 'sidebar-item-active bg-cyan-400 text-slate-950'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              "
+              @click="activeView = view.key"
             >
-              <button
-                v-for="view in row"
+              {{ view.label }}
+            </button>
+          </div>
+        </div>
+      </nav>
+      <div class="sidebar-footer flex flex-col gap-2 border-t border-white/10 p-4">
+        <button
+          type="button"
+          class="toolbar-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+          @click="isAuthenticated ? logout() : (loginOpen = true)"
+        >
+          {{ isAuthenticated ? t("portal.logout") : t("portal.login") }}
+        </button>
+        <button
+          type="button"
+          class="toolbar-btn rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+          @click="toggleLocale"
+        >
+          {{ t("app.languageToggle") }}
+        </button>
+      </div>
+    </aside>
+    <main
+      class="admin-content flex min-h-screen min-w-0 w-full flex-1 flex-col p-4 sm:p-5"
+    >
+      <div class="mb-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center lg:hidden">
+          <select
+            v-model="activeView"
+            class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100"
+          >
+            <optgroup
+              v-for="group in navGroups"
+              :key="group.key"
+              :label="group.label"
+            >
+              <option
+                v-for="view in group.items"
                 :key="view.key"
-                type="button"
-                class="tab-btn rounded-xl px-4 py-2 text-sm font-medium transition"
-                :class="
-                  activeView === view.key
-                    ? 'tab-btn-active bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20'
-                    : 'tab-btn-inactive text-slate-300 hover:bg-white/5 hover:text-white'
-                "
-                @click="activeView = view.key"
+                :value="view.key"
               >
                 {{ view.label }}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            class="toolbar-btn rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-            @click="toggleTheme"
-          >
-            {{ isLightMode ? t("app.themeNight") : t("app.themeDay") }}
-          </button>
+              </option>
+            </optgroup>
+          </select>
 
           <button
             type="button"
@@ -79,16 +93,7 @@
           >
             {{ t("app.languageToggle") }}
           </button>
-
-          <button
-            type="button"
-            class="toolbar-btn toolbar-btn-staff rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 hover:text-emerald-100"
-            @click="handleStaffModeClick"
-          >
-            {{ isInternalMode ? t("auth.leave") : t("app.staffMode") }}
-          </button>
-        </div>
-      </header>
+      </div>
 
       <div
         v-if="portalState.notice"
@@ -262,19 +267,6 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <div
-        class="mode-hint-bar mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"
-      >
-        <span>{{
-          isInternalMode ? t("common.managedHint") : t("common.readOnlyHint")
-        }}</span>
-        <span
-          class="mode-hint-badge rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-cyan-200"
-        >
-          {{ staffModeBadge }}
-        </span>
       </div>
 
       <section v-if="activeView === 'after-sales'" class="flex-1">
@@ -703,7 +695,25 @@
         </div>
       </section>
 
-      <section v-else-if="activeView === 'grid-scale'" class="flex-1">
+      <section v-else-if="activeView === 'overview' && overviewSubTab === 'grid-scale'" class="flex-1">
+        <div class="mb-5 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold transition"
+            :class="overviewSubTab === 'grid-scale' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'"
+            @click="overviewSubTab = 'grid-scale'"
+          >
+            {{ t("overviewTabs.gridScale") }}
+          </button>
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold transition"
+            :class="overviewSubTab === 'ci-dashboard' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'"
+            @click="overviewSubTab = 'ci-dashboard'"
+          >
+            {{ t("overviewTabs.ciDashboard") }}
+          </button>
+        </div>
         <div
           class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
         >
@@ -842,8 +852,37 @@
           <article
             v-for="project in gridSummary.projects"
             :key="project.project_name"
-            class="grid-project-card rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-cyan-400/30"
+            class="grid-project-card overflow-hidden rounded-3xl border border-white/10 bg-white/5 transition hover:border-cyan-400/30"
           >
+            <div
+              class="relative h-44 w-full cursor-pointer overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900"
+              @click="
+                project.photo_paths && project.photo_paths.length
+                  ? openImagePreview(project.photo_paths[0])
+                  : openProjectEditor(project)
+              "
+            >
+              <img
+                v-if="project.photo_paths && project.photo_paths.length"
+                :src="resolvePhotoUrl(project.photo_paths[0])"
+                :alt="project.project_name"
+                class="h-full w-full object-cover transition duration-300 hover:scale-105"
+              />
+              <div
+                v-else
+                class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400"
+              >
+                <span class="text-3xl">🔋</span>
+                <span class="text-xs font-semibold uppercase tracking-widest">{{
+                  project.pcs_model || t("grid.noPhotos")
+                }}</span>
+              </div>
+              <span
+                class="absolute left-3 top-3 rounded-full bg-slate-900/70 px-3 py-1 text-[10px] font-semibold text-white backdrop-blur"
+                >{{ project.product_model || "418" }}</span
+              >
+            </div>
+            <div class="p-5">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h3 class="text-lg font-semibold text-white">
@@ -868,6 +907,12 @@
                   >{{ t("grid.overdue") }}</span
                 >
               </div>
+            </div>
+
+            <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+              <p>{{ t("grid.codDate") }}: <span class="text-white">{{ project.cod || "-" }}</span></p>
+              <p>PCS: <span class="text-white">{{ project.pcs_model || "-" }}</span></p>
+              <p class="col-span-2">{{ t("grid.cellVersion") }}: <span class="text-white">{{ project.cell_version || "-" }}</span></p>
             </div>
 
             <div
@@ -934,11 +979,30 @@
                 {{ t("common.delete") }}
               </button>
             </div>
+            </div>
           </article>
         </div>
       </section>
 
-      <section v-else-if="activeView === 'ci-dashboard'" class="flex-1">
+      <section v-else-if="activeView === 'overview' && overviewSubTab === 'ci-dashboard'" class="flex-1">
+        <div class="mb-5 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold transition"
+            :class="overviewSubTab === 'grid-scale' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'"
+            @click="overviewSubTab = 'grid-scale'"
+          >
+            {{ t("overviewTabs.gridScale") }}
+          </button>
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold transition"
+            :class="overviewSubTab === 'ci-dashboard' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'"
+            @click="overviewSubTab = 'ci-dashboard'"
+          >
+            {{ t("overviewTabs.ciDashboard") }}
+          </button>
+        </div>
         <div
           class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
         >
@@ -1148,7 +1212,8 @@
             /><input
               v-model="serviceLogDraft.country"
               placeholder="国家"
-              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+              :disabled="serviceLogCountryLocked"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white disabled:opacity-60"
             /><select
               v-model="serviceLogDraft.customer_company"
               required
@@ -1167,9 +1232,7 @@
               v-model="serviceLogDraft.product_model"
               class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
             >
-              <option>418</option>
-              <option>250</option>
-              <option>100C</option></select
+              <option v-for="model in serviceLogProductModelOptions" :key="model" :value="model">{{ model }}</option></select
             ><select
               v-model="serviceLogDraft.support_type"
               class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
@@ -1197,7 +1260,15 @@
               v-model="serviceLogDraft.created_by"
               placeholder="登记人"
               class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
-            /><label class="block"><span class="mb-1 block text-xs text-slate-400">Attachments</span><input type="file" multiple class="block w-full text-xs text-slate-300" @change="handlePortalAttachments($event, 'log')" /></label><textarea
+            /><label class="block"><span class="mb-1 block text-xs text-slate-400">照片 Photos / Attachments</span><input type="file" multiple accept="image/*,.pdf" class="block w-full text-xs text-slate-300" @change="handlePortalAttachments($event, 'log')" /></label><textarea
+              v-model="serviceLogDraft.fault_description"
+              placeholder="故障描述 Fault Description"
+              class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            ></textarea><textarea
+              v-model="serviceLogDraft.onsite_solution"
+              placeholder="现场解决方案 On-site Solution"
+              class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            ></textarea><textarea
               v-model="serviceLogDraft.pending_reason"
               placeholder="跟进说明"
               class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
@@ -1220,7 +1291,7 @@
           </div>
         </div>
         <div
-          class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
+          class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
         >
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-950/50 text-slate-400">
@@ -1232,6 +1303,9 @@
                 <th class="px-4 py-3">型号</th>
                 <th class="px-4 py-3">远程/现场 (Support Type)</th>
                 <th class="px-4 py-3">故障部位</th>
+                <th class="px-4 py-3">故障描述 (Fault Description)</th>
+                <th class="px-4 py-3">现场解决方案 (On-site Solution)</th>
+                <th class="px-4 py-3">照片 (Photos)</th>
                 <th class="px-4 py-3">状态</th>
                 <th class="px-4 py-3">登记人</th>
                 <th v-if="isInternalMode" class="px-4 py-3">
@@ -1246,6 +1320,9 @@
                 <th><select v-model="serviceLogModelFilter"><option value="">{{ t('common.all') }}</option><option>418</option><option>250</option><option>100C</option></select></th>
                 <th><select v-model="serviceLogSupportFilter"><option value="">{{ t('common.all') }}</option><option value="远程 (Remote)">远程 (Remote)</option><option value="现场 (On-site)">现场 (On-site)</option></select></th>
                 <th><select v-model="serviceLogComponentFilter"><option value="">{{ t('common.all') }}</option><option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option></select></th>
+                <th><input v-model="serviceLogDescriptionFilter" placeholder="搜索故障描述" /></th>
+                <th></th>
+                <th></th>
                 <th><select v-model="serviceLogStatusFilter"><option value="">{{ t('common.all') }}</option><option value="处理中 (Pending)">处理中 (Pending)</option><option value="已解决 (Resolved)">已解决 (Resolved)</option></select></th>
                 <th><input v-model="serviceLogCreatedByFilter" placeholder="搜索登记人" /></th>
                 <th v-if="isInternalMode"><button type="button" class="text-xs text-cyan-200" @click="clearAfterSalesFilters">{{ t('common.clearFilters') }}</button></th>
@@ -1262,6 +1339,20 @@
                 <td class="px-4 py-3">{{ item.product_model }}</td>
                 <td class="px-4 py-3">{{ item.support_type }}</td>
                 <td class="px-4 py-3">{{ item.fault_component || item.faulty_component || "-" }}</td>
+                <td class="max-w-xs truncate px-4 py-3" :title="item.fault_description">{{ item.fault_description || "-" }}</td>
+                <td class="max-w-xs truncate px-4 py-3" :title="item.onsite_solution">{{ item.onsite_solution || "-" }}</td>
+                <td class="px-4 py-3">
+                  <div v-if="(item.attachments || []).length" class="flex gap-1">
+                    <img
+                      v-for="photo in item.attachments.slice(0, 3)"
+                      :key="photo"
+                      :src="resolvePhotoUrl(photo)"
+                      class="h-9 w-9 cursor-pointer rounded-lg border border-white/10 object-cover transition hover:scale-105"
+                      @click="openImagePreview(photo)"
+                    />
+                  </div>
+                  <span v-else class="text-slate-500">-</span>
+                </td>
                 <td class="px-4 py-3">{{ item.status }}</td>
                 <td class="px-4 py-3">{{ item.created_by }}</td>
                 <td v-if="isInternalMode" class="px-4 py-3">
@@ -1452,7 +1543,7 @@
           </div>
         </div>
         <div
-          class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
+          class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
         >
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-950/50 text-slate-400">
@@ -1544,6 +1635,10 @@
             v-model="accountDraft.customer_company"
             :placeholder="t('portal.customer')"
             class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white md:col-span-2"
+          /><input
+            v-model="accountDraft.country"
+            placeholder="所属国家 (Country)"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
           />
           <p
             class="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-slate-300 md:col-span-3"
@@ -1559,13 +1654,14 @@
           </button>
         </div>
         <div
-          class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
+          class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5"
         >
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-950/50 text-slate-400">
               <tr>
                 <th class="px-4 py-3">{{ t("portal.username") }}</th>
                 <th class="px-4 py-3">{{ t("portal.customer") }}</th>
+                <th class="px-4 py-3">国家 (Country)</th>
                 <th class="px-4 py-3">{{ t("portal.projectAccess") }}</th>
                 <th class="px-4 py-3">{{ t("portal.ticketStatus") }}</th>
                 <th class="px-4 py-3">{{ t("common.actions") }}</th>
@@ -1579,6 +1675,7 @@
                 <td class="px-4 py-3">
                   {{ user.customer_company || user.customer_name || "-" }}
                 </td>
+                <td class="px-4 py-3">{{ user.country || "-" }}</td>
                 <td class="px-4 py-3">
                   <details>
                     <summary class="cursor-pointer text-cyan-200">
@@ -1599,14 +1696,14 @@
                 </td>
                 <td class="px-4 py-3">
                   <button
-                    v-if="user.role !== 'admin'"
+                    v-if="user.role === 'customer'"
                     type="button"
                     class="mr-2 text-cyan-200"
                     @click="editCustomerAccount(user)"
                   >
                     {{ t("common.edit") }}</button
                   ><button
-                    v-if="user.role !== 'admin'"
+                    v-if="user.role === 'customer'"
                     type="button"
                     class="text-rose-200"
                     @click="removeCustomerAccount(user.id)"
@@ -1620,7 +1717,194 @@
         </div>
       </section>
 
-      <section v-else class="flex-1">
+      <section v-else-if="activeView === 'logistics'" class="flex-1">
+        <div
+          class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+        >
+          <div>
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
+            >
+              Logistics Tracking
+            </p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+              {{ t("views.logistics") }}
+            </h2>
+          </div>
+          <button
+            v-if="isInternalMode"
+            type="button"
+            class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+            @click="openLogisticsEditor()"
+          >
+            {{ t("logistics.add") }}
+          </button>
+        </div>
+
+        <div class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5 p-5">
+          <div class="flex min-w-max items-center gap-2">
+            <template v-for="(step, index) in logisticsStatusOptions" :key="step">
+              <div class="flex flex-col items-center gap-2">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                  :class="index <= 0 ? 'bg-cyan-400 text-slate-950' : 'bg-slate-800 text-slate-400'"
+                  >{{ index + 1 }}</span
+                >
+                <span class="w-24 text-center text-[11px] text-slate-300">{{ step }}</span>
+              </div>
+              <div v-if="index < logisticsStatusOptions.length - 1" class="h-0.5 w-10 flex-1 bg-slate-700"></div>
+            </template>
+          </div>
+        </div>
+
+        <div v-if="logisticsFormOpen" class="mt-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+          <div class="grid gap-3 md:grid-cols-3">
+            <input v-model="logisticsDraft.tracking_no" placeholder="发运编号 / 提单号" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.customer_company" placeholder="客户/代理商名称" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.related_project" placeholder="关联项目" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.destination_country" placeholder="目的国" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.destination_port" placeholder="目的港" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.container_no" placeholder="柜号 / Container No." class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.equipment_model" placeholder="设备型号 (如 eBlock-418)" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model.number="logisticsDraft.equipment_qty" type="number" min="0" placeholder="数量" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <select v-model="logisticsDraft.status" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
+              <option v-for="option in logisticsStatusOptions" :key="option" :value="option">{{ option }}</option>
+            </select>
+            <label class="block"><span class="mb-1 block text-xs text-slate-400">ETA</span><input v-model="logisticsDraft.eta" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
+            <label class="block"><span class="mb-1 block text-xs text-slate-400">ATA</span><input v-model="logisticsDraft.ata" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
+            <input v-model="logisticsDraft.carrier" placeholder="承运商" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <input v-model="logisticsDraft.tracking_url" placeholder="查询链接 URL" class="md:col-span-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+          </div>
+          <div class="mt-3 flex justify-end gap-2">
+            <button type="button" class="rounded-xl border border-white/10 px-4 py-2 text-white" @click="logisticsFormOpen = false">取消</button>
+            <button type="button" class="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950" @click="submitLogisticsShipment">保存</button>
+          </div>
+        </div>
+
+        <div class="mt-5 scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5">
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">提单号</th>
+                <th class="px-4 py-3">客户</th>
+                <th class="px-4 py-3">目的地</th>
+                <th class="px-4 py-3">柜号</th>
+                <th class="px-4 py-3">设备</th>
+                <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3">ETA / ATA</th>
+                <th class="px-4 py-3">承运商</th>
+                <th v-if="isInternalMode" class="px-4 py-3">{{ t("common.actions") }}</th>
+              </tr>
+              <tr class="ticket-filter-row">
+                <th><input v-model="logisticsFilters.tracking_no" placeholder="搜索提单号" /></th>
+                <th></th>
+                <th><input v-model="logisticsFilters.destination" placeholder="搜索目的地" /></th>
+                <th></th>
+                <th></th>
+                <th><select v-model="logisticsFilters.status"><option value="">{{ t('common.all') }}</option><option v-for="option in logisticsStatusOptions" :key="option" :value="option">{{ option }}</option></select></th>
+                <th></th>
+                <th></th>
+                <th v-if="isInternalMode"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="item in logisticsShipments" :key="item.id">
+                <td class="px-4 py-3 font-medium text-white">
+                  <a v-if="item.tracking_url" :href="item.tracking_url" target="_blank" rel="noopener" class="text-cyan-200 underline">{{ item.tracking_no }}</a>
+                  <span v-else>{{ item.tracking_no }}</span>
+                </td>
+                <td class="px-4 py-3">{{ item.customer_company || "-" }}</td>
+                <td class="px-4 py-3">{{ item.destination_country }} / {{ item.destination_port || "-" }}</td>
+                <td class="px-4 py-3">{{ item.container_no || "-" }}</td>
+                <td class="px-4 py-3">{{ item.equipment_model }} × {{ item.equipment_qty }}</td>
+                <td class="px-4 py-3"><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-100">{{ item.status }}</span></td>
+                <td class="px-4 py-3">{{ item.eta || "-" }} / {{ item.ata || "-" }}</td>
+                <td class="px-4 py-3">{{ item.carrier || "-" }}</td>
+                <td v-if="isInternalMode" class="px-4 py-3">
+                  <button type="button" class="mr-2 text-cyan-200" @click="editLogisticsShipment(item)">{{ t("common.edit") }}</button>
+                  <button type="button" class="text-rose-200" @click="openDeleteDialog('logistics', String(item.id), item.tracking_no, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
+                </td>
+              </tr>
+              <tr v-if="!logisticsShipments.length">
+                <td :colspan="isInternalMode ? 9 : 8" class="px-4 py-6 text-center text-slate-400">{{ t("common.noData") }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'empowerment'" class="flex-1">
+        <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Empowerment Plan</p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t("views.empowerment") }}</h2>
+          </div>
+          <button
+            v-if="isInternalMode"
+            type="button"
+            class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+            @click="openEmpowermentEditor()"
+          >
+            {{ t("empowerment.add") }}
+          </button>
+        </div>
+
+        <div v-if="empowermentFormOpen" class="mb-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+          <div class="grid gap-3 md:grid-cols-3">
+            <input v-model="empowermentDraft.partner_name" :disabled="Boolean(empowermentEditingId)" placeholder="供应商/客户名称" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white disabled:opacity-50" />
+            <label v-for="field in empowermentScoreFields" :key="field.key" class="block">
+              <span class="mb-1 block text-xs text-slate-400">{{ field.label }} ({{ empowermentDraft[field.key] }}%)</span>
+              <input v-model.number="empowermentDraft[field.key]" type="range" min="0" max="100" class="w-full" />
+            </label>
+            <textarea v-model="empowermentDraft.remarks" placeholder="备注" class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"></textarea>
+          </div>
+          <div class="mt-3 flex justify-end gap-2">
+            <button type="button" class="rounded-xl border border-white/10 px-4 py-2 text-white" @click="empowermentFormOpen = false">取消</button>
+            <button type="button" class="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950" @click="submitEmpowermentRecord">保存</button>
+          </div>
+        </div>
+
+        <div class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5">
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">供应商/客户名称</th>
+                <th v-for="field in empowermentScoreFields" :key="field.key" class="px-4 py-3">{{ field.label }}</th>
+                <th class="px-4 py-3">备注</th>
+                <th v-if="isInternalMode" class="px-4 py-3">{{ t("common.actions") }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="item in empowermentRecords" :key="item.id">
+                <td class="px-4 py-3 font-medium text-white">{{ item.partner_name }}</td>
+                <td v-for="field in empowermentScoreFields" :key="field.key" class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <div class="h-2 w-24 overflow-hidden rounded-full bg-slate-200">
+                      <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${item[field.key] || 0}%` }"></div>
+                    </div>
+                    <span class="text-xs font-semibold text-white">{{ item[field.key] || 0 }}%</span>
+                  </div>
+                </td>
+                <td class="max-w-xs px-4 py-3 text-xs text-slate-300">{{ item.remarks || "-" }}</td>
+                <td v-if="isInternalMode" class="px-4 py-3">
+                  <button type="button" class="mr-2 text-cyan-200" @click="editEmpowermentRecord(item)">{{ t("common.edit") }}</button>
+                  <button type="button" class="text-rose-200" @click="openDeleteDialog('empowerment', String(item.id), item.partner_name, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
+                </td>
+              </tr>
+              <tr v-if="!empowermentRecords.length">
+                <td :colspan="empowermentScoreFields.length + (isInternalMode ? 3 : 2)" class="px-4 py-6 text-center text-slate-400">{{ t("common.noData") }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td :colspan="empowermentScoreFields.length + (isInternalMode ? 3 : 2)" class="px-4 py-3 text-xs font-semibold text-slate-400">Count: {{ empowermentRecords.length }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'warehouse'" class="flex-1">
         <div
           class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
         >
@@ -1656,9 +1940,32 @@
           >
             {{ t("inventory.count") }}：<span
               class="font-semibold text-white"
-              >{{ inventoryItems.length }}</span
+              >{{ filteredInventoryItems.length }}</span
             >
           </div>
+        </div>
+
+        <div
+          class="mb-4 grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 sm:grid-cols-3"
+        >
+          <input
+            v-model="inventorySearchKeyword"
+            placeholder="搜索备件名称 / 物料编码 SKU"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+          /><select
+            v-model="inventoryModelFilter"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+          >
+            <option value="">适用机型 (全部)</option>
+            <option>418</option>
+            <option>250</option>
+            <option>100C</option></select
+          ><select
+            v-model="selectedWarehouse"
+            class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+          >
+            <option v-for="warehouse in warehouseOptions" :key="warehouse.key" :value="warehouse.key">{{ warehouse.label }}</option>
+          </select>
         </div>
 
         <div
@@ -1683,7 +1990,7 @@
           v-else
           class="overflow-hidden rounded-3xl border border-white/10 bg-white/5"
         >
-          <div class="overflow-x-auto">
+          <div class="scroll-thin overflow-x-auto">
             <table
               class="data-table inventory-data-table min-w-full divide-y divide-white/10 text-left text-sm"
             >
@@ -1720,7 +2027,7 @@
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
                 <tr
-                  v-for="item in inventoryItems"
+                  v-for="item in filteredInventoryItems"
                   :key="item.item_no"
                   class="bg-white/[0.02] hover:bg-white/[0.04]"
                 >
@@ -1787,7 +2094,7 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-if="inventoryItems.length === 0">
+                <tr v-if="filteredInventoryItems.length === 0">
                   <td
                     :colspan="isInternalMode ? 9 : 8"
                     class="px-4 py-10 text-center text-slate-400"
@@ -1800,55 +2107,6 @@
           </div>
         </div>
       </section>
-      <div
-        v-if="portalState.staffAuthOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
-      >
-        <div
-          class="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30"
-        >
-          <p
-            class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"
-          >
-            {{ t("auth.title") }}
-          </p>
-          <h3 class="mt-3 text-2xl font-semibold text-white">
-            {{ t("auth.title") }}
-          </h3>
-          <p class="mt-2 text-sm leading-6 text-slate-300">
-            {{ t("auth.description") }}
-          </p>
-          <input
-            v-model="portalState.staffPassword"
-            type="password"
-            class="mt-5 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none transition focus:border-cyan-400/60"
-            :placeholder="t('auth.placeholder')"
-            @keyup.enter="confirmPassword"
-          />
-          <p
-            v-if="portalState.staffAuthError"
-            class="mt-3 text-sm text-rose-200"
-          >
-            {{ portalState.staffAuthError }}
-          </p>
-          <div class="mt-6 flex justify-end gap-3">
-            <button
-              type="button"
-              class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-              @click="cancelStaffAuth"
-            >
-              {{ t("auth.cancel") }}
-            </button>
-            <button
-              type="button"
-              class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
-              @click="confirmPassword"
-            >
-              {{ t("auth.confirm") }}
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div
         v-if="crudModal.open"
@@ -2023,6 +2281,17 @@
                   />
                 </datalist>
               </label>
+              <label v-if="crudDraftGridCountry" class="block">
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >国家 (Country)</span
+                >
+                <input
+                  :value="crudDraftGridCountry"
+                  disabled
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:opacity-60"
+                />
+              </label>
               <label class="block">
                 <span
                   class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
@@ -2156,7 +2425,8 @@
                 >
                 <input
                   v-model="crudDraft.region"
-                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                  :disabled="crudDraftCiCountryLocked"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:opacity-60"
                 />
               </label>
               <label class="block">
@@ -2504,36 +2774,49 @@ const {
   state: portalState,
   setLocale,
   toggleLocale,
-  requestStaffMode,
-  cancelStaffAuth,
-  confirmStaffAuth,
-  leaveStaffMode,
   setNotice,
 } = usePortalState();
 
-const THEME_STORAGE_KEY = "jd-portal-theme";
-const themeMode = ref("dark");
+const activeView = ref("overview");
 
-const activeView = ref("after-sales");
-
-const views = computed(() => [
-  { key: "after-sales", label: t("views.afterSales") },
-  { key: "materials-center", label: t("views.materialsCenter") },
-  ...(!isCustomer.value
-    ? [{ key: "warehouse", label: t("views.warehouse") }]
-    : []),
-  { key: "grid-scale", label: t("views.gridScale") },
-  { key: "ci-dashboard", label: t("views.ciDashboard") },
-  { key: "service-logs", label: t("views.serviceLogs") },
-  { key: "customer-tickets", label: t("views.customerTickets") },
-  ...(!isCustomer.value && isInternalMode.value
-    ? [{ key: "account-management", label: t("views.accounts") }]
+const navGroups = computed(() => [
+  {
+    key: "overview",
+    label: t("nav.overview"),
+    items: [
+      { key: "overview", label: t("views.overview") },
+      { key: "logistics", label: t("views.logistics") },
+      ...(!isCustomer.value
+        ? [{ key: "warehouse", label: t("views.warehouse") }]
+        : []),
+      ...(!isCustomer.value
+        ? [{ key: "service-logs", label: t("views.serviceLogs") }]
+        : []),
+    ],
+  },
+  {
+    key: "client-care",
+    label: t("nav.clientCare"),
+    items: [
+      ...(!isCustomer.value
+        ? [{ key: "empowerment", label: t("views.empowerment") }]
+        : []),
+      { key: "customer-tickets", label: t("views.customerTickets") },
+      { key: "after-sales", label: t("views.afterSales") },
+      { key: "materials-center", label: t("views.materialsCenter") },
+    ],
+  },
+  ...(isSuperAdmin.value
+    ? [
+        {
+          key: "system",
+          label: t("nav.system"),
+          items: [{ key: "account-management", label: t("views.accounts") }],
+        },
+      ]
     : []),
 ]);
-const viewRows = computed(() => [
-  views.value.slice(0, 3),
-  views.value.slice(3),
-]);
+const overviewSubTab = ref("grid-scale");
 
 const warehouseOptions = [
   { key: "europe", label: "欧洲仓 / Europe" },
@@ -2595,6 +2878,24 @@ const warehouseForm = reactive({
 const inventoryLoading = ref(false);
 const inventoryError = ref("");
 const inventoryItems = ref([]);
+const inventorySearchKeyword = ref("");
+const inventoryModelFilter = ref("");
+const filteredInventoryItems = computed(() =>
+  inventoryItems.value.filter((item) => {
+    const keyword = inventorySearchKeyword.value.trim().toLowerCase();
+    const matchesKeyword =
+      !keyword ||
+      (item.item_no || "").toLowerCase().includes(keyword) ||
+      (item.description_zh || "").toLowerCase().includes(keyword) ||
+      (item.specification || "").toLowerCase().includes(keyword);
+    const matchesModel =
+      !inventoryModelFilter.value ||
+      `${item.description_zh || ""} ${item.specification || ""}`.includes(
+        inventoryModelFilter.value,
+      );
+    return matchesKeyword && matchesModel;
+  }),
+);
 const materialsProductSeries = ref(technicalDocProductSeries[0]);
 const materialsLoading = ref(false);
 const materialsError = ref("");
@@ -2613,8 +2914,52 @@ const serviceLogProjectFilter = ref("");
 const serviceLogModelFilter = ref("");
 const serviceLogStatusFilter = ref("");
 const serviceLogCreatedByFilter = ref("");
+const serviceLogDescriptionFilter = ref("");
 const tickets = ref([]);
 const users = ref([]);
+const logisticsShipments = ref([]);
+const logisticsStatusOptions = ["工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场"];
+const logisticsFilters = reactive({ tracking_no: "", destination: "", status: "" });
+const logisticsFormOpen = ref(false);
+const logisticsEditingId = ref(null);
+const logisticsDraft = reactive({
+  tracking_no: "",
+  customer_company: "",
+  related_project: "",
+  destination_country: "",
+  destination_port: "",
+  container_no: "",
+  equipment_model: "",
+  equipment_qty: 0,
+  status: "工厂备货",
+  eta: "",
+  ata: "",
+  carrier: "",
+  tracking_url: "",
+});
+const empowermentRecords = ref([]);
+const empowermentFormOpen = ref(false);
+const empowermentEditingId = ref(null);
+const empowermentScoreFields = [
+  { key: "delivery_250", label: "250交付" },
+  { key: "delivery_100c", label: "100C交付" },
+  { key: "delivery_418", label: "418交付" },
+  { key: "troubleshooting", label: "问题排查" },
+  { key: "spare_parts", label: "备件更换" },
+  { key: "learning_ability", label: "学习能力" },
+  { key: "learning_willingness", label: "学习意愿" },
+];
+const empowermentDraft = reactive({
+  partner_name: "",
+  delivery_250: 0,
+  delivery_100c: 0,
+  delivery_418: 0,
+  troubleshooting: 0,
+  spare_parts: 0,
+  learning_ability: 0,
+  learning_willingness: 0,
+  remarks: "",
+});
 const loginOpen = ref(false);
 const loginDraft = reactive({ username: "", password: "" });
 const serviceLogFormOpen = ref(false);
@@ -2630,6 +2975,8 @@ const serviceLogDraft = reactive({
   issue_category: "软件 (Software)",
   fault_component: "",
   faulty_component: "",
+  fault_description: "",
+  onsite_solution: "",
   serial_number: "",
   status: "处理中 (Pending)",
   pending_reason: "",
@@ -2642,6 +2989,7 @@ const accountDraft = reactive({
   username: "",
   password: "",
   customer_company: "",
+  country: "",
 });
 const partnerOptions = computed(() => [
   ...new Set(
@@ -2716,10 +3064,13 @@ const ticketFilters = reactive({
   ticket_type: '',
   faulty_component: '',
 });
-const faultyComponentOptions = ["PACK", "Chiller", "PCS", "eLink", "Cabinet", "Software", "Transformer", "Other"];
+const faultyComponentOptions = [
+  "门锁", "通讯线束", "电表", "熔断器", "断路器", "bmu", "pcs", "液冷机",
+  "HIM板", "急停", "io模块", "开关电源", "交换机", "风扇", "pack", "网络控制器", "空调", "其他",
+];
 const filteredServiceLogs = computed(() => serviceLogs.value.filter((item) => (!serviceLogComponentFilter.value || (item.fault_component || item.faulty_component) === serviceLogComponentFilter.value) && (!serviceLogSupportFilter.value || item.support_type === serviceLogSupportFilter.value)));
 const serviceLogCountries = computed(() => [...new Set(serviceLogs.value.map((item) => item.country).filter(Boolean))].sort());
-const computedFilteredAfterSalesLogs = computed(() => filteredServiceLogs.value.filter((item) => (!serviceLogDateFilter.value || item.event_date === serviceLogDateFilter.value) && (!serviceLogCountryFilter.value || item.country === serviceLogCountryFilter.value) && (!serviceLogCustomerFilter.value || (item.customer_company || item.customer) === serviceLogCustomerFilter.value) && (!serviceLogProjectFilter.value || (item.project_name || '').toLowerCase().includes(serviceLogProjectFilter.value.toLowerCase())) && (!serviceLogModelFilter.value || item.product_model === serviceLogModelFilter.value) && (!serviceLogStatusFilter.value || item.status === serviceLogStatusFilter.value) && (!serviceLogCreatedByFilter.value || (item.created_by || '').toLowerCase().includes(serviceLogCreatedByFilter.value.toLowerCase()))));
+const computedFilteredAfterSalesLogs = computed(() => filteredServiceLogs.value.filter((item) => (!serviceLogDateFilter.value || item.event_date === serviceLogDateFilter.value) && (!serviceLogCountryFilter.value || item.country === serviceLogCountryFilter.value) && (!serviceLogCustomerFilter.value || (item.customer_company || item.customer) === serviceLogCustomerFilter.value) && (!serviceLogProjectFilter.value || (item.project_name || '').toLowerCase().includes(serviceLogProjectFilter.value.toLowerCase())) && (!serviceLogModelFilter.value || item.product_model === serviceLogModelFilter.value) && (!serviceLogStatusFilter.value || item.status === serviceLogStatusFilter.value) && (!serviceLogCreatedByFilter.value || (item.created_by || '').toLowerCase().includes(serviceLogCreatedByFilter.value.toLowerCase())) && (!serviceLogDescriptionFilter.value || (item.fault_description || '').toLowerCase().includes(serviceLogDescriptionFilter.value.toLowerCase()))));
 const filteredTickets = computed(() => tickets.value.filter((ticket) => {
   const company = ticket.customer_company || ticket.partner_name || ticket.customer_name || ''
   return (!ticketFilters.customer_company || company.toLowerCase().includes(ticketFilters.customer_company.toLowerCase()))
@@ -2739,6 +3090,32 @@ const crudModal = reactive({
   originalKey: "",
 });
 const crudDraft = reactive(createEmptyCrudDraft());
+function resolveCountryForCompany(company) {
+  const normalized = (company || "").trim().toLowerCase();
+  if (!normalized) return "";
+  const match = users.value.find(
+    (user) =>
+      (user.customer_company || user.customer_name || "").trim().toLowerCase() ===
+      normalized,
+  );
+  return match?.country || "";
+}
+const crudDraftGridCountry = computed(() =>
+  resolveCountryForCompany(crudDraft.customer_company),
+);
+watch(
+  () => crudDraft.dealer_name,
+  (dealerName) => {
+    if (crudModal.kind !== "ci") return;
+    const country = resolveCountryForCompany(dealerName);
+    if (country) {
+      crudDraft.region = country;
+    }
+  },
+);
+const crudDraftCiCountryLocked = computed(() =>
+  Boolean(resolveCountryForCompany(crudDraft.dealer_name)),
+);
 const deleteDialog = reactive({
   open: false,
   kind: "",
@@ -2810,11 +3187,9 @@ const warehouseTopCards = computed(() => {
     },
   ];
 });
-const isInternalMode = computed(
-  () =>
-    portalState.staffMode ||
-    ["admin", "staff"].includes(loggedUser.value?.role),
-);
+const isSuperAdmin = computed(() => loggedUser.value?.role === "super_admin");
+const isViewer = computed(() => loggedUser.value?.role === "viewer");
+const isInternalMode = isSuperAdmin;
 const loggedUser = computed(() => {
   if (typeof window === "undefined") return null;
   try {
@@ -2855,14 +3230,35 @@ watch(
     if (project) {
       serviceLogDraft.customer_company =
         project.customer_company || project.partner_name || "";
-      serviceLogDraft.country = project.country || serviceLogDraft.country;
+      const matchedUser = users.value.find(
+        (user) =>
+          (user.customer_company || user.customer_name || "").toLowerCase() ===
+          (serviceLogDraft.customer_company || "").toLowerCase(),
+      );
+      serviceLogDraft.country =
+        matchedUser?.country || project.country || serviceLogDraft.country;
+      const isGridScale = gridProjects.value.some(
+        (item) => item.project_name === projectName,
+      );
+      if (isGridScale) {
+        serviceLogDraft.product_model = "418";
+      } else if (serviceLogDraft.product_model === "418") {
+        serviceLogDraft.product_model = "250";
+      }
     }
   },
 );
-const staffMode = isInternalMode;
+const serviceLogProductModelOptions = computed(() => {
+  const isGridScale = gridProjects.value.some(
+    (item) => item.project_name === serviceLogDraft.project_name,
+  );
+  return isGridScale ? ["418"] : ["250", "100C"];
+});
+const serviceLogCountryLocked = computed(() =>
+  Boolean(serviceLogDraft.project_name || serviceLogDraft.customer_company),
+);
 const locale = computed(() => portalState.locale);
 const isEnglish = computed(() => locale.value === "en-US");
-const isLightMode = computed(() => themeMode.value === "light");
 const materialsCanManage = computed(() => {
   if (isInternalMode.value) {
     return true;
@@ -2894,38 +3290,6 @@ function t(path) {
         messages[locale.value],
       ) ?? path
   );
-}
-
-function applyTheme(mode) {
-  if (typeof document === "undefined") {
-    return;
-  }
-  document.documentElement.setAttribute("data-theme", mode);
-  document.documentElement.classList.toggle("light", mode === "light");
-}
-
-function restoreTheme() {
-  if (typeof window === "undefined") {
-    applyTheme(themeMode.value);
-    return;
-  }
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === "light" || stored === "dark") {
-    themeMode.value = stored;
-  } else if (stored === "day") {
-    themeMode.value = "light";
-  } else if (stored === "night") {
-    themeMode.value = "dark";
-  }
-  applyTheme(themeMode.value);
-}
-
-function toggleTheme() {
-  themeMode.value = isLightMode.value ? "dark" : "light";
-  applyTheme(themeMode.value);
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode.value);
-  }
 }
 
 const todayTick = ref(Date.now());
@@ -3022,10 +3386,6 @@ const gridSummary = computed(() => {
     pendingRatioLabel: `${pendingRatio.toFixed(1)}%`,
   };
 });
-
-const staffModeBadge = computed(() =>
-  staffMode.value ? t("app.staffBadge") : t("app.customerBadge"),
-);
 
 const CI_100C_MWH_PER_UNIT = 0.12;
 const CI_250_MWH_PER_UNIT = 0.25;
@@ -3257,31 +3617,17 @@ function handleTechnicalDocFile(event) {
   }
 }
 
-function handleStaffModeClick() {
-  if (isInternalMode.value) {
-    leaveStaffMode(
-      isEnglish.value ? "Staff mode disabled." : "已退出内部员工模式",
-    );
-    return;
-  }
-  requestStaffMode();
-}
-
 function ensureInternalMode() {
   if (isInternalMode.value) {
     return true;
   }
   setNotice(
     isEnglish.value
-      ? "Read-only mode: switch to Staff Mode to modify data."
-      : "当前为只读模式，请切换到内部员工模式后再执行修改。",
+      ? "Read-only mode: your account does not have write access."
+      : "当前为只读模式，您的账号没有写入权限。",
     "error",
   );
   return false;
-}
-
-function confirmPassword() {
-  confirmStaffAuth(t("auth.success"), t("auth.error"));
 }
 
 function openCrudModal(kind, mode = "create", record = null) {
@@ -3595,11 +3941,134 @@ async function loadPortalExtras() {
   }
 }
 
+async function loadLogisticsShipments() {
+  if (!isAuthenticated.value) return;
+  try {
+    const payload = await portalApi.listLogisticsShipments(logisticsFilters);
+    logisticsShipments.value = payload.items ?? [];
+  } catch (error) {
+    setNotice(formatApiError(error, "物流数据加载失败"), "error");
+  }
+}
+
+async function loadEmpowermentRecords() {
+  if (!isAuthenticated.value || isCustomer.value) return;
+  try {
+    const payload = await portalApi.listEmpowermentRecords();
+    empowermentRecords.value = payload.items ?? [];
+  } catch (error) {
+    setNotice(formatApiError(error, "赋能计划数据加载失败"), "error");
+  }
+}
+
+function resetLogisticsDraft() {
+  Object.assign(logisticsDraft, {
+    tracking_no: "",
+    customer_company: "",
+    related_project: "",
+    destination_country: "",
+    destination_port: "",
+    container_no: "",
+    equipment_model: "",
+    equipment_qty: 0,
+    status: "工厂备货",
+    eta: "",
+    ata: "",
+    carrier: "",
+    tracking_url: "",
+  });
+  logisticsEditingId.value = null;
+}
+
+function openLogisticsEditor(record = null) {
+  if (!ensureInternalMode()) return;
+  resetLogisticsDraft();
+  if (record) {
+    logisticsEditingId.value = record.id;
+    Object.assign(logisticsDraft, record);
+  }
+  logisticsFormOpen.value = true;
+}
+
+function editLogisticsShipment(record) {
+  openLogisticsEditor(record);
+}
+
+async function submitLogisticsShipment() {
+  if (!logisticsDraft.tracking_no) {
+    setNotice(t("notices.requiredLog"), "error");
+    return;
+  }
+  try {
+    if (logisticsEditingId.value) {
+      await portalApi.updateLogisticsShipment(logisticsEditingId.value, { ...logisticsDraft });
+    } else {
+      await portalApi.createLogisticsShipment({ ...logisticsDraft });
+    }
+    logisticsFormOpen.value = false;
+    resetLogisticsDraft();
+    await loadLogisticsShipments();
+    setNotice(t("notices.logSaved"), "success");
+  } catch (error) {
+    setNotice(formatApiError(error, t("notices.logSaveFailed")), "error");
+  }
+}
+
+function resetEmpowermentDraft() {
+  Object.assign(empowermentDraft, {
+    partner_name: "",
+    delivery_250: 0,
+    delivery_100c: 0,
+    delivery_418: 0,
+    troubleshooting: 0,
+    spare_parts: 0,
+    learning_ability: 0,
+    learning_willingness: 0,
+    remarks: "",
+  });
+  empowermentEditingId.value = null;
+}
+
+function openEmpowermentEditor(record = null) {
+  if (!ensureInternalMode()) return;
+  resetEmpowermentDraft();
+  if (record) {
+    empowermentEditingId.value = record.id;
+    Object.assign(empowermentDraft, record);
+  }
+  empowermentFormOpen.value = true;
+}
+
+function editEmpowermentRecord(record) {
+  openEmpowermentEditor(record);
+}
+
+async function submitEmpowermentRecord() {
+  if (!empowermentDraft.partner_name) {
+    setNotice(t("notices.requiredLog"), "error");
+    return;
+  }
+  try {
+    if (empowermentEditingId.value) {
+      await portalApi.updateEmpowermentRecord(empowermentEditingId.value, { ...empowermentDraft });
+    } else {
+      await portalApi.createEmpowermentRecord({ ...empowermentDraft });
+    }
+    empowermentFormOpen.value = false;
+    resetEmpowermentDraft();
+    await loadEmpowermentRecords();
+    setNotice(t("notices.logSaved"), "success");
+  } catch (error) {
+    setNotice(formatApiError(error, t("notices.logSaveFailed")), "error");
+  }
+}
+
 async function createCustomerAccount() {
   if (
     !accountDraft.username ||
     (!accountEditingId.value && !accountDraft.password) ||
-    !accountDraft.customer_company
+    !accountDraft.customer_company ||
+    !accountDraft.country
   ) {
     setNotice(t("portal.customer"), "error");
     return;
@@ -3609,6 +4078,7 @@ async function createCustomerAccount() {
     await portalApi.updateUser(accountEditingId.value, {
       password: accountDraft.password || null,
       customer_company: accountDraft.customer_company,
+      country: accountDraft.country,
     });
   } else {
     await portalApi.createUser({ ...accountDraft });
@@ -3616,6 +4086,7 @@ async function createCustomerAccount() {
   accountDraft.username = "";
   accountDraft.password = "";
   accountDraft.customer_company = "";
+  accountDraft.country = "";
   accountFormOpen.value = false;
   accountEditingId.value = null;
   await loadPortalExtras();
@@ -3631,6 +4102,7 @@ function editCustomerAccount(user) {
   accountDraft.password = "";
   accountDraft.customer_company =
     user.customer_company || user.customer_name || "";
+  accountDraft.country = user.country || "";
   accountFormOpen.value = true;
 }
 
@@ -3667,6 +4139,7 @@ function clearAfterSalesFilters() {
   serviceLogModelFilter.value = "";
   serviceLogStatusFilter.value = "";
   serviceLogCreatedByFilter.value = "";
+  serviceLogDescriptionFilter.value = "";
 }
 
 async function submitTicket() {
@@ -3741,6 +4214,7 @@ async function submitLogin() {
 function logout() {
   window.localStorage.removeItem("token");
   window.localStorage.removeItem("portal-user");
+  window.localStorage.removeItem("jd-staff-token");
   window.location.reload();
 }
 
@@ -3785,6 +4259,8 @@ function editServiceLog(item) {
     issue_category: item.issue_category || "软件 (Software)",
     fault_component: item.fault_component || item.faulty_component || "",
     faulty_component: item.fault_component || item.faulty_component || "",
+    fault_description: item.fault_description || "",
+    onsite_solution: item.onsite_solution || "",
     serial_number: item.serial_number || "",
     status: item.status || "处理中 (Pending)",
     pending_reason: item.pending_reason || "",
@@ -4195,6 +4671,14 @@ async function confirmDelete() {
     await portalApi.deleteTechnicalDoc(key);
     await loadTechnicalDocs();
   }
+  if (kind === "logistics") {
+    await portalApi.deleteLogisticsShipment(key);
+    await loadLogisticsShipments();
+  }
+  if (kind === "empowerment") {
+    await portalApi.deleteEmpowermentRecord(key);
+    await loadEmpowermentRecords();
+  }
   setNotice(t("notices.deleted"), "success");
   closeDeleteDialog();
 }
@@ -4227,6 +4711,14 @@ watch(selectedWarehouse, async () => {
   await loadWarehouseData();
 });
 
+watch(
+  () => ({ ...logisticsFilters }),
+  async () => {
+    await loadLogisticsShipments();
+  },
+  { deep: true },
+);
+
 watch(isInternalMode, (enabled) => {
   if (enabled) return;
   closeCrudModal();
@@ -4234,7 +4726,10 @@ watch(isInternalMode, (enabled) => {
 });
 
 onMounted(async () => {
-  restoreTheme();
+  if (typeof document !== "undefined") {
+    document.documentElement.classList.add("light");
+    document.documentElement.setAttribute("data-theme", "light");
+  }
   todayTick.value = Date.now();
   const timerId = window.setInterval(() => {
     todayTick.value = Date.now();
@@ -4248,6 +4743,8 @@ onMounted(async () => {
     loadWarehouseInventory(),
     loadTechnicalDocs(),
     loadPortalExtras(),
+    loadLogisticsShipments(),
+    loadEmpowermentRecords(),
   ]);
 });
 
