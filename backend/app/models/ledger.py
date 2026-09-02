@@ -19,8 +19,9 @@ class GridScaleProject(SQLModel, table=True):
     project_name: str = Field(primary_key=True)
     cod: str
     capacity_mwh: float
-    cell_version: str
-    pcs_model: str
+    software_version: str = ""
+    cell_version: str = ""
+    pcs_model: str = ""
     progress_status: str
     photo_paths: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
     customer_id: Optional[int] = Field(default=None, index=True)
@@ -116,7 +117,7 @@ GRID_SCALE_PROJECT_SEED = [
         project_name="418 项目",
         cod="2025-11-18",
         capacity_mwh=418.0,
-        cell_version="LFP-314Ah V2",
+        software_version="LFP-314Ah V2",
         pcs_model="PCS-2500H",
         progress_status="正式并网",
         photo_paths=["/assets/projects/418-01.jpg", "/assets/projects/418-02.jpg", "/assets/projects/418-03.jpg", "/assets/projects/418-04.jpg"],
@@ -125,7 +126,7 @@ GRID_SCALE_PROJECT_SEED = [
         project_name="Dune Horizon Project",
         cod="2025-08-03",
         capacity_mwh=240.0,
-        cell_version="LFP-280Ah V1",
+        software_version="LFP-280Ah V1",
         pcs_model="PCS-2000H",
         progress_status="调试中",
         photo_paths=["/assets/projects/dune-01.jpg", "/assets/projects/dune-02.jpg", "/assets/projects/dune-03.jpg"],
@@ -134,7 +135,7 @@ GRID_SCALE_PROJECT_SEED = [
         project_name="North Bay Storage",
         cod="2025-09-12",
         capacity_mwh=120.0,
-        cell_version="LFP-314Ah V1",
+        software_version="LFP-314Ah V1",
         pcs_model="PCS-1250H",
         progress_status="土建施工",
         photo_paths=["/assets/projects/northbay-01.jpg", "/assets/projects/northbay-02.jpg"],
@@ -143,7 +144,7 @@ GRID_SCALE_PROJECT_SEED = [
         project_name="Sahara Export Hub",
         cod="2025-06-27",
         capacity_mwh=75.0,
-        cell_version="LFP-280Ah V1",
+        software_version="LFP-280Ah V1",
         pcs_model="PCS-1000H",
         progress_status="设备上岸",
         photo_paths=["/assets/projects/sahara-01.jpg", "/assets/projects/sahara-02.jpg", "/assets/projects/sahara-03.jpg"],
@@ -152,7 +153,7 @@ GRID_SCALE_PROJECT_SEED = [
         project_name="Baltic Port ESS",
         cod="2025-05-15",
         capacity_mwh=60.0,
-        cell_version="LFP-280Ah V1",
+        software_version="LFP-280Ah V1",
         pcs_model="PCS-1250H",
         progress_status="清关中",
         photo_paths=["/assets/projects/baltic-01.jpg"],

@@ -97,10 +97,10 @@
 
       <div
         v-if="portalState.notice"
-        class="mb-4 rounded-2xl border px-4 py-3 text-sm"
+        class="mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold"
         :class="
           portalState.noticeType === 'error'
-            ? 'border-rose-400/20 bg-rose-500/10 text-rose-100'
+            ? 'border-rose-200 bg-rose-50 text-rose-800'
             : portalState.noticeType === 'success'
               ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
               : 'border-white/10 bg-white/5 text-slate-100'
@@ -433,14 +433,14 @@
             >
               <thead class="bg-slate-950/50 text-slate-400">
                 <tr>
-                  <th class="px-5 py-4 font-medium">模块</th>
-                  <th class="px-5 py-4 font-medium">故障码</th>
-                  <th class="px-5 py-4 font-medium">故障名称</th>
-                  <th class="px-5 py-4 font-medium">等级</th>
-                  <th class="px-5 py-4 font-medium">停机</th>
-                  <th class="px-5 py-4 font-medium">恢复机制</th>
-                  <th class="px-5 py-4 font-medium">可能原因</th>
-                  <th class="px-5 py-4 font-medium">解决措施</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.module") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.code") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.name") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.level") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.shutdown") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.recovery") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.cause") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("fault.columns.resolution") }}</th>
                   <th v-if="isInternalMode" class="px-5 py-4 font-medium">
                     {{ t("common.actions") }}
                   </th>
@@ -874,7 +874,7 @@
               >
                 <span class="text-3xl">🔋</span>
                 <span class="text-xs font-semibold uppercase tracking-widest">{{
-                  project.pcs_model || t("grid.noPhotos")
+                  t("grid.noPhotos")
                 }}</span>
               </div>
               <span
@@ -911,8 +911,7 @@
 
             <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
               <p>{{ t("grid.codDate") }}: <span class="text-white">{{ project.cod || "-" }}</span></p>
-              <p>PCS: <span class="text-white">{{ project.pcs_model || "-" }}</span></p>
-              <p class="col-span-2">{{ t("grid.cellVersion") }}: <span class="text-white">{{ project.cell_version || "-" }}</span></p>
+              <p>{{ t("grid.softwareVersion") }}: <span class="text-white">{{ project.software_version || project.cell_version || "-" }}</span></p>
             </div>
 
             <div
@@ -1696,14 +1695,12 @@
                 </td>
                 <td class="px-4 py-3">
                   <button
-                    v-if="user.role === 'customer'"
                     type="button"
                     class="mr-2 text-cyan-200"
                     @click="editCustomerAccount(user)"
                   >
                     {{ t("common.edit") }}</button
                   ><button
-                    v-if="user.role === 'customer'"
                     type="button"
                     class="text-rose-200"
                     @click="removeCustomerAccount(user.id)"
@@ -1714,6 +1711,129 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'other-settings'" class="flex-1">
+        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
+              Fault Component Dictionary
+            </p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+              {{ t("settings.title") }}
+            </h2>
+            <p class="mt-2 text-sm text-slate-400">{{ t("settings.subtitle") }}</p>
+          </div>
+          <button
+            v-if="isSuperAdmin"
+            type="button"
+            class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+            @click="openFaultComponentEditor()"
+          >
+            {{ t("settings.add") }}
+          </button>
+        </div>
+
+        <div class="mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <input
+            v-model="faultComponentSearch"
+            type="search"
+            :placeholder="t('settings.search')"
+            class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none sm:max-w-md"
+          />
+        </div>
+
+        <div class="scroll-thin overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+          <table class="data-table min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">{{ t("settings.id") }}</th>
+                <th class="px-4 py-3">{{ t("settings.name") }}</th>
+                <th class="px-4 py-3">{{ t("settings.nameEn") }}</th>
+                <th class="px-4 py-3">{{ t("settings.sortOrder") }}</th>
+                <th class="px-4 py-3">{{ t("settings.status") }}</th>
+                <th v-if="isSuperAdmin" class="px-4 py-3">{{ t("common.actions") }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="component in filteredFaultComponents" :key="component.id">
+                <td class="px-4 py-3">{{ component.id }}</td>
+                <td class="px-4 py-3 font-medium text-white">{{ component.name }}</td>
+                <td class="px-4 py-3">{{ component.name_en || "-" }}</td>
+                <td class="px-4 py-3">{{ component.sort_order }}</td>
+                <td class="px-4 py-3">
+                  <span
+                    class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                    :class="component.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'"
+                  >
+                    {{ t(component.is_active ? "settings.active" : "settings.inactive") }}
+                  </span>
+                </td>
+                <td v-if="isSuperAdmin" class="px-4 py-3 whitespace-nowrap">
+                  <button type="button" class="mr-3 text-cyan-200" @click="openFaultComponentEditor(component)">
+                    {{ t("common.edit") }}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-rose-200"
+                    @click="openDeleteDialog('fault-component', String(component.id), component.name, t('settings.deleteHint'))"
+                  >
+                    {{ t("common.delete") }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="filteredFaultComponents.length === 0">
+                <td :colspan="isSuperAdmin ? 6 : 5" class="px-4 py-8 text-center text-slate-400">
+                  {{ t("common.noData") }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          v-if="faultComponentFormOpen"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+          @click.self="faultComponentFormOpen = false"
+        >
+          <div class="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Configuration</p>
+                <h3 class="mt-2 text-xl font-semibold text-white">{{ t("settings.editorTitle") }}</h3>
+              </div>
+              <button type="button" class="rounded-lg border border-white/10 px-3 py-2 text-sm text-white" @click="faultComponentFormOpen = false">
+                {{ t("common.close") }}
+              </button>
+            </div>
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.name") }} *</span>
+                <input v-model="faultComponentDraft.name" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" />
+              </label>
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.nameEn") }}</span>
+                <input v-model="faultComponentDraft.name_en" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" />
+              </label>
+              <label class="block">
+                <span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.sortOrder") }}</span>
+                <input v-model.number="faultComponentDraft.sort_order" type="number" min="0" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" />
+              </label>
+              <label class="flex items-center gap-3 self-end rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white">
+                <input v-model="faultComponentDraft.is_active" type="checkbox" class="h-4 w-4 accent-cyan-500" />
+                {{ t("settings.active") }}
+              </label>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+              <button type="button" class="rounded-lg border border-white/10 px-4 py-2 text-sm text-white" @click="faultComponentFormOpen = false">
+                {{ t("common.cancel") }}
+              </button>
+              <button type="button" class="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" @click="saveFaultComponent">
+                {{ t("common.save") }}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1760,20 +1880,26 @@
         <div v-if="logisticsFormOpen" class="mt-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
           <div class="grid gap-3 md:grid-cols-3">
             <input v-model="logisticsDraft.tracking_no" placeholder="发运编号 / 提单号" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
-            <input v-model="logisticsDraft.customer_company" placeholder="客户/代理商名称" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
-            <input v-model="logisticsDraft.related_project" placeholder="关联项目" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <select v-model="logisticsDraft.customer_company" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" @change="handleLogisticsCustomerChange">
+              <option value="" disabled>客户/代理商名称</option>
+              <option v-for="company in partnerOptions" :key="company" :value="company">{{ company }}</option>
+            </select>
+            <select v-model="logisticsDraft.related_project" :disabled="!logisticsDraft.customer_company" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50">
+              <option value="" disabled>关联项目</option>
+              <option v-for="project in logisticsProjectOptions" :key="project.project_name" :value="project.project_name">{{ project.project_name }}</option>
+            </select>
             <input v-model="logisticsDraft.destination_country" placeholder="目的国" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
-            <input v-model="logisticsDraft.destination_port" placeholder="目的港" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
-            <input v-model="logisticsDraft.container_no" placeholder="柜号 / Container No." class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
-            <input v-model="logisticsDraft.equipment_model" placeholder="设备型号 (如 eBlock-418)" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <select v-model="logisticsDraft.equipment_model" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
+              <option value="" disabled>设备型号</option>
+              <option v-for="model in logisticsEquipmentModels" :key="model" :value="model">{{ model }}</option>
+            </select>
             <input v-model.number="logisticsDraft.equipment_qty" type="number" min="0" placeholder="数量" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
             <select v-model="logisticsDraft.status" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
               <option v-for="option in logisticsStatusOptions" :key="option" :value="option">{{ option }}</option>
             </select>
             <label class="block"><span class="mb-1 block text-xs text-slate-400">ETA</span><input v-model="logisticsDraft.eta" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
-            <label class="block"><span class="mb-1 block text-xs text-slate-400">ATA</span><input v-model="logisticsDraft.ata" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
-            <input v-model="logisticsDraft.carrier" placeholder="承运商" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
             <input v-model="logisticsDraft.tracking_url" placeholder="查询链接 URL" class="md:col-span-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <textarea v-model="logisticsDraft.remarks" rows="4" placeholder="备注 / Remarks" class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"></textarea>
           </div>
           <div class="mt-3 flex justify-end gap-2">
             <button type="button" class="rounded-xl border border-white/10 px-4 py-2 text-white" @click="logisticsFormOpen = false">取消</button>
@@ -1787,19 +1913,19 @@
               <tr>
                 <th class="px-4 py-3">提单号</th>
                 <th class="px-4 py-3">客户</th>
-                <th class="px-4 py-3">目的地</th>
-                <th class="px-4 py-3">柜号</th>
+                <th class="px-4 py-3">关联项目</th>
+                <th class="px-4 py-3">目的国</th>
                 <th class="px-4 py-3">设备</th>
                 <th class="px-4 py-3">状态</th>
-                <th class="px-4 py-3">ETA / ATA</th>
-                <th class="px-4 py-3">承运商</th>
+                <th class="px-4 py-3">ETA</th>
+                <th class="px-4 py-3">备注</th>
                 <th v-if="isInternalMode" class="px-4 py-3">{{ t("common.actions") }}</th>
               </tr>
               <tr class="ticket-filter-row">
                 <th><input v-model="logisticsFilters.tracking_no" placeholder="搜索提单号" /></th>
                 <th></th>
-                <th><input v-model="logisticsFilters.destination" placeholder="搜索目的地" /></th>
                 <th></th>
+                <th><input v-model="logisticsFilters.destination" placeholder="搜索目的国" /></th>
                 <th></th>
                 <th><select v-model="logisticsFilters.status"><option value="">{{ t('common.all') }}</option><option v-for="option in logisticsStatusOptions" :key="option" :value="option">{{ option }}</option></select></th>
                 <th></th>
@@ -1814,12 +1940,12 @@
                   <span v-else>{{ item.tracking_no }}</span>
                 </td>
                 <td class="px-4 py-3">{{ item.customer_company || "-" }}</td>
-                <td class="px-4 py-3">{{ item.destination_country }} / {{ item.destination_port || "-" }}</td>
-                <td class="px-4 py-3">{{ item.container_no || "-" }}</td>
+                <td class="px-4 py-3">{{ item.related_project || "-" }}</td>
+                <td class="px-4 py-3">{{ item.destination_country || "-" }}</td>
                 <td class="px-4 py-3">{{ item.equipment_model }} × {{ item.equipment_qty }}</td>
                 <td class="px-4 py-3"><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-100">{{ item.status }}</span></td>
-                <td class="px-4 py-3">{{ item.eta || "-" }} / {{ item.ata || "-" }}</td>
-                <td class="px-4 py-3">{{ item.carrier || "-" }}</td>
+                <td class="px-4 py-3">{{ item.eta || "-" }}</td>
+                <td class="max-w-xs whitespace-pre-wrap px-4 py-3 text-xs text-slate-300">{{ item.remarks || "-" }}</td>
                 <td v-if="isInternalMode" class="px-4 py-3">
                   <button type="button" class="mr-2 text-cyan-200" @click="editLogisticsShipment(item)">{{ t("common.edit") }}</button>
                   <button type="button" class="text-rose-200" @click="openDeleteDialog('logistics', String(item.id), item.tracking_no, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
@@ -2259,8 +2385,7 @@
                 >
                 <input
                   v-model="crudDraft.project_name"
-                  :disabled="crudModal.mode === 'edit'"
-                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
                 />
               </label>
               <label class="block">
@@ -2318,20 +2443,10 @@
               <label class="block">
                 <span
                   class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
-                  >PCS Model</span
+                  >Software Version</span
                 >
                 <input
-                  v-model="crudDraft.pcs_model"
-                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
-                />
-              </label>
-              <label class="block">
-                <span
-                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
-                  >Cell Version</span
-                >
-                <input
-                  v-model="crudDraft.cell_version"
+                  v-model="crudDraft.software_version"
                   class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
                 />
               </label>
@@ -2806,12 +2921,17 @@ const navGroups = computed(() => [
       { key: "materials-center", label: t("views.materialsCenter") },
     ],
   },
-  ...(isSuperAdmin.value
+  ...(isSuperAdmin.value || isViewer.value
     ? [
         {
           key: "system",
           label: t("nav.system"),
-          items: [{ key: "account-management", label: t("views.accounts") }],
+          items: [
+            ...(isSuperAdmin.value
+              ? [{ key: "account-management", label: t("views.accounts") }]
+              : []),
+            { key: "other-settings", label: t("views.otherSettings") },
+          ],
         },
       ]
     : []),
@@ -2917,8 +3037,19 @@ const serviceLogCreatedByFilter = ref("");
 const serviceLogDescriptionFilter = ref("");
 const tickets = ref([]);
 const users = ref([]);
+const faultComponents = ref([]);
+const faultComponentSearch = ref("");
+const faultComponentFormOpen = ref(false);
+const faultComponentEditingId = ref(null);
+const faultComponentDraft = reactive({
+  name: "",
+  name_en: "",
+  sort_order: 0,
+  is_active: true,
+});
 const logisticsShipments = ref([]);
 const logisticsStatusOptions = ["工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场"];
+const logisticsEquipmentModels = ["418", "250", "100C"];
 const logisticsFilters = reactive({ tracking_no: "", destination: "", status: "" });
 const logisticsFormOpen = ref(false);
 const logisticsEditingId = ref(null);
@@ -2927,15 +3058,12 @@ const logisticsDraft = reactive({
   customer_company: "",
   related_project: "",
   destination_country: "",
-  destination_port: "",
-  container_no: "",
   equipment_model: "",
   equipment_qty: 0,
   status: "工厂备货",
   eta: "",
-  ata: "",
-  carrier: "",
   tracking_url: "",
+  remarks: "",
 });
 const empowermentRecords = ref([]);
 const empowermentFormOpen = ref(false);
@@ -3025,6 +3153,40 @@ const serviceLogProjectOptions = computed(() => {
         .toLowerCase() === company,
   );
 });
+const logisticsProjectOptions = computed(() => {
+  const company = logisticsDraft.customer_company.trim().toLowerCase();
+  if (!company) return [];
+  const customer = users.value.find(
+    (user) =>
+      (user.customer_company || user.customer_name || "")
+        .trim()
+        .toLowerCase() === company,
+  );
+  const assignedProjectNames = new Set([
+    ...(customer?.project_ids || []),
+    ...(customer?.automatic_projects || []),
+  ]);
+  const candidates = [
+    ...gridProjects.value,
+    ...ciDeliveries.value.map((item) => ({
+      project_name: item.dealer_name,
+      customer_company: item.customer_company || item.dealer_name,
+    })),
+    ...logisticsShipments.value.map((item) => ({
+      project_name: item.related_project,
+      customer_company: item.customer_company,
+    })),
+  ].filter((project) => {
+    if (!project.project_name) return false;
+    return (
+      assignedProjectNames.has(project.project_name) ||
+      (project.customer_company || project.partner_name || "")
+        .trim()
+        .toLowerCase() === company
+    );
+  });
+  return [...new Map(candidates.map((project) => [project.project_name, project])).values()];
+});
 const timelineOpen = ref(false);
 const selectedProject = ref(null);
 const milestones = ref([]);
@@ -3064,10 +3226,20 @@ const ticketFilters = reactive({
   ticket_type: '',
   faulty_component: '',
 });
-const faultyComponentOptions = [
-  "门锁", "通讯线束", "电表", "熔断器", "断路器", "bmu", "pcs", "液冷机",
-  "HIM板", "急停", "io模块", "开关电源", "交换机", "风扇", "pack", "网络控制器", "空调", "其他",
-];
+const faultyComponentOptions = computed(() =>
+  faultComponents.value
+    .filter((component) => component.is_active)
+    .map((component) => component.name),
+);
+const filteredFaultComponents = computed(() => {
+  const keyword = faultComponentSearch.value.trim().toLowerCase();
+  if (!keyword) return faultComponents.value;
+  return faultComponents.value.filter((component) =>
+    `${component.name || ""} ${component.name_en || ""}`
+      .toLowerCase()
+      .includes(keyword),
+  );
+});
 const filteredServiceLogs = computed(() => serviceLogs.value.filter((item) => (!serviceLogComponentFilter.value || (item.fault_component || item.faulty_component) === serviceLogComponentFilter.value) && (!serviceLogSupportFilter.value || item.support_type === serviceLogSupportFilter.value)));
 const serviceLogCountries = computed(() => [...new Set(serviceLogs.value.map((item) => item.country).filter(Boolean))].sort());
 const computedFilteredAfterSalesLogs = computed(() => filteredServiceLogs.value.filter((item) => (!serviceLogDateFilter.value || item.event_date === serviceLogDateFilter.value) && (!serviceLogCountryFilter.value || item.country === serviceLogCountryFilter.value) && (!serviceLogCustomerFilter.value || (item.customer_company || item.customer) === serviceLogCustomerFilter.value) && (!serviceLogProjectFilter.value || (item.project_name || '').toLowerCase().includes(serviceLogProjectFilter.value.toLowerCase())) && (!serviceLogModelFilter.value || item.product_model === serviceLogModelFilter.value) && (!serviceLogStatusFilter.value || item.status === serviceLogStatusFilter.value) && (!serviceLogCreatedByFilter.value || (item.created_by || '').toLowerCase().includes(serviceLogCreatedByFilter.value.toLowerCase())) && (!serviceLogDescriptionFilter.value || (item.fault_description || '').toLowerCase().includes(serviceLogDescriptionFilter.value.toLowerCase()))));
@@ -3704,8 +3876,7 @@ function createEmptyCrudDraft() {
     customer_company: "",
     cod: "",
     capacity_mwh: 0,
-    cell_version: "",
-    pcs_model: "",
+    software_version: "",
     progress_status: projectStatuses[0],
     photo_paths: [],
     region: "",
@@ -3756,8 +3927,7 @@ function resetCrudDraft(kind, record) {
       record.customer_company || record.partner_name || "";
     nextDraft.cod = record.cod;
     nextDraft.capacity_mwh = record.capacity_mwh;
-    nextDraft.cell_version = record.cell_version;
-    nextDraft.pcs_model = record.pcs_model;
+    nextDraft.software_version = record.software_version || record.cell_version || "";
     nextDraft.progress_status = record.progress_status;
     nextDraft.photo_paths = [...(record.photo_paths ?? [])];
   }
@@ -3932,12 +4102,88 @@ async function loadPortalExtras() {
     ]);
     serviceLogs.value = logsPayload.items ?? [];
     tickets.value = ticketPayload.items ?? [];
-    if (isInternalMode.value) {
-      const userPayload = await portalApi.listUsers();
-      users.value = userPayload.items ?? [];
-    }
   } catch (error) {
     setNotice(formatApiError(error, "客户数据加载失败"), "error");
+  }
+}
+
+async function fetchUsers() {
+  if (!isSuperAdmin.value) {
+    users.value = [];
+    return;
+  }
+  try {
+    const response = await portalApi.listUsers();
+    const payload = Array.isArray(response)
+      ? response
+      : response?.data?.items ?? response?.data ?? response?.items ?? [];
+    users.value = Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    users.value = [];
+    setNotice(formatApiError(error, "客户账号加载失败"), "error");
+  }
+}
+
+async function fetchFaultComponents() {
+  if (!isAuthenticated.value) {
+    faultComponents.value = [];
+    return;
+  }
+  try {
+    const response = await portalApi.listFaultComponents(!isCustomer.value);
+    const payload = Array.isArray(response)
+      ? response
+      : response?.data?.items ?? response?.data ?? response?.items ?? [];
+    faultComponents.value = Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    faultComponents.value = [];
+    setNotice(formatApiError(error, "故障部件加载失败"), "error");
+  }
+}
+
+function resetFaultComponentDraft() {
+  Object.assign(faultComponentDraft, {
+    name: "",
+    name_en: "",
+    sort_order: faultComponents.value.length + 1,
+    is_active: true,
+  });
+  faultComponentEditingId.value = null;
+}
+
+function openFaultComponentEditor(component = null) {
+  if (!isSuperAdmin.value) return;
+  resetFaultComponentDraft();
+  if (component) {
+    faultComponentEditingId.value = component.id;
+    Object.assign(faultComponentDraft, component);
+  }
+  faultComponentFormOpen.value = true;
+}
+
+async function saveFaultComponent() {
+  if (!faultComponentDraft.name.trim()) {
+    setNotice(t("settings.name"), "error");
+    return;
+  }
+  try {
+    const payload = {
+      name: faultComponentDraft.name.trim(),
+      name_en: faultComponentDraft.name_en.trim(),
+      sort_order: Number(faultComponentDraft.sort_order) || 0,
+      is_active: Boolean(faultComponentDraft.is_active),
+    };
+    if (faultComponentEditingId.value) {
+      await portalApi.updateFaultComponent(faultComponentEditingId.value, payload);
+    } else {
+      await portalApi.createFaultComponent(payload);
+    }
+    faultComponentFormOpen.value = false;
+    resetFaultComponentDraft();
+    await fetchFaultComponents();
+    setNotice(t("settings.saved"), "success");
+  } catch (error) {
+    setNotice(formatApiError(error, t("settings.saved")), "error");
   }
 }
 
@@ -3967,17 +4213,20 @@ function resetLogisticsDraft() {
     customer_company: "",
     related_project: "",
     destination_country: "",
-    destination_port: "",
-    container_no: "",
     equipment_model: "",
     equipment_qty: 0,
     status: "工厂备货",
     eta: "",
-    ata: "",
-    carrier: "",
     tracking_url: "",
+    remarks: "",
   });
   logisticsEditingId.value = null;
+}
+
+function handleLogisticsCustomerChange() {
+  logisticsDraft.related_project = "";
+  const country = resolveCountryForCompany(logisticsDraft.customer_company);
+  if (country) logisticsDraft.destination_country = country;
 }
 
 function openLogisticsEditor(record = null) {
@@ -4000,10 +4249,22 @@ async function submitLogisticsShipment() {
     return;
   }
   try {
+    const payload = {
+      tracking_no: logisticsDraft.tracking_no.trim(),
+      customer_company: logisticsDraft.customer_company,
+      related_project: logisticsDraft.related_project,
+      destination_country: logisticsDraft.destination_country.trim(),
+      equipment_model: logisticsDraft.equipment_model,
+      equipment_qty: Number(logisticsDraft.equipment_qty) || 0,
+      status: logisticsDraft.status,
+      eta: logisticsDraft.eta || null,
+      tracking_url: logisticsDraft.tracking_url.trim(),
+      remarks: logisticsDraft.remarks.trim(),
+    };
     if (logisticsEditingId.value) {
-      await portalApi.updateLogisticsShipment(logisticsEditingId.value, { ...logisticsDraft });
+      await portalApi.updateLogisticsShipment(logisticsEditingId.value, payload);
     } else {
-      await portalApi.createLogisticsShipment({ ...logisticsDraft });
+      await portalApi.createLogisticsShipment(payload);
     }
     logisticsFormOpen.value = false;
     resetLogisticsDraft();
@@ -4089,7 +4350,7 @@ async function createCustomerAccount() {
   accountDraft.country = "";
   accountFormOpen.value = false;
   accountEditingId.value = null;
-  await loadPortalExtras();
+  await fetchUsers();
   setNotice(
     t(editing ? "notices.accountUpdated" : "notices.accountCreated"),
     "success",
@@ -4108,7 +4369,7 @@ function editCustomerAccount(user) {
 
 async function removeCustomerAccount(id) {
   await portalApi.deleteUser(id);
-  await loadPortalExtras();
+  await fetchUsers();
   setNotice(t("notices.accountDeleted"), "success");
 }
 
@@ -4540,13 +4801,16 @@ async function submitCrud() {
       project_name: crudDraft.project_name.trim(),
       cod: crudDraft.cod.trim(),
       capacity_mwh: Number(crudDraft.capacity_mwh) || 0,
-      cell_version: crudDraft.cell_version.trim(),
-      pcs_model: crudDraft.pcs_model.trim(),
+      software_version: crudDraft.software_version.trim(),
       progress_status: crudDraft.progress_status,
       photo_paths: [...crudDraft.photo_paths],
       customer_company: crudDraft.customer_company.trim(),
       partner_name: crudDraft.customer_company.trim(),
     };
+    if (!payload.project_name) {
+      setNotice(isEnglish.value ? "Project name is required." : "项目名称不能为空。", "error");
+      return;
+    }
     if (crudModal.mode === "create") {
       await portalApi.createGridProject(payload);
     } else {
@@ -4679,6 +4943,13 @@ async function confirmDelete() {
     await portalApi.deleteEmpowermentRecord(key);
     await loadEmpowermentRecords();
   }
+  if (kind === "fault-component") {
+    await portalApi.deleteFaultComponent(key);
+    await fetchFaultComponents();
+    setNotice(t("settings.deleted"), "success");
+    closeDeleteDialog();
+    return;
+  }
   setNotice(t("notices.deleted"), "success");
   closeDeleteDialog();
 }
@@ -4743,6 +5014,8 @@ onMounted(async () => {
     loadWarehouseInventory(),
     loadTechnicalDocs(),
     loadPortalExtras(),
+    fetchUsers(),
+    fetchFaultComponents(),
     loadLogisticsShipments(),
     loadEmpowermentRecords(),
   ]);

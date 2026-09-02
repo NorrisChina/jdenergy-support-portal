@@ -51,7 +51,7 @@ from .models.technical_docs import (
     TECHNICAL_DOC_PRODUCT_SERIES,
     TechnicalDoc,
 )
-from .models.portal import AfterSalesLog, CustomerTicket, EmpowermentRecord, LogisticsShipment, ProjectMilestone, User
+from .models.portal import AfterSalesLog, CustomerTicket, EmpowermentRecord, FaultComponent, LogisticsShipment, ProjectMilestone, User
 
 
 logger = logging.getLogger(__name__)
@@ -67,6 +67,11 @@ FAULTY_COMPONENT_OPTIONS = (
     "门锁", "通讯线束", "电表", "熔断器", "断路器", "bmu", "pcs", "液冷机",
     "HIM板", "急停", "io模块", "开关电源", "交换机", "风扇", "pack", "网络控制器", "空调", "其他",
 )
+
+FAULT_COMPONENT_SEED = [
+    FaultComponent(name=name, sort_order=index)
+    for index, name in enumerate(FAULTY_COMPONENT_OPTIONS, start=1)
+]
 
 LOGISTICS_SHIPMENT_SEED = [
     LogisticsShipment(
@@ -185,8 +190,7 @@ class GridScaleProjectUpsert(BaseModel):
     project_name: str
     cod: str
     capacity_mwh: float
-    cell_version: str
-    pcs_model: str
+    software_version: str = ""
     progress_status: str
     photo_paths: List[str]
     partner_name: str = ""
@@ -324,15 +328,12 @@ class LogisticsShipmentPayload(BaseModel):
     customer_company: str = ""
     related_project: str = ""
     destination_country: str = ""
-    destination_port: str = ""
-    container_no: str = ""
     equipment_model: str = ""
     equipment_qty: int = 0
     status: Literal["工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场"] = "工厂备货"
     eta: Optional[date] = None
-    ata: Optional[date] = None
-    carrier: str = ""
     tracking_url: str = ""
+    remarks: str = ""
 
 
 class EmpowermentRecordPayload(BaseModel):
@@ -345,6 +346,13 @@ class EmpowermentRecordPayload(BaseModel):
     learning_ability: int = 0
     learning_willingness: int = 0
     remarks: str = ""
+
+
+class FaultComponentPayload(BaseModel):
+    name: str
+    name_en: str = ""
+    sort_order: int = 0
+    is_active: bool = True
 
 
 app = FastAPI(
@@ -385,6 +393,7 @@ grid_scale_router = APIRouter(
 def on_startup() -> None:
     init_db()
     ensure_default_admin()
+    ensure_fault_components()
     seed_mode = os.getenv("SEED_MODE", "all").strip().lower()
     if seed_mode == "all":
         seed_database()
@@ -454,6 +463,21 @@ def ensure_default_admin() -> None:
         except Exception:
             session.rollback()
             logger.exception("Failed to initialize system accounts (admin, JDE).")
+            raise
+
+
+def ensure_fault_components() -> None:
+    with get_session() as session:
+        try:
+            if session.exec(select(FaultComponent)).first() is None:
+                session.add_all(
+                    [FaultComponent(**item.model_dump()) for item in FAULT_COMPONENT_SEED]
+                )
+                session.commit()
+                logger.info("Default fault components initialized successfully.")
+        except Exception:
+            session.rollback()
+            logger.exception("Failed to initialize default fault components.")
             raise
 
 
@@ -860,6 +884,8 @@ def legal_customer_companies(session) -> set[str]:
 
 def public_user(user: User, session) -> Dict[str, object]:
     data = user.model_dump(exclude={"password_hash"})
+    data["country"] = data.get("country") or ""
+    data["customer_company"] = data.get("customer_company") or ""
     data["automatic_projects"] = sorted(accessible_project_names(session, user))
     data["automatic_project_count"] = len(data["automatic_projects"])
     return data
@@ -882,7 +908,11 @@ def get_current_user(user: User = Depends(current_user)) -> User:
 @app.get("/api/admin/users")
 def list_users(_: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        items = session.exec(select(User).order_by(User.id.asc())).all()
+        items = session.exec(
+            select(User)
+            .where(User.username.notin_([SUPER_ADMIN_USERNAME, VIEWER_USERNAME]))
+            .order_by(User.id.asc())
+        ).all()
         serialized = [public_user(item, session) for item in items]
     return {"count": len(serialized), "items": serialized}
 
@@ -909,7 +939,7 @@ def create_user(payload: CustomerUserPayload, _: User = Depends(require_write_ac
 def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         user = session.get(User, user_id)
-        if user is None or user.role != "customer":
+        if user is None or user.username in {SUPER_ADMIN_USERNAME, VIEWER_USERNAME}:
             raise HTTPException(status_code=404, detail="Customer user not found")
         if payload.password is not None:
             user.password_hash = hash_password(payload.password)
@@ -932,11 +962,112 @@ def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depe
 def delete_user(user_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
     with get_session() as session:
         user = session.get(User, user_id)
-        if user is None or user.role != "customer":
+        if user is None or user.username in {SUPER_ADMIN_USERNAME, VIEWER_USERNAME}:
             raise HTTPException(status_code=404, detail="Customer user not found")
         session.delete(user)
         session.commit()
     return {"message": "deleted"}
+
+
+@app.get("/api/config/fault-components")
+def list_fault_components(
+    include_inactive: bool = Query(default=False),
+    user: User = Depends(current_user),
+) -> Dict[str, object]:
+    if include_inactive and user.role not in {"super_admin", "viewer"}:
+        raise HTTPException(status_code=403, detail="Staff access required")
+    with get_session() as session:
+        statement = select(FaultComponent)
+        if not include_inactive:
+            statement = statement.where(FaultComponent.is_active == True)  # noqa: E712
+        items = session.exec(
+            statement.order_by(FaultComponent.sort_order.asc(), FaultComponent.id.asc())
+        ).all()
+        return {"count": len(items), "items": items}
+
+
+@app.post("/api/config/fault-components")
+def create_fault_component(
+    payload: FaultComponentPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Component name is required")
+    with get_session() as session:
+        if session.exec(select(FaultComponent).where(FaultComponent.name == name)).first():
+            raise HTTPException(status_code=409, detail="Component name already exists")
+        item = FaultComponent(
+            name=name,
+            name_en=payload.name_en.strip(),
+            sort_order=payload.sort_order,
+            is_active=payload.is_active,
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/config/fault-components/{component_id}")
+def update_fault_component(
+    component_id: int,
+    payload: FaultComponentPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Component name is required")
+    with get_session() as session:
+        item = session.get(FaultComponent, component_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Fault component not found")
+        duplicate = session.exec(
+            select(FaultComponent).where(FaultComponent.name == name)
+        ).first()
+        if duplicate is not None and duplicate.id != component_id:
+            raise HTTPException(status_code=409, detail="Component name already exists")
+        item.name = name
+        item.name_en = payload.name_en.strip()
+        item.sort_order = payload.sort_order
+        item.is_active = payload.is_active
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/config/fault-components/{component_id}")
+def delete_fault_component(
+    component_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(FaultComponent, component_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Fault component not found")
+        has_after_sales_reference = session.exec(
+            select(AfterSalesLog.id).where(
+                or_(
+                    AfterSalesLog.fault_component == item.name,
+                    AfterSalesLog.faulty_component == item.name,
+                )
+            )
+        ).first()
+        has_ticket_reference = session.exec(
+            select(CustomerTicket.id).where(
+                CustomerTicket.suspected_component == item.name
+            )
+        ).first()
+        if has_after_sales_reference is not None or has_ticket_reference is not None:
+            item.is_active = False
+            session.add(item)
+            action = "disabled"
+        else:
+            session.delete(item)
+            action = "deleted"
+        session.commit()
+        return {"message": action}
 
 
 @app.get("/api/portal/projects")
@@ -1555,14 +1686,35 @@ def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert
         item = session.get(GridScaleProject, project_name)
         if item is None:
             raise HTTPException(status_code=404, detail="Project not found")
+        next_project_name = payload.project_name.strip()
+        if not next_project_name:
+            raise HTTPException(status_code=422, detail="Project name is required")
+        if next_project_name != project_name and session.get(GridScaleProject, next_project_name) is not None:
+            raise HTTPException(status_code=409, detail="Project already exists")
         item.cod = payload.cod
         item.capacity_mwh = payload.capacity_mwh
-        item.cell_version = payload.cell_version
-        item.pcs_model = payload.pcs_model
+        item.software_version = payload.software_version
         item.progress_status = payload.progress_status
         item.photo_paths = payload.photo_paths
         item.partner_name = payload.partner_name.strip()
         item.customer_company = (payload.customer_company or payload.partner_name).strip()
+        if next_project_name != project_name:
+            item.project_name = next_project_name
+            for milestone in session.exec(select(ProjectMilestone).where(ProjectMilestone.project_name == project_name)).all():
+                milestone.project_name = next_project_name
+                session.add(milestone)
+            for log in session.exec(select(AfterSalesLog).where(AfterSalesLog.project_name == project_name)).all():
+                log.project_name = next_project_name
+                session.add(log)
+            for ticket in session.exec(select(CustomerTicket).where(CustomerTicket.project_name == project_name)).all():
+                ticket.project_name = next_project_name
+                session.add(ticket)
+            for shipment in session.exec(select(LogisticsShipment).where(LogisticsShipment.related_project == project_name)).all():
+                shipment.related_project = next_project_name
+                session.add(shipment)
+            for transaction in session.exec(select(WarehouseTransaction).where(WarehouseTransaction.related_project == project_name)).all():
+                transaction.related_project = next_project_name
+                session.add(transaction)
         session.add(item)
         session.commit()
         session.refresh(item)

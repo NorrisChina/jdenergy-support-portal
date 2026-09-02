@@ -110,6 +110,19 @@ export const portalApi = {
   deleteUser(id) {
     return requestJson(`/api/admin/users/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
   },
+  listFaultComponents(includeInactive = false) {
+    const suffix = includeInactive ? '?include_inactive=true' : ''
+    return requestJson(`/api/config/fault-components${suffix}`, { headers: authHeaders() })
+  },
+  createFaultComponent(payload) {
+    return requestJson('/api/config/fault-components', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateFaultComponent(id, payload) {
+    return requestJson(`/api/config/fault-components/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteFaultComponent(id) {
+    return requestJson(`/api/config/fault-components/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   uploadImage(file) {
     const formData = new FormData()
     formData.append('file', file)

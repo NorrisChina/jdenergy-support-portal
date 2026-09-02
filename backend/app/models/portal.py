@@ -24,6 +24,17 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class FaultComponent(SQLModel, table=True):
+    __tablename__ = "fault_components"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    name_en: str = ""
+    sort_order: int = Field(default=0, index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ProjectMilestone(SQLModel, table=True):
     __tablename__ = "milestones"
 
@@ -104,6 +115,7 @@ class LogisticsShipment(SQLModel, table=True):
     ata: Optional[date] = None
     carrier: str = ""
     tracking_url: str = ""
+    remarks: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
