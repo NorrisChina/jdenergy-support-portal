@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy import Column
 from sqlalchemy import JSON as SAJSON
@@ -31,6 +31,17 @@ class FaultComponent(SQLModel, table=True):
     name: str = Field(index=True, unique=True)
     name_en: str = ""
     sort_order: int = Field(default=0, index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LogisticsStatus(SQLModel, table=True):
+    __tablename__ = "logistics_statuses"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    name_en: str = ""
+    step_order: int = Field(default=0, index=True)
     is_active: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -103,12 +114,15 @@ class LogisticsShipment(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     tracking_no: str = Field(index=True, unique=True)
+    created_date: date = Field(default_factory=date.today, index=True)
+    stage: str = Field(default="delivery", index=True)
     customer_company: str = Field(default="", index=True)
     related_project: str = Field(default="", index=True)
     destination_country: str = ""
     destination_port: str = ""
     container_no: str = ""
     equipment_model: str = ""
+    specific_module: str = ""
     equipment_qty: int = 0
     status: str = Field(default="工厂备货")
     eta: Optional[date] = None
@@ -120,17 +134,28 @@ class LogisticsShipment(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class EmpowermentSkill(SQLModel, table=True):
+    __tablename__ = "empowerment_skills"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    name_en: str = ""
+    sort_order: int = 0
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class EmpowermentRecord(SQLModel, table=True):
     __tablename__ = "empowerment_records"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     partner_name: str = Field(index=True, unique=True)
-    delivery_250: int = 0
-    delivery_100c: int = 0
-    delivery_418: int = 0
-    troubleshooting: int = 0
-    spare_parts: int = 0
-    learning_ability: int = 0
-    learning_willingness: int = 0
+    delivery_418_net: int = 0
+    delivery_418_soft: int = 0
+    delivery_250_net: int = 0
+    delivery_250_soft: int = 0
+    delivery_100c_net: int = 0
+    delivery_100c_soft: int = 0
+    aftersales_scores: Dict[str, int] = Field(default_factory=dict, sa_column=Column(SAJSON))
     remarks: str = ""
     updated_at: datetime = Field(default_factory=datetime.utcnow)

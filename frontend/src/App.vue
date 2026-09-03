@@ -1715,7 +1715,19 @@
       </section>
 
       <section v-else-if="activeView === 'other-settings'" class="flex-1">
-        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div class="mb-5 flex gap-2 border-b border-white/10 pb-3">
+          <button type="button" class="rounded-lg px-4 py-2 text-sm font-semibold" :class="settingsTab === 'fault-components' ? 'bg-cyan-400 text-slate-950' : 'bg-white/5 text-slate-300'" @click="settingsTab = 'fault-components'">
+            {{ t("settings.faultTab") }}
+          </button>
+          <button type="button" class="rounded-lg px-4 py-2 text-sm font-semibold" :class="settingsTab === 'logistics-statuses' ? 'bg-cyan-400 text-slate-950' : 'bg-white/5 text-slate-300'" @click="settingsTab = 'logistics-statuses'">
+            {{ t("settings.logisticsTab") }}
+          </button>
+          <button v-if="isSuperAdmin" type="button" class="rounded-lg px-4 py-2 text-sm font-semibold" :class="settingsTab === 'empowerment-skills' ? 'bg-cyan-400 text-slate-950' : 'bg-white/5 text-slate-300'" @click="settingsTab = 'empowerment-skills'">
+            {{ t("settings.empowermentSkillsTab") }}
+          </button>
+        </div>
+
+        <div v-if="settingsTab === 'fault-components'" class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
               Fault Component Dictionary
@@ -1735,7 +1747,27 @@
           </button>
         </div>
 
-        <div class="mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
+        <div v-else-if="settingsTab === 'logistics-statuses'" class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Logistics Status Dictionary</p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t("settings.logisticsTitle") }}</h2>
+            <p class="mt-2 text-sm text-slate-400">{{ t("settings.logisticsSubtitle") }}</p>
+          </div>
+          <button v-if="isSuperAdmin" type="button" class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" @click="openLogisticsStatusEditor()">
+            {{ t("settings.logisticsAdd") }}
+          </button>
+        </div>
+
+        <div v-else class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Empowerment After-Sales Skills</p>
+            <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t("settings.empowermentSkillsTitle") }}</h2>
+            <p class="mt-2 text-sm text-slate-400">{{ t("settings.empowermentSkillsSubtitle") }}</p>
+          </div>
+          <button type="button" class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" @click="openEmpowermentSkillEditor()">{{ t("settings.empowermentSkillAdd") }}</button>
+        </div>
+
+        <div v-if="settingsTab === 'fault-components'" class="mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
           <input
             v-model="faultComponentSearch"
             type="search"
@@ -1744,7 +1776,7 @@
           />
         </div>
 
-        <div class="scroll-thin overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+        <div v-if="settingsTab === 'fault-components'" class="scroll-thin overflow-x-auto rounded-xl border border-white/10 bg-white/5">
           <table class="data-table min-w-full text-left text-sm">
             <thead class="bg-slate-950/50 text-slate-400">
               <tr>
@@ -1787,6 +1819,45 @@
                 <td :colspan="isSuperAdmin ? 6 : 5" class="px-4 py-8 text-center text-slate-400">
                   {{ t("common.noData") }}
                 </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else-if="settingsTab === 'logistics-statuses'" class="scroll-thin overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+          <table class="data-table min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">{{ t("settings.stepOrder") }}</th>
+                <th class="px-4 py-3">{{ t("settings.statusName") }}</th>
+                <th class="px-4 py-3">{{ t("settings.statusNameEn") }}</th>
+                <th class="px-4 py-3">{{ t("settings.active") }}</th>
+                <th v-if="isSuperAdmin" class="px-4 py-3">{{ t("common.actions") }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="status in logisticsStatuses" :key="status.id">
+                <td class="px-4 py-3">{{ status.step_order }}</td>
+                <td class="px-4 py-3 font-medium text-white">{{ status.name }}</td>
+                <td class="px-4 py-3">{{ status.name_en || "-" }}</td>
+                <td class="px-4 py-3">{{ t(status.is_active ? "settings.active" : "settings.inactive") }}</td>
+                <td v-if="isSuperAdmin" class="px-4 py-3 whitespace-nowrap">
+                  <button type="button" class="mr-3 text-cyan-200" @click="openLogisticsStatusEditor(status)">{{ t("common.edit") }}</button>
+                  <button type="button" class="text-rose-200" @click="openDeleteDialog('logistics-status', String(status.id), status.name, t('settings.logisticsDeleteHint'))">{{ t("common.delete") }}</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="scroll-thin overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+          <table class="data-table min-w-full text-left text-sm">
+            <thead class="bg-slate-950/50 text-slate-400"><tr><th class="px-4 py-3">ID</th><th class="px-4 py-3">{{ t("settings.skillName") }}</th><th class="px-4 py-3">{{ t("settings.skillNameEn") }}</th><th class="px-4 py-3">{{ t("settings.sortOrder") }}</th><th class="px-4 py-3">{{ t("settings.status") }}</th><th class="px-4 py-3">{{ t("common.actions") }}</th></tr></thead>
+            <tbody class="divide-y divide-white/10 text-slate-200">
+              <tr v-for="skill in empowermentSkills" :key="skill.id">
+                <td class="px-4 py-3">{{ skill.id }}</td><td class="px-4 py-3 font-medium text-white">{{ skill.name }}</td><td class="px-4 py-3">{{ skill.name_en || "-" }}</td><td class="px-4 py-3">{{ skill.sort_order }}</td>
+                <td class="px-4 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold" :class="skill.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'">{{ t(skill.is_active ? "settings.active" : "settings.inactive") }}</span></td>
+                <td class="whitespace-nowrap px-4 py-3"><button type="button" class="mr-3 text-cyan-200" @click="openEmpowermentSkillEditor(skill)">{{ t("common.edit") }}</button><button type="button" class="text-rose-200" @click="openDeleteDialog('empowerment-skill', String(skill.id), skill.name, t('settings.empowermentSkillDeleteHint'))">{{ t("common.delete") }}</button></td>
               </tr>
             </tbody>
           </table>
@@ -1835,6 +1906,38 @@
             </div>
           </div>
         </div>
+
+        <div v-if="logisticsStatusFormOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm" @click.self="logisticsStatusFormOpen = false">
+          <div class="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-3">
+              <h3 class="text-xl font-semibold text-white">{{ t("settings.logisticsEditorTitle") }}</h3>
+              <button type="button" class="rounded-lg border border-white/10 px-3 py-2 text-sm text-white" @click="logisticsStatusFormOpen = false">{{ t("common.close") }}</button>
+            </div>
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+              <label class="block"><span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.statusName") }} *</span><input v-model="logisticsStatusDraft.name" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" /></label>
+              <label class="block"><span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.statusNameEn") }}</span><input v-model="logisticsStatusDraft.name_en" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" /></label>
+              <label class="block"><span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.stepOrder") }}</span><input v-model.number="logisticsStatusDraft.step_order" type="number" min="0" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" /></label>
+              <label class="flex items-center gap-3 self-end rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white"><input v-model="logisticsStatusDraft.is_active" type="checkbox" class="h-4 w-4 accent-cyan-500" />{{ t("settings.active") }}</label>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+              <button type="button" class="rounded-lg border border-white/10 px-4 py-2 text-sm text-white" @click="logisticsStatusFormOpen = false">{{ t("common.cancel") }}</button>
+              <button type="button" class="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" @click="saveLogisticsStatus">{{ t("common.save") }}</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="empowermentSkillFormOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm" @click.self="empowermentSkillFormOpen = false">
+          <div class="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-3"><h3 class="text-xl font-semibold text-white">{{ t("settings.empowermentSkillEditorTitle") }}</h3><button type="button" class="rounded-lg border border-white/10 px-3 py-2 text-sm text-white" @click="empowermentSkillFormOpen = false">{{ t("common.close") }}</button></div>
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+              <label class="block"><span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.skillName") }} *</span><input v-model="empowermentSkillDraft.name" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" /></label>
+              <label class="block"><span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.skillNameEn") }}</span><input v-model="empowermentSkillDraft.name_en" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" /></label>
+              <label class="block"><span class="mb-1.5 block text-xs font-semibold text-slate-300">{{ t("settings.sortOrder") }}</span><input v-model.number="empowermentSkillDraft.sort_order" type="number" min="0" class="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2.5 text-white" /></label>
+              <label class="flex items-center gap-3 self-end rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white"><input v-model="empowermentSkillDraft.is_active" type="checkbox" class="h-4 w-4 accent-cyan-500" />{{ t("settings.active") }}</label>
+            </div>
+            <div class="mt-6 flex justify-end gap-3"><button type="button" class="rounded-lg border border-white/10 px-4 py-2 text-sm text-white" @click="empowermentSkillFormOpen = false">{{ t("common.cancel") }}</button><button type="button" class="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" @click="saveEmpowermentSkill">{{ t("common.save") }}</button></div>
+          </div>
+        </div>
       </section>
 
       <section v-else-if="activeView === 'logistics'" class="flex-1">
@@ -1863,23 +1966,30 @@
 
         <div class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5 p-5">
           <div class="flex min-w-max items-center gap-2">
-            <template v-for="(step, index) in logisticsStatusOptions" :key="step">
+            <template v-for="(step, index) in activeLogisticsStatuses" :key="step.id">
               <div class="flex flex-col items-center gap-2">
                 <span
                   class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
                   :class="index <= 0 ? 'bg-cyan-400 text-slate-950' : 'bg-slate-800 text-slate-400'"
                   >{{ index + 1 }}</span
                 >
-                <span class="w-24 text-center text-[11px] text-slate-300">{{ step }}</span>
+                <span class="w-24 text-center text-[11px] text-slate-300">{{ logisticsStatusLabel(step) }}</span>
               </div>
-              <div v-if="index < logisticsStatusOptions.length - 1" class="h-0.5 w-10 flex-1 bg-slate-700"></div>
+              <div v-if="index < activeLogisticsStatuses.length - 1" class="h-0.5 w-10 flex-1 bg-slate-700"></div>
             </template>
           </div>
         </div>
 
         <div v-if="logisticsFormOpen" class="mt-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
           <div class="grid gap-3 md:grid-cols-3">
-            <input v-model="logisticsDraft.tracking_no" placeholder="发运编号 / 提单号" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
+            <label class="block"><span class="mb-1 block text-xs text-slate-400">{{ t("logistics.createdDate") }}</span><input v-model="logisticsDraft.created_date" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
+            <label class="block">
+              <span class="mb-1 block text-xs text-slate-400">{{ t("logistics.stage") }} *</span>
+              <select v-model="logisticsDraft.stage" required class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
+                <option value="delivery">{{ t("logistics.delivery") }}</option>
+                <option value="after_sales">{{ t("logistics.afterSales") }}</option>
+              </select>
+            </label>
             <select v-model="logisticsDraft.customer_company" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" @change="handleLogisticsCustomerChange">
               <option value="" disabled>客户/代理商名称</option>
               <option v-for="company in partnerOptions" :key="company" :value="company">{{ company }}</option>
@@ -1893,11 +2003,15 @@
               <option value="" disabled>设备型号</option>
               <option v-for="model in logisticsEquipmentModels" :key="model" :value="model">{{ model }}</option>
             </select>
-            <input v-model.number="logisticsDraft.equipment_qty" type="number" min="0" placeholder="数量" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
-            <select v-model="logisticsDraft.status" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
-              <option v-for="option in logisticsStatusOptions" :key="option" :value="option">{{ option }}</option>
+            <select v-model="logisticsDraft.specific_module" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
+              <option value="" disabled>{{ t("logistics.module") }}</option>
+              <option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option>
             </select>
-            <label class="block"><span class="mb-1 block text-xs text-slate-400">ETA</span><input v-model="logisticsDraft.eta" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
+            <label class="block"><span class="mb-1 block text-xs text-slate-400">{{ t("logistics.quantity") }}</span><input v-model.number="logisticsDraft.equipment_qty" type="number" min="0" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
+            <select v-model="logisticsDraft.status" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white">
+              <option v-for="option in activeLogisticsStatuses" :key="option.id" :value="option.name">{{ logisticsStatusLabel(option) }}</option>
+            </select>
+            <label class="block"><span class="mb-1 block text-xs text-slate-400">{{ t("logistics.shipDate") }}</span><input v-model="logisticsDraft.eta" type="date" class="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" /></label>
             <input v-model="logisticsDraft.tracking_url" placeholder="查询链接 URL" class="md:col-span-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white" />
             <textarea v-model="logisticsDraft.remarks" rows="4" placeholder="备注 / Remarks" class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"></textarea>
           </div>
@@ -1911,23 +2025,29 @@
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-950/50 text-slate-400">
               <tr>
-                <th class="px-4 py-3">提单号</th>
-                <th class="px-4 py-3">客户</th>
-                <th class="px-4 py-3">关联项目</th>
-                <th class="px-4 py-3">目的国</th>
-                <th class="px-4 py-3">设备</th>
-                <th class="px-4 py-3">状态</th>
-                <th class="px-4 py-3">ETA</th>
-                <th class="px-4 py-3">备注</th>
+                <th class="px-4 py-3">{{ t("logistics.createdDateShort") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.stageShort") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.customer") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.project") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.destination") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.equipment") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.moduleShort") }}</th>
+                <th class="px-4 py-3 text-center">{{ t("logistics.quantityShort") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.status") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.shipDateShort") }}</th>
+                <th class="px-4 py-3">{{ t("logistics.remarks") }}</th>
                 <th v-if="isInternalMode" class="px-4 py-3">{{ t("common.actions") }}</th>
               </tr>
               <tr class="ticket-filter-row">
-                <th><input v-model="logisticsFilters.tracking_no" placeholder="搜索提单号" /></th>
+                <th></th>
+                <th></th>
                 <th></th>
                 <th></th>
                 <th><input v-model="logisticsFilters.destination" placeholder="搜索目的国" /></th>
                 <th></th>
-                <th><select v-model="logisticsFilters.status"><option value="">{{ t('common.all') }}</option><option v-for="option in logisticsStatusOptions" :key="option" :value="option">{{ option }}</option></select></th>
+                <th></th>
+                <th></th>
+                <th><select v-model="logisticsFilters.status"><option value="">{{ t('common.all') }}</option><option v-for="option in activeLogisticsStatuses" :key="option.id" :value="option.name">{{ logisticsStatusLabel(option) }}</option></select></th>
                 <th></th>
                 <th></th>
                 <th v-if="isInternalMode"></th>
@@ -1935,24 +2055,28 @@
             </thead>
             <tbody class="divide-y divide-white/10 text-slate-200">
               <tr v-for="item in logisticsShipments" :key="item.id">
-                <td class="px-4 py-3 font-medium text-white">
-                  <a v-if="item.tracking_url" :href="item.tracking_url" target="_blank" rel="noopener" class="text-cyan-200 underline">{{ item.tracking_no }}</a>
-                  <span v-else>{{ item.tracking_no }}</span>
+                <td class="px-4 py-3 font-medium text-white">{{ item.created_date || "-" }}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold" :class="item.stage === 'after_sales' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'">
+                    {{ item.stage === "after_sales" ? t("logistics.afterSalesShort") : t("logistics.deliveryShort") }}
+                  </span>
                 </td>
                 <td class="px-4 py-3">{{ item.customer_company || "-" }}</td>
                 <td class="px-4 py-3">{{ item.related_project || "-" }}</td>
                 <td class="px-4 py-3">{{ item.destination_country || "-" }}</td>
-                <td class="px-4 py-3">{{ item.equipment_model }} × {{ item.equipment_qty }}</td>
+                <td class="px-4 py-3">{{ logisticsEquipmentLabel(item.equipment_model) }}</td>
+                <td class="px-4 py-3">{{ item.specific_module || "-" }}</td>
+                <td class="px-4 py-3 text-center tabular-nums">{{ item.equipment_qty }}</td>
                 <td class="px-4 py-3"><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-100">{{ item.status }}</span></td>
                 <td class="px-4 py-3">{{ item.eta || "-" }}</td>
                 <td class="max-w-xs whitespace-pre-wrap px-4 py-3 text-xs text-slate-300">{{ item.remarks || "-" }}</td>
                 <td v-if="isInternalMode" class="px-4 py-3">
                   <button type="button" class="mr-2 text-cyan-200" @click="editLogisticsShipment(item)">{{ t("common.edit") }}</button>
-                  <button type="button" class="text-rose-200" @click="openDeleteDialog('logistics', String(item.id), item.tracking_no, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
+                  <button type="button" class="text-rose-200" @click="openDeleteDialog('logistics', String(item.id), item.created_date, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
                 </td>
               </tr>
               <tr v-if="!logisticsShipments.length">
-                <td :colspan="isInternalMode ? 9 : 8" class="px-4 py-6 text-center text-slate-400">{{ t("common.noData") }}</td>
+                <td :colspan="isInternalMode ? 12 : 11" class="px-4 py-6 text-center text-slate-400">{{ t("common.noData") }}</td>
               </tr>
             </tbody>
           </table>
@@ -1977,12 +2101,18 @@
 
         <div v-if="empowermentFormOpen" class="mb-5 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
           <div class="grid gap-3 md:grid-cols-3">
-            <input v-model="empowermentDraft.partner_name" :disabled="Boolean(empowermentEditingId)" placeholder="供应商/客户名称" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white disabled:opacity-50" />
-            <label v-for="field in empowermentScoreFields" :key="field.key" class="block">
-              <span class="mb-1 block text-xs text-slate-400">{{ field.label }} ({{ empowermentDraft[field.key] }}%)</span>
+            <input v-model="empowermentDraft.partner_name" :disabled="Boolean(empowermentEditingId)" :placeholder="t('empowerment.partnerName')" class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white disabled:opacity-50" />
+            <div class="md:col-span-3 mt-2 text-xs font-semibold uppercase text-emerald-300">{{ t("empowerment.deliveryMatrix") }}</div>
+            <label v-for="field in empowermentDeliveryFields" :key="field.key" class="block">
+              <span class="mb-1 block text-xs text-slate-400">{{ t(field.labelKey) }} ({{ empowermentDraft[field.key] }}%)</span>
               <input v-model.number="empowermentDraft[field.key]" type="range" min="0" max="100" class="w-full" />
             </label>
-            <textarea v-model="empowermentDraft.remarks" placeholder="备注" class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"></textarea>
+            <div class="md:col-span-3 mt-2 text-xs font-semibold uppercase text-cyan-300">{{ t("empowerment.afterSalesMatrix") }}</div>
+            <label v-for="skill in activeEmpowermentSkills" :key="skill.id" class="block">
+              <span class="mb-1 block text-xs text-slate-400">{{ empowermentSkillLabel(skill) }} ({{ empowermentDraft.aftersales_scores?.[skill.name] || 0 }}%)</span>
+              <input v-model.number="empowermentDraft.aftersales_scores[skill.name]" type="range" min="0" max="100" class="w-full" />
+            </label>
+            <textarea v-model="empowermentDraft.remarks" :placeholder="t('empowerment.remarks')" class="md:col-span-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"></textarea>
           </div>
           <div class="mt-3 flex justify-end gap-2">
             <button type="button" class="rounded-xl border border-white/10 px-4 py-2 text-white" @click="empowermentFormOpen = false">取消</button>
@@ -1990,40 +2120,45 @@
           </div>
         </div>
 
-        <div class="scroll-thin overflow-x-auto rounded-3xl border border-white/10 bg-white/5">
-          <table class="min-w-full text-left text-sm">
-            <thead class="bg-slate-950/50 text-slate-400">
-              <tr>
-                <th class="px-4 py-3">供应商/客户名称</th>
-                <th v-for="field in empowermentScoreFields" :key="field.key" class="px-4 py-3">{{ field.label }}</th>
-                <th class="px-4 py-3">备注</th>
-                <th v-if="isInternalMode" class="px-4 py-3">{{ t("common.actions") }}</th>
+        <div class="scroll-thin overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <table class="min-w-max border-separate border-spacing-0 text-left text-sm">
+            <thead class="bg-slate-50 text-slate-700">
+              <tr class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <th rowspan="2" class="sticky left-0 z-20 min-w-48 border-b border-r border-slate-200 bg-slate-50 px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.05)]">{{ t("empowerment.partnerName") }}</th>
+                <th :colspan="empowermentDeliveryFields.length" class="border-b border-r border-slate-200 px-4 py-3 text-center">{{ t("empowerment.deliveryMatrix") }}</th>
+                <th :colspan="Math.max(activeEmpowermentSkills.length, 1)" class="border-b border-r border-slate-200 px-4 py-3 text-center">{{ t("empowerment.afterSalesMatrix") }}</th>
+                <th rowspan="2" class="min-w-52 border-b border-slate-200 px-4 py-3">{{ t("empowerment.remarks") }}</th>
+                <th v-if="isInternalMode" rowspan="2" class="sticky right-0 z-20 min-w-28 border-b border-l border-slate-200 bg-slate-50 px-4 py-3 text-center shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.05)]">{{ t("common.actions") }}</th>
+              </tr>
+              <tr class="text-xs font-medium text-slate-700">
+                <th v-for="field in empowermentDeliveryFields" :key="field.key" class="min-w-36 border-b border-slate-200 px-3 py-3">{{ t(field.labelKey) }}</th>
+                <th v-for="skill in activeEmpowermentSkills" :key="skill.id" class="min-w-36 border-b border-slate-200 px-3 py-3">{{ empowermentSkillLabel(skill) }}</th>
+                <th v-if="!activeEmpowermentSkills.length" class="min-w-36 border-b border-slate-200 px-3 py-3">-</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-white/10 text-slate-200">
-              <tr v-for="item in empowermentRecords" :key="item.id">
-                <td class="px-4 py-3 font-medium text-white">{{ item.partner_name }}</td>
-                <td v-for="field in empowermentScoreFields" :key="field.key" class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <div class="h-2 w-24 overflow-hidden rounded-full bg-slate-200">
-                      <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${item[field.key] || 0}%` }"></div>
-                    </div>
-                    <span class="text-xs font-semibold text-white">{{ item[field.key] || 0 }}%</span>
-                  </div>
+            <tbody class="divide-y divide-slate-100 bg-white text-slate-700">
+              <tr v-for="item in empowermentRecords" :key="item.id" class="group transition-colors hover:bg-slate-50/80">
+                <td class="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-slate-50">{{ item.partner_name }}</td>
+                <td v-for="field in empowermentDeliveryFields" :key="field.key" class="px-3 py-3">
+                  <div class="flex w-28 items-center gap-2"><div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full transition-all duration-300" :class="getProgressColor(item[field.key])" :style="{ width: `${item[field.key] || 0}%` }"></div></div><span class="w-8 text-right font-mono text-xs font-medium text-slate-600">{{ item[field.key] || 0 }}%</span></div>
                 </td>
-                <td class="max-w-xs px-4 py-3 text-xs text-slate-300">{{ item.remarks || "-" }}</td>
-                <td v-if="isInternalMode" class="px-4 py-3">
-                  <button type="button" class="mr-2 text-cyan-200" @click="editEmpowermentRecord(item)">{{ t("common.edit") }}</button>
-                  <button type="button" class="text-rose-200" @click="openDeleteDialog('empowerment', String(item.id), item.partner_name, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
+                <td v-for="skill in activeEmpowermentSkills" :key="skill.id" class="px-3 py-3">
+                  <div class="flex w-28 items-center gap-2"><div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full transition-all duration-300" :class="getProgressColor(item.aftersales_scores?.[skill.name])" :style="{ width: `${item.aftersales_scores?.[skill.name] || 0}%` }"></div></div><span class="w-8 text-right font-mono text-xs font-medium text-slate-600">{{ item.aftersales_scores?.[skill.name] || 0 }}%</span></div>
+                </td>
+                <td v-if="!activeEmpowermentSkills.length" class="px-4 py-3 text-center text-slate-400">-</td>
+                <td class="max-w-xs px-4 py-3 text-xs leading-5 text-slate-600">{{ item.remarks || "-" }}</td>
+                <td v-if="isInternalMode" class="sticky right-0 z-10 border-l border-slate-200 bg-white px-4 py-3 text-center shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-slate-50">
+                  <button type="button" class="mr-3 font-medium text-sky-700 hover:text-sky-900" @click="editEmpowermentRecord(item)">{{ t("common.edit") }}</button>
+                  <button type="button" class="font-medium text-rose-600 hover:text-rose-800" @click="openDeleteDialog('empowerment', String(item.id), item.partner_name, t('common.deleteConfirm'))">{{ t("common.delete") }}</button>
                 </td>
               </tr>
               <tr v-if="!empowermentRecords.length">
-                <td :colspan="empowermentScoreFields.length + (isInternalMode ? 3 : 2)" class="px-4 py-6 text-center text-slate-400">{{ t("common.noData") }}</td>
+                <td :colspan="empowermentDeliveryFields.length + Math.max(activeEmpowermentSkills.length, 1) + (isInternalMode ? 3 : 2)" class="px-4 py-6 text-center text-slate-400">{{ t("common.noData") }}</td>
               </tr>
             </tbody>
-            <tfoot>
+            <tfoot class="border-t border-slate-200 bg-slate-50">
               <tr>
-                <td :colspan="empowermentScoreFields.length + (isInternalMode ? 3 : 2)" class="px-4 py-3 text-xs font-semibold text-slate-400">Count: {{ empowermentRecords.length }}</td>
+                <td :colspan="empowermentDeliveryFields.length + Math.max(activeEmpowermentSkills.length, 1) + (isInternalMode ? 3 : 2)" class="px-4 py-3 text-xs font-semibold text-slate-400">Count: {{ empowermentRecords.length }}</td>
               </tr>
             </tfoot>
           </table>
@@ -3047,18 +3182,40 @@ const faultComponentDraft = reactive({
   sort_order: 0,
   is_active: true,
 });
+const settingsTab = ref("fault-components");
+const logisticsStatuses = ref([]);
+const logisticsStatusFormOpen = ref(false);
+const logisticsStatusEditingId = ref(null);
+const logisticsStatusDraft = reactive({
+  name: "",
+  name_en: "",
+  step_order: 0,
+  is_active: true,
+});
+const empowermentSkills = ref([]);
+const empowermentSkillFormOpen = ref(false);
+const empowermentSkillEditingId = ref(null);
+const empowermentSkillDraft = reactive({ name: "", name_en: "", sort_order: 0, is_active: true });
+const activeEmpowermentSkills = computed(() => empowermentSkills.value.filter((skill) => skill.is_active));
 const logisticsShipments = ref([]);
-const logisticsStatusOptions = ["工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场"];
+const activeLogisticsStatuses = computed(() =>
+  logisticsStatuses.value.filter((status) => status.is_active),
+);
+const logisticsStatusOptions = computed(() =>
+  activeLogisticsStatuses.value.map((status) => status.name),
+);
 const logisticsEquipmentModels = ["418", "250", "100C"];
-const logisticsFilters = reactive({ tracking_no: "", destination: "", status: "" });
+const logisticsFilters = reactive({ destination: "", status: "" });
 const logisticsFormOpen = ref(false);
 const logisticsEditingId = ref(null);
 const logisticsDraft = reactive({
-  tracking_no: "",
+  created_date: new Date().toISOString().slice(0, 10),
+  stage: "delivery",
   customer_company: "",
   related_project: "",
   destination_country: "",
   equipment_model: "",
+  specific_module: "",
   equipment_qty: 0,
   status: "工厂备货",
   eta: "",
@@ -3068,24 +3225,23 @@ const logisticsDraft = reactive({
 const empowermentRecords = ref([]);
 const empowermentFormOpen = ref(false);
 const empowermentEditingId = ref(null);
-const empowermentScoreFields = [
-  { key: "delivery_250", label: "250交付" },
-  { key: "delivery_100c", label: "100C交付" },
-  { key: "delivery_418", label: "418交付" },
-  { key: "troubleshooting", label: "问题排查" },
-  { key: "spare_parts", label: "备件更换" },
-  { key: "learning_ability", label: "学习能力" },
-  { key: "learning_willingness", label: "学习意愿" },
+const empowermentDeliveryFields = [
+  { key: "delivery_418_net", labelKey: "empowerment.delivery418Net" },
+  { key: "delivery_418_soft", labelKey: "empowerment.delivery418Soft" },
+  { key: "delivery_250_net", labelKey: "empowerment.delivery250Net" },
+  { key: "delivery_250_soft", labelKey: "empowerment.delivery250Soft" },
+  { key: "delivery_100c_net", labelKey: "empowerment.delivery100cNet" },
+  { key: "delivery_100c_soft", labelKey: "empowerment.delivery100cSoft" },
 ];
 const empowermentDraft = reactive({
   partner_name: "",
-  delivery_250: 0,
-  delivery_100c: 0,
-  delivery_418: 0,
-  troubleshooting: 0,
-  spare_parts: 0,
-  learning_ability: 0,
-  learning_willingness: 0,
+  delivery_418_net: 0,
+  delivery_418_soft: 0,
+  delivery_250_net: 0,
+  delivery_250_soft: 0,
+  delivery_100c_net: 0,
+  delivery_100c_soft: 0,
+  aftersales_scores: {},
   remarks: "",
 });
 const loginOpen = ref(false);
@@ -4141,6 +4297,141 @@ async function fetchFaultComponents() {
   }
 }
 
+async function fetchLogisticsStatuses() {
+  if (!isAuthenticated.value) {
+    logisticsStatuses.value = [];
+    return;
+  }
+  try {
+    const response = await portalApi.listLogisticsStatuses(!isCustomer.value);
+    logisticsStatuses.value = response?.items ?? response?.data?.items ?? [];
+    if (!logisticsDraft.status && logisticsStatusOptions.value.length) {
+      logisticsDraft.status = logisticsStatusOptions.value[0];
+    }
+  } catch (error) {
+    logisticsStatuses.value = [];
+    setNotice(formatApiError(error, "物流状态加载失败"), "error");
+  }
+}
+
+async function fetchEmpowermentSkills() {
+  if (!isAuthenticated.value) {
+    empowermentSkills.value = [];
+    return;
+  }
+  try {
+    const response = await portalApi.listEmpowermentSkills(isSuperAdmin.value);
+    empowermentSkills.value = response?.items ?? response?.data?.items ?? [];
+  } catch (error) {
+    empowermentSkills.value = [];
+    setNotice(formatApiError(error, t("settings.empowermentSkillsLoadFailed")), "error");
+  }
+}
+
+function empowermentSkillLabel(skill) {
+  return isEnglish.value && skill.name_en ? skill.name_en : skill.name;
+}
+
+function getProgressColor(value) {
+  const score = Number(value) || 0;
+  if (score >= 80) return "bg-emerald-500";
+  if (score >= 60) return "bg-sky-500";
+  if (score >= 40) return "bg-amber-500";
+  return "bg-rose-400";
+}
+
+function resetEmpowermentSkillDraft() {
+  Object.assign(empowermentSkillDraft, { name: "", name_en: "", sort_order: empowermentSkills.value.length + 1, is_active: true });
+  empowermentSkillEditingId.value = null;
+}
+
+function openEmpowermentSkillEditor(skill = null) {
+  if (!isSuperAdmin.value) return;
+  resetEmpowermentSkillDraft();
+  if (skill) {
+    empowermentSkillEditingId.value = skill.id;
+    Object.assign(empowermentSkillDraft, skill);
+  }
+  empowermentSkillFormOpen.value = true;
+}
+
+async function saveEmpowermentSkill() {
+  if (!empowermentSkillDraft.name.trim()) {
+    setNotice(t("settings.skillName"), "error");
+    return;
+  }
+  const payload = {
+    name: empowermentSkillDraft.name.trim(),
+    name_en: empowermentSkillDraft.name_en.trim(),
+    sort_order: Number(empowermentSkillDraft.sort_order) || 0,
+    is_active: Boolean(empowermentSkillDraft.is_active),
+  };
+  try {
+    if (empowermentSkillEditingId.value) await portalApi.updateEmpowermentSkill(empowermentSkillEditingId.value, payload);
+    else await portalApi.createEmpowermentSkill(payload);
+    empowermentSkillFormOpen.value = false;
+    resetEmpowermentSkillDraft();
+    await fetchEmpowermentSkills();
+    setNotice(t("settings.empowermentSkillSaved"), "success");
+  } catch (error) {
+    setNotice(formatApiError(error, t("settings.empowermentSkillSaveFailed")), "error");
+  }
+}
+
+function logisticsStatusLabel(status) {
+  return isEnglish.value && status.name_en ? status.name_en : status.name;
+}
+
+function logisticsEquipmentLabel(model) {
+  return model ? model.replace(/^eBlock-/i, "") : "-";
+}
+
+function resetLogisticsStatusDraft() {
+  Object.assign(logisticsStatusDraft, {
+    name: "",
+    name_en: "",
+    step_order: logisticsStatuses.value.length + 1,
+    is_active: true,
+  });
+  logisticsStatusEditingId.value = null;
+}
+
+function openLogisticsStatusEditor(status = null) {
+  if (!isSuperAdmin.value) return;
+  resetLogisticsStatusDraft();
+  if (status) {
+    logisticsStatusEditingId.value = status.id;
+    Object.assign(logisticsStatusDraft, status);
+  }
+  logisticsStatusFormOpen.value = true;
+}
+
+async function saveLogisticsStatus() {
+  if (!logisticsStatusDraft.name.trim()) {
+    setNotice(t("settings.statusName"), "error");
+    return;
+  }
+  const payload = {
+    name: logisticsStatusDraft.name.trim(),
+    name_en: logisticsStatusDraft.name_en.trim(),
+    step_order: Number(logisticsStatusDraft.step_order) || 0,
+    is_active: Boolean(logisticsStatusDraft.is_active),
+  };
+  try {
+    if (logisticsStatusEditingId.value) {
+      await portalApi.updateLogisticsStatus(logisticsStatusEditingId.value, payload);
+    } else {
+      await portalApi.createLogisticsStatus(payload);
+    }
+    logisticsStatusFormOpen.value = false;
+    resetLogisticsStatusDraft();
+    await fetchLogisticsStatuses();
+    setNotice(t("settings.logisticsSaved"), "success");
+  } catch (error) {
+    setNotice(formatApiError(error, t("settings.logisticsSaved")), "error");
+  }
+}
+
 function resetFaultComponentDraft() {
   Object.assign(faultComponentDraft, {
     name: "",
@@ -4209,13 +4500,15 @@ async function loadEmpowermentRecords() {
 
 function resetLogisticsDraft() {
   Object.assign(logisticsDraft, {
-    tracking_no: "",
+    created_date: new Date().toISOString().slice(0, 10),
+    stage: "delivery",
     customer_company: "",
     related_project: "",
     destination_country: "",
     equipment_model: "",
+    specific_module: "",
     equipment_qty: 0,
-    status: "工厂备货",
+    status: logisticsStatusOptions.value[0] || "",
     eta: "",
     tracking_url: "",
     remarks: "",
@@ -4244,17 +4537,19 @@ function editLogisticsShipment(record) {
 }
 
 async function submitLogisticsShipment() {
-  if (!logisticsDraft.tracking_no) {
+  if (!logisticsDraft.created_date) {
     setNotice(t("notices.requiredLog"), "error");
     return;
   }
   try {
     const payload = {
-      tracking_no: logisticsDraft.tracking_no.trim(),
+      created_date: logisticsDraft.created_date,
+      stage: logisticsDraft.stage,
       customer_company: logisticsDraft.customer_company,
       related_project: logisticsDraft.related_project,
       destination_country: logisticsDraft.destination_country.trim(),
       equipment_model: logisticsDraft.equipment_model,
+      specific_module: logisticsDraft.specific_module,
       equipment_qty: Number(logisticsDraft.equipment_qty) || 0,
       status: logisticsDraft.status,
       eta: logisticsDraft.eta || null,
@@ -4278,13 +4573,13 @@ async function submitLogisticsShipment() {
 function resetEmpowermentDraft() {
   Object.assign(empowermentDraft, {
     partner_name: "",
-    delivery_250: 0,
-    delivery_100c: 0,
-    delivery_418: 0,
-    troubleshooting: 0,
-    spare_parts: 0,
-    learning_ability: 0,
-    learning_willingness: 0,
+    delivery_418_net: 0,
+    delivery_418_soft: 0,
+    delivery_250_net: 0,
+    delivery_250_soft: 0,
+    delivery_100c_net: 0,
+    delivery_100c_soft: 0,
+    aftersales_scores: Object.fromEntries(activeEmpowermentSkills.value.map((skill) => [skill.name, 0])),
     remarks: "",
   });
   empowermentEditingId.value = null;
@@ -4296,6 +4591,7 @@ function openEmpowermentEditor(record = null) {
   if (record) {
     empowermentEditingId.value = record.id;
     Object.assign(empowermentDraft, record);
+    empowermentDraft.aftersales_scores = Object.fromEntries(activeEmpowermentSkills.value.map((skill) => [skill.name, record.aftersales_scores?.[skill.name] || 0]));
   }
   empowermentFormOpen.value = true;
 }
@@ -4310,10 +4606,16 @@ async function submitEmpowermentRecord() {
     return;
   }
   try {
+    const payload = {
+      partner_name: empowermentDraft.partner_name.trim(),
+      ...Object.fromEntries(empowermentDeliveryFields.map((field) => [field.key, Number(empowermentDraft[field.key]) || 0])),
+      aftersales_scores: Object.fromEntries(activeEmpowermentSkills.value.map((skill) => [skill.name, Number(empowermentDraft.aftersales_scores?.[skill.name]) || 0])),
+      remarks: empowermentDraft.remarks.trim(),
+    };
     if (empowermentEditingId.value) {
-      await portalApi.updateEmpowermentRecord(empowermentEditingId.value, { ...empowermentDraft });
+      await portalApi.updateEmpowermentRecord(empowermentEditingId.value, payload);
     } else {
-      await portalApi.createEmpowermentRecord({ ...empowermentDraft });
+      await portalApi.createEmpowermentRecord(payload);
     }
     empowermentFormOpen.value = false;
     resetEmpowermentDraft();
@@ -4950,6 +5252,20 @@ async function confirmDelete() {
     closeDeleteDialog();
     return;
   }
+  if (kind === "logistics-status") {
+    await portalApi.deleteLogisticsStatus(key);
+    await fetchLogisticsStatuses();
+    setNotice(t("settings.logisticsDeleted"), "success");
+    closeDeleteDialog();
+    return;
+  }
+  if (kind === "empowerment-skill") {
+    await portalApi.deleteEmpowermentSkill(key);
+    await fetchEmpowermentSkills();
+    setNotice(t("settings.empowermentSkillDeleted"), "success");
+    closeDeleteDialog();
+    return;
+  }
   setNotice(t("notices.deleted"), "success");
   closeDeleteDialog();
 }
@@ -5016,6 +5332,8 @@ onMounted(async () => {
     loadPortalExtras(),
     fetchUsers(),
     fetchFaultComponents(),
+    fetchLogisticsStatuses(),
+    fetchEmpowermentSkills(),
     loadLogisticsShipments(),
     loadEmpowermentRecords(),
   ]);

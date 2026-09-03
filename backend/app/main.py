@@ -51,7 +51,7 @@ from .models.technical_docs import (
     TECHNICAL_DOC_PRODUCT_SERIES,
     TechnicalDoc,
 )
-from .models.portal import AfterSalesLog, CustomerTicket, EmpowermentRecord, FaultComponent, LogisticsShipment, ProjectMilestone, User
+from .models.portal import AfterSalesLog, CustomerTicket, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User
 
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,29 @@ FAULTY_COMPONENT_OPTIONS = (
 FAULT_COMPONENT_SEED = [
     FaultComponent(name=name, sort_order=index)
     for index, name in enumerate(FAULTY_COMPONENT_OPTIONS, start=1)
+]
+
+LOGISTICS_STATUS_SEED = [
+    LogisticsStatus(name=name, name_en=name_en, step_order=index)
+    for index, (name, name_en) in enumerate(
+        (
+            ("工厂备货", "Factory Preparation"),
+            ("集港装船", "Port Consolidation"),
+            ("海上运输中", "In Ocean Transit"),
+            ("清关中", "Customs Clearance"),
+            ("陆运中", "Inland Transit"),
+            ("已送达现场", "Delivered On Site"),
+        ),
+        start=1,
+    )
+]
+
+EMPOWERMENT_SKILL_SEED = [
+    EmpowermentSkill(name=name, name_en=name_en, sort_order=index)
+    for index, (name, name_en) in enumerate(
+        (("PCS更换", "PCS Replacement"), ("水机更换", "Cooling Unit Replacement"), ("问题定位", "Issue Diagnosis")),
+        start=1,
+    )
 ]
 
 LOGISTICS_SHIPMENT_SEED = [
@@ -120,9 +143,9 @@ LOGISTICS_SHIPMENT_SEED = [
 ]
 
 EMPOWERMENT_RECORD_SEED = [
-    EmpowermentRecord(partner_name="意大利 Afore", delivery_250=80, delivery_100c=60, delivery_418=30, troubleshooting=70, spare_parts=65, learning_ability=75, learning_willingness=90, remarks="中国人手把手带训，有团队支持"),
-    EmpowermentRecord(partner_name="德国 Tripme", delivery_250=95, delivery_100c=90, delivery_418=70, troubleshooting=85, spare_parts=80, learning_ability=88, learning_willingness=92, remarks="有独立试验设备"),
-    EmpowermentRecord(partner_name="荷兰 Sietec", delivery_250=60, delivery_100c=55, delivery_418=20, troubleshooting=50, spare_parts=45, learning_ability=60, learning_willingness=70, remarks="需加强备件更换培训"),
+    EmpowermentRecord(partner_name="意大利 Afore", delivery_250_net=80, delivery_250_soft=80, delivery_100c_net=60, delivery_100c_soft=60, delivery_418_net=30, delivery_418_soft=30, aftersales_scores={"PCS更换": 65, "水机更换": 65, "问题定位": 70}, remarks="中国人手把手带训，有团队支持"),
+    EmpowermentRecord(partner_name="德国 Tripme", delivery_250_net=95, delivery_250_soft=95, delivery_100c_net=90, delivery_100c_soft=90, delivery_418_net=70, delivery_418_soft=70, aftersales_scores={"PCS更换": 80, "水机更换": 80, "问题定位": 85}, remarks="有独立试验设备"),
+    EmpowermentRecord(partner_name="荷兰 Sietec", delivery_250_net=60, delivery_250_soft=60, delivery_100c_net=55, delivery_100c_soft=55, delivery_418_net=20, delivery_418_soft=20, aftersales_scores={"PCS更换": 45, "水机更换": 45, "问题定位": 50}, remarks="需加强备件更换培训"),
 ]
 
 
@@ -324,13 +347,15 @@ LOGISTICS_STATUS_OPTIONS = ("工厂备货", "集港装船", "海上运输中", "
 
 
 class LogisticsShipmentPayload(BaseModel):
-    tracking_no: str
+    created_date: date = Field(default_factory=date.today)
+    stage: Literal["delivery", "after_sales"] = "delivery"
     customer_company: str = ""
     related_project: str = ""
     destination_country: str = ""
     equipment_model: str = ""
+    specific_module: str = ""
     equipment_qty: int = 0
-    status: Literal["工厂备货", "集港装船", "海上运输中", "清关中", "陆运中", "已送达现场"] = "工厂备货"
+    status: str = "工厂备货"
     eta: Optional[date] = None
     tracking_url: str = ""
     remarks: str = ""
@@ -338,17 +363,31 @@ class LogisticsShipmentPayload(BaseModel):
 
 class EmpowermentRecordPayload(BaseModel):
     partner_name: str
-    delivery_250: int = 0
-    delivery_100c: int = 0
-    delivery_418: int = 0
-    troubleshooting: int = 0
-    spare_parts: int = 0
-    learning_ability: int = 0
-    learning_willingness: int = 0
+    delivery_418_net: int = Field(default=0, ge=0, le=100)
+    delivery_418_soft: int = Field(default=0, ge=0, le=100)
+    delivery_250_net: int = Field(default=0, ge=0, le=100)
+    delivery_250_soft: int = Field(default=0, ge=0, le=100)
+    delivery_100c_net: int = Field(default=0, ge=0, le=100)
+    delivery_100c_soft: int = Field(default=0, ge=0, le=100)
+    aftersales_scores: Dict[str, int] = Field(default_factory=dict)
     remarks: str = ""
 
 
 class FaultComponentPayload(BaseModel):
+    name: str
+    name_en: str = ""
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class LogisticsStatusPayload(BaseModel):
+    name: str
+    name_en: str = ""
+    step_order: int = 0
+    is_active: bool = True
+
+
+class EmpowermentSkillPayload(BaseModel):
     name: str
     name_en: str = ""
     sort_order: int = 0
@@ -394,6 +433,8 @@ def on_startup() -> None:
     init_db()
     ensure_default_admin()
     ensure_fault_components()
+    ensure_logistics_statuses()
+    ensure_empowerment_skills()
     seed_mode = os.getenv("SEED_MODE", "all").strip().lower()
     if seed_mode == "all":
         seed_database()
@@ -478,6 +519,34 @@ def ensure_fault_components() -> None:
         except Exception:
             session.rollback()
             logger.exception("Failed to initialize default fault components.")
+            raise
+
+
+def ensure_logistics_statuses() -> None:
+    with get_session() as session:
+        try:
+            if session.exec(select(LogisticsStatus)).first() is None:
+                session.add_all(
+                    [LogisticsStatus(**item.model_dump()) for item in LOGISTICS_STATUS_SEED]
+                )
+                session.commit()
+                logger.info("Default logistics statuses initialized successfully.")
+        except Exception:
+            session.rollback()
+            logger.exception("Failed to initialize default logistics statuses.")
+            raise
+
+
+def ensure_empowerment_skills() -> None:
+    with get_session() as session:
+        try:
+            if session.exec(select(EmpowermentSkill)).first() is None:
+                session.add_all([EmpowermentSkill(**item.model_dump()) for item in EMPOWERMENT_SKILL_SEED])
+                session.commit()
+                logger.info("Default empowerment after-sales skills initialized successfully.")
+        except Exception:
+            session.rollback()
+            logger.exception("Failed to initialize default empowerment skills.")
             raise
 
 
@@ -1070,6 +1139,187 @@ def delete_fault_component(
         return {"message": action}
 
 
+@app.get("/api/config/logistics-statuses")
+def list_logistics_statuses(
+    include_inactive: bool = Query(default=False),
+    user: User = Depends(current_user),
+) -> Dict[str, object]:
+    if include_inactive and user.role not in {"super_admin", "viewer"}:
+        raise HTTPException(status_code=403, detail="Staff access required")
+    with get_session() as session:
+        statement = select(LogisticsStatus)
+        if not include_inactive:
+            statement = statement.where(LogisticsStatus.is_active == True)  # noqa: E712
+        items = session.exec(
+            statement.order_by(LogisticsStatus.step_order.asc(), LogisticsStatus.id.asc())
+        ).all()
+        return {"count": len(items), "items": items}
+
+
+@app.post("/api/config/logistics-statuses")
+def create_logistics_status(
+    payload: LogisticsStatusPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Status name is required")
+    with get_session() as session:
+        if session.exec(select(LogisticsStatus).where(LogisticsStatus.name == name)).first():
+            raise HTTPException(status_code=409, detail="Status name already exists")
+        item = LogisticsStatus(
+            name=name,
+            name_en=payload.name_en.strip(),
+            step_order=payload.step_order,
+            is_active=payload.is_active,
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/config/logistics-statuses/{status_id}")
+def update_logistics_status(
+    status_id: int,
+    payload: LogisticsStatusPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Status name is required")
+    with get_session() as session:
+        item = session.get(LogisticsStatus, status_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Logistics status not found")
+        duplicate = session.exec(select(LogisticsStatus).where(LogisticsStatus.name == name)).first()
+        if duplicate is not None and duplicate.id != status_id:
+            raise HTTPException(status_code=409, detail="Status name already exists")
+        previous_name = item.name
+        item.name = name
+        item.name_en = payload.name_en.strip()
+        item.step_order = payload.step_order
+        item.is_active = payload.is_active
+        if previous_name != name:
+            for shipment in session.exec(select(LogisticsShipment).where(LogisticsShipment.status == previous_name)).all():
+                shipment.status = name
+                session.add(shipment)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/config/logistics-statuses/{status_id}")
+def delete_logistics_status(
+    status_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(LogisticsStatus, status_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Logistics status not found")
+        if session.exec(select(LogisticsShipment.id).where(LogisticsShipment.status == item.name)).first() is not None:
+            item.is_active = False
+            session.add(item)
+            action = "disabled"
+        else:
+            session.delete(item)
+            action = "deleted"
+        session.commit()
+        return {"message": action}
+
+
+@app.get("/api/config/empowerment-skills")
+def list_empowerment_skills(
+    include_inactive: bool = Query(default=False),
+    user: User = Depends(current_user),
+) -> Dict[str, object]:
+    if include_inactive and user.role not in {"super_admin", "viewer"}:
+        raise HTTPException(status_code=403, detail="Staff access required")
+    with get_session() as session:
+        statement = select(EmpowermentSkill)
+        if not include_inactive:
+            statement = statement.where(EmpowermentSkill.is_active == True)  # noqa: E712
+        items = session.exec(
+            statement.order_by(EmpowermentSkill.sort_order.asc(), EmpowermentSkill.id.asc())
+        ).all()
+        return {"count": len(items), "items": items}
+
+
+@app.post("/api/config/empowerment-skills")
+def create_empowerment_skill(
+    payload: EmpowermentSkillPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Skill name is required")
+    with get_session() as session:
+        if session.exec(select(EmpowermentSkill).where(EmpowermentSkill.name == name)).first():
+            raise HTTPException(status_code=409, detail="Skill name already exists")
+        item = EmpowermentSkill(name=name, name_en=payload.name_en.strip(), sort_order=payload.sort_order, is_active=payload.is_active)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/config/empowerment-skills/{skill_id}")
+def update_empowerment_skill(
+    skill_id: int,
+    payload: EmpowermentSkillPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Skill name is required")
+    with get_session() as session:
+        item = session.get(EmpowermentSkill, skill_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Empowerment skill not found")
+        duplicate = session.exec(select(EmpowermentSkill).where(EmpowermentSkill.name == name)).first()
+        if duplicate is not None and duplicate.id != skill_id:
+            raise HTTPException(status_code=409, detail="Skill name already exists")
+        previous_name = item.name
+        item.name = name
+        item.name_en = payload.name_en.strip()
+        item.sort_order = payload.sort_order
+        item.is_active = payload.is_active
+        if previous_name != name:
+            for record in session.exec(select(EmpowermentRecord)).all():
+                if previous_name in record.aftersales_scores:
+                    scores = dict(record.aftersales_scores)
+                    scores[name] = scores.pop(previous_name)
+                    record.aftersales_scores = scores
+                    session.add(record)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/config/empowerment-skills/{skill_id}")
+def delete_empowerment_skill(
+    skill_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(EmpowermentSkill, skill_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Empowerment skill not found")
+        referenced = any(item.name in record.aftersales_scores for record in session.exec(select(EmpowermentRecord)).all())
+        if referenced:
+            item.is_active = False
+            session.add(item)
+            action = "disabled"
+        else:
+            session.delete(item)
+            action = "deleted"
+        session.commit()
+        return {"message": action}
+
+
 @app.get("/api/portal/projects")
 def list_portal_projects(user: User = Depends(current_user)) -> Dict[str, object]:
     with get_session() as session:
@@ -1324,9 +1574,13 @@ def list_logistics_shipments(
 @app.post("/api/logistics/shipments")
 def create_logistics_shipment(payload: LogisticsShipmentPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        if session.exec(select(LogisticsShipment).where(LogisticsShipment.tracking_no == payload.tracking_no)).first():
-            raise HTTPException(status_code=409, detail="Tracking number already exists")
-        item = LogisticsShipment(**payload.model_dump())
+        status = session.exec(select(LogisticsStatus).where(LogisticsStatus.name == payload.status, LogisticsStatus.is_active == True)).first()  # noqa: E712
+        if status is None:
+            raise HTTPException(status_code=422, detail="Invalid or inactive logistics status")
+        if payload.specific_module and session.exec(select(FaultComponent).where(FaultComponent.name == payload.specific_module, FaultComponent.is_active == True)).first() is None:  # noqa: E712
+            raise HTTPException(status_code=422, detail="Invalid or inactive specific module")
+        tracking_no = f"SHIP-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}"
+        item = LogisticsShipment(tracking_no=tracking_no, **payload.model_dump())
         session.add(item)
         session.commit()
         session.refresh(item)
@@ -1339,6 +1593,11 @@ def update_logistics_shipment(shipment_id: int, payload: LogisticsShipmentPayloa
         item = session.get(LogisticsShipment, shipment_id)
         if item is None:
             raise HTTPException(status_code=404, detail="Shipment not found")
+        status = session.exec(select(LogisticsStatus).where(LogisticsStatus.name == payload.status, LogisticsStatus.is_active == True)).first()  # noqa: E712
+        if status is None:
+            raise HTTPException(status_code=422, detail="Invalid or inactive logistics status")
+        if payload.specific_module and session.exec(select(FaultComponent).where(FaultComponent.name == payload.specific_module, FaultComponent.is_active == True)).first() is None:  # noqa: E712
+            raise HTTPException(status_code=422, detail="Invalid or inactive specific module")
         for key, value in payload.model_dump().items():
             setattr(item, key, value)
         item.updated_at = datetime.utcnow()
@@ -1369,9 +1628,16 @@ def list_empowerment_records(_: User = Depends(require_staff)) -> Dict[str, obje
 @app.post("/api/empowerment/records")
 def create_empowerment_record(payload: EmpowermentRecordPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        if session.exec(select(EmpowermentRecord).where(EmpowermentRecord.partner_name == payload.partner_name)).first():
+        partner_name = payload.partner_name.strip()
+        if not partner_name:
+            raise HTTPException(status_code=422, detail="Partner name is required")
+        if session.exec(select(EmpowermentRecord).where(EmpowermentRecord.partner_name == partner_name)).first():
             raise HTTPException(status_code=409, detail="Partner already exists")
-        item = EmpowermentRecord(**payload.model_dump())
+        active_skills = {skill.name for skill in session.exec(select(EmpowermentSkill).where(EmpowermentSkill.is_active == True)).all()}  # noqa: E712
+        invalid_scores = {name: score for name, score in payload.aftersales_scores.items() if name not in active_skills or not 0 <= score <= 100}
+        if invalid_scores:
+            raise HTTPException(status_code=422, detail="Invalid or inactive empowerment skill score")
+        item = EmpowermentRecord(**payload.model_dump(exclude={"partner_name"}), partner_name=partner_name)
         session.add(item)
         session.commit()
         session.refresh(item)
@@ -1384,7 +1650,15 @@ def update_empowerment_record(record_id: int, payload: EmpowermentRecordPayload,
         item = session.get(EmpowermentRecord, record_id)
         if item is None:
             raise HTTPException(status_code=404, detail="Empowerment record not found")
-        for key, value in payload.model_dump().items():
+        active_skills = {skill.name for skill in session.exec(select(EmpowermentSkill).where(EmpowermentSkill.is_active == True)).all()}  # noqa: E712
+        invalid_scores = {name: score for name, score in payload.aftersales_scores.items() if name not in active_skills or not 0 <= score <= 100}
+        if invalid_scores:
+            raise HTTPException(status_code=422, detail="Invalid or inactive empowerment skill score")
+        preserved_scores = {name: score for name, score in item.aftersales_scores.items() if name not in active_skills}
+        data = payload.model_dump(exclude={"aftersales_scores"})
+        data["partner_name"] = payload.partner_name.strip()
+        data["aftersales_scores"] = {**preserved_scores, **payload.aftersales_scores}
+        for key, value in data.items():
             setattr(item, key, value)
         item.updated_at = datetime.utcnow()
         session.add(item)

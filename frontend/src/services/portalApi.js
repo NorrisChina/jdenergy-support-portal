@@ -123,6 +123,32 @@ export const portalApi = {
   deleteFaultComponent(id) {
     return requestJson(`/api/config/fault-components/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
   },
+  listLogisticsStatuses(includeInactive = false) {
+    const suffix = includeInactive ? '?include_inactive=true' : ''
+    return requestJson(`/api/config/logistics-statuses${suffix}`, { headers: authHeaders() })
+  },
+  createLogisticsStatus(payload) {
+    return requestJson('/api/config/logistics-statuses', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateLogisticsStatus(id, payload) {
+    return requestJson(`/api/config/logistics-statuses/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteLogisticsStatus(id) {
+    return requestJson(`/api/config/logistics-statuses/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  listEmpowermentSkills(includeInactive = false) {
+    const suffix = includeInactive ? '?include_inactive=true' : ''
+    return requestJson(`/api/config/empowerment-skills${suffix}`, { headers: authHeaders() })
+  },
+  createEmpowermentSkill(payload) {
+    return requestJson('/api/config/empowerment-skills', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateEmpowermentSkill(id, payload) {
+    return requestJson(`/api/config/empowerment-skills/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteEmpowermentSkill(id) {
+    return requestJson(`/api/config/empowerment-skills/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   uploadImage(file) {
     const formData = new FormData()
     formData.append('file', file)
