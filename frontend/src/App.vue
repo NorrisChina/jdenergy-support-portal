@@ -138,12 +138,7 @@
             <article
               v-for="item in milestones"
               :key="item.key"
-              class="rounded-2xl border p-4"
-              :class="
-                milestoneIsOverdue(item)
-                  ? 'border-amber-400/50 bg-amber-400/10'
-                  : 'border-white/10 bg-white/5'
-              "
+              class="rounded-2xl border border-white/10 bg-white/5 p-4"
             >
               <div class="flex items-start justify-between gap-2">
                 <span
@@ -156,24 +151,13 @@
                         : 'bg-slate-500'
                   "
                 ></span
-                ><span
-                  v-if="milestoneIsOverdue(item)"
-                  class="text-[10px] font-bold text-amber-200"
-                  >{{ t("grid.overdue") }}</span
                 >
               </div>
               <h4 class="mt-3 text-sm font-semibold text-white">
                 {{ item.label }}
               </h4>
-              <p class="mt-3 text-xs text-slate-400">
-                {{ t("grid.planned") }}: {{ item.planned_date || "-" }}
-              </p>
               <p class="mt-1 text-xs text-slate-300">
                 {{ t("grid.actual") }}: {{ item.actual_date || "-" }}
-              </p>
-              <p class="mt-2 text-xs text-cyan-200">{{ item.status }}</p>
-              <p class="mt-2 text-xs leading-5 text-slate-400">
-                {{ item.notes || "-" }}
               </p>
               <button
                 v-if="isInternalMode"
@@ -187,41 +171,15 @@
           </div>
           <div
             v-if="milestoneEditor"
-            class="mt-5 grid gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 md:grid-cols-4"
+            class="mt-5 grid gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 md:grid-cols-2"
           >
             <input
-              v-model="milestoneDraft.planned_date"
-              type="date"
-              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
-            /><input
               v-model="milestoneDraft.actual_date"
               type="date"
               class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
-            /><select
-              v-model="serviceLogDraft.customer_company"
-              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
-            >
-              <option value="">客户/代理商名称</option>
-              <option v-for="company in partnerOptions" :key="company" :value="company">{{ company }}</option>
-            </select><select
-              v-model="serviceLogDraft.project_name"
-              class="service-log-project-select rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
-            >
-              <option value="">选择项目</option>
-              <option v-for="project in serviceLogProjectOptions" :key="project.project_name" :value="project.project_name">{{ project.project_name }}</option>
-            </select><select
-              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
-            >
-              <option>待开始</option>
-              <option>进行中</option>
-              <option>已完成</option></select
-            ><input
-              v-model="milestoneDraft.notes"
-              placeholder="备注"
-              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
             /><button
               type="button"
-              class="rounded-xl bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950 md:col-span-4"
+              class="rounded-xl bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950"
               @click="saveMilestone"
             >
               保存节点
@@ -969,7 +927,7 @@
                 @click="
                   openDeleteDialog(
                     'grid',
-                    project.project_name,
+                    project.id,
                     project.project_name,
                     t('common.deleteConfirm'),
                   )
@@ -1713,6 +1671,12 @@
           </table>
         </div>
       </section>
+
+      <VpnDiagnosticView
+        v-else-if="activeView === 'vpn-diagnostics'"
+        :is-super-admin="isSuperAdmin"
+        :locale="locale"
+      />
 
       <section v-else-if="activeView === 'other-settings'" class="flex-1">
         <div class="mb-5 flex gap-2 border-b border-white/10 pb-3">
@@ -3015,10 +2979,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { computed, defineAsyncComponent, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { messages } from "./locales/messages";
 import { portalApi } from "./services/portalApi";
 import { usePortalState } from "./composables/usePortalState";
+
+const VpnDiagnosticView = defineAsyncComponent(() =>
+  import("./components/VpnDiagnosticView.vue"),
+);
 
 const {
   state: portalState,
@@ -3065,6 +3033,7 @@ const navGroups = computed(() => [
             ...(isSuperAdmin.value
               ? [{ key: "account-management", label: t("views.accounts") }]
               : []),
+            { key: "vpn-diagnostics", label: t("views.vpnDiagnostics") },
             { key: "other-settings", label: t("views.otherSettings") },
           ],
         },
@@ -3347,12 +3316,7 @@ const timelineOpen = ref(false);
 const selectedProject = ref(null);
 const milestones = ref([]);
 const milestoneEditor = ref(null);
-const milestoneDraft = reactive({
-  planned_date: "",
-  actual_date: "",
-  status: "待开始",
-  notes: "",
-});
+const milestoneDraft = reactive({ actual_date: "" });
 const ticketFormOpen = ref(false);
 const ticketDraft = reactive({
   project_name: "",
@@ -3715,7 +3679,7 @@ const gridSummary = computed(() => {
   };
 });
 
-const CI_100C_MWH_PER_UNIT = 0.12;
+const CI_100C_MWH_PER_UNIT = 0.1;
 const CI_250_MWH_PER_UNIT = 0.25;
 
 const ciCapacityRows = computed(() => {
@@ -4129,7 +4093,7 @@ function resetCrudDraft(kind, record) {
 function getRecordKey(kind, record) {
   if (!record) return "";
   if (kind === "fault") return String(record.id);
-  if (kind === "grid") return record.project_name;
+  if (kind === "grid") return String(record.id);
   if (kind === "ci") return record.dealer_name;
   if (kind === "technical-doc") return String(record.id);
   if (kind === "inventory") return record.item_no;
@@ -4203,14 +4167,6 @@ function formatApiError(error, fallback) {
   return `${fallback}: ${error instanceof Error ? error.message : "Unknown error"}`;
 }
 
-function milestoneIsOverdue(item) {
-  return (
-    item?.status !== "已完成" &&
-    item?.planned_date &&
-    new Date(`${item.planned_date}T23:59:59`) < new Date()
-  );
-}
-
 async function openMilestoneTimeline(project) {
   selectedProject.value = project;
   timelineOpen.value = true;
@@ -4226,12 +4182,7 @@ async function openMilestoneTimeline(project) {
 
 function editMilestone(item) {
   milestoneEditor.value = item.key;
-  Object.assign(milestoneDraft, {
-    planned_date: item.planned_date || "",
-    actual_date: item.actual_date || "",
-    status: item.status,
-    notes: item.notes || "",
-  });
+  milestoneDraft.actual_date = item.actual_date || "";
 }
 
 async function saveMilestone() {
@@ -4239,7 +4190,7 @@ async function saveMilestone() {
   await portalApi.updateMilestone(
     selectedProject.value.project_name,
     milestoneEditor.value,
-    { ...milestoneDraft },
+    { actual_date: milestoneDraft.actual_date || null },
   );
   const payload = await portalApi.listMilestones(
     selectedProject.value.project_name,

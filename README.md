@@ -92,6 +92,47 @@ nginx -t && nginx -s reload
 
 ## 后端生产启动
 
+### VPN 远程诊断环境变量
+
+VPN/SSH/TDengine 凭据只在后端读取，不写入前端、数据库或仓库。环境变量优先；macOS 环境变量缺失时，后端会自动回退到系统 Keychain。部署环境可配置：
+
+```bash
+export VPN_JUMP_HOST="<jump-host>"
+export VPN_JUMP_PORT="22"
+export VPN_JUMP_USERNAME="<jump-user>"
+export VPN_JUMP_PASSWORD="<jump-password>"
+export VPN_SITE_PORT="22"
+export VPN_SITE_USERNAME="<site-user>"
+export VPN_SITE_PASSWORD="<site-password>"
+export TDENGINE_USERNAME="<tdengine-user>"
+export TDENGINE_PASSWORD="<tdengine-password>"
+```
+
+macOS 本地开发可将密码一次性保存到系统 Keychain，后续无论通过 `run_prod.sh` 还是直接运行 Uvicorn，均无需重复输入：
+
+```bash
+cd backend
+chmod +x configure_vpn_keychain.sh
+./configure_vpn_keychain.sh
+./run_prod.sh
+```
+
+生产环境默认启用 SSH 主机密钥严格校验。应将跳板机和站点主机密钥加入后端运行用户的 `~/.ssh/known_hosts`，或通过 `VPN_SSH_KNOWN_HOSTS` 指向专用文件。仅在受控测试环境可临时设置 `VPN_SSH_STRICT_HOST_KEY=false`。
+
+Nginx 的 `/api/` 代理必须保留 WebSocket 配置：
+
+```nginx
+proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+```
+
+### 诊断导出表配置
+
+导出表由 `diagnostic_export_tables` 数据表驱动，首次启动会初始化 10 张核心表：3 张 BMS、3 张 PCS 和 4 张 eLink。PCS 默认附加 `pcs_id = 1`，BMS/PCS 使用界面传入的 `eBlock ID`，eLink 不使用 eBlock 过滤。
+
+所有已登录账号可通过 `GET /api/diagnostic/tables` 读取配置；仅 `admin` 可通过对应的 `POST`、`PUT`、`DELETE` 接口维护配置。导出任务只接受数据库中存在的完整表名，并使用配置中的 `sheet_name` 生成 Excel Sheet。
+
 进入 `backend/` 后执行：
 
 ```bash

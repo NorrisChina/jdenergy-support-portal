@@ -6,3 +6,4 @@ __pycache__/
 *.pyc
 .DS_Store
 backend/storage.db
+backend/uploads/vpn_exports/

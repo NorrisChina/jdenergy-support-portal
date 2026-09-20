@@ -50,6 +50,7 @@ export const messages = {
       serviceLogs: '交付售后记录',
       customerTickets: '客户工单与需求反馈',
       accounts: '账号管理',
+      vpnDiagnostics: 'VPN 远程诊断与数据导出',
       otherSettings: '其他配置',
     },
     nav: {
@@ -332,6 +333,7 @@ export const messages = {
       serviceLogs: 'After-sales logs',
       customerTickets: 'Customer Tickets & Requests',
       accounts: 'Account management',
+      vpnDiagnostics: 'VPN Diagnostics & Data Export',
       otherSettings: 'Other Settings',
     },
     nav: {

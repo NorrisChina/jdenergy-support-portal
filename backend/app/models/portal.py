@@ -159,3 +159,45 @@ class EmpowermentRecord(SQLModel, table=True):
     aftersales_scores: Dict[str, int] = Field(default_factory=dict, sa_column=Column(SAJSON))
     remarks: str = ""
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VpnSite(SQLModel, table=True):
+    __tablename__ = "vpn_sites"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    vpn_ip: str = Field(index=True, unique=True)
+    customer_company: str = Field(default="", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DiagnosticExportTable(SQLModel, table=True):
+    __tablename__ = "diagnostic_export_tables"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    table_name: str = Field(index=True, unique=True)
+    sheet_name: str = Field(index=True, unique=True)
+    has_eblock_id: bool = True
+    extra_where: str = ""
+    sort_order: int = Field(default=0, index=True)
+    is_enabled: bool = Field(default=True, index=True)
+
+
+class VpnExportTask(SQLModel, table=True):
+    __tablename__ = "vpn_export_tasks"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    site_id: int = Field(index=True, foreign_key="vpn_sites.id")
+    site_name: str = Field(index=True)
+    eblock_id: int
+    start_time: datetime
+    end_time: datetime
+    selected_tables: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
+    status: str = Field(default="processing", index=True)
+    file_name: str = ""
+    file_path: str = ""
+    error_message: str = ""
+    created_by: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    completed_at: Optional[datetime] = None

@@ -16,7 +16,8 @@ class FaultCode(SQLModel, table=True):
 
 
 class GridScaleProject(SQLModel, table=True):
-    project_name: str = Field(primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_name: str = Field(index=True)
     cod: str
     capacity_mwh: float
     software_version: str = ""

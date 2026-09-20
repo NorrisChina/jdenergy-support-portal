@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import os
+import asyncio
 import json
 import uuid
 import mimetypes
 import base64
 import csv
+import re
 import hashlib
 import hmac
 import io
 import logging
+import ipaddress
+import secrets
+import threading
 import time
+from datetime import timedelta
 from datetime import date, datetime
 from collections import defaultdict
 from pathlib import Path
@@ -21,7 +27,7 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
-from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -51,7 +57,8 @@ from .models.technical_docs import (
     TECHNICAL_DOC_PRODUCT_SERIES,
     TechnicalDoc,
 )
-from .models.portal import AfterSalesLog, CustomerTicket, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User
+from .models.portal import AfterSalesLog, CustomerTicket, DiagnosticExportTable, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User, VpnExportTask, VpnSite
+from .vpn_service import EXPORT_DIR, open_terminal_channel, receive_channel, run_export_task
 
 
 logger = logging.getLogger(__name__)
@@ -94,6 +101,19 @@ EMPOWERMENT_SKILL_SEED = [
         (("PCS更换", "PCS Replacement"), ("水机更换", "Cooling Unit Replacement"), ("问题定位", "Issue Diagnosis")),
         start=1,
     )
+]
+
+DIAGNOSTIC_EXPORT_TABLE_SEED = [
+    DiagnosticExportTable(table_name="eblock.bms_rs", sheet_name="bms_rs", sort_order=10),
+    DiagnosticExportTable(table_name="eblock.bms_tm", sheet_name="bms_tm", sort_order=20),
+    DiagnosticExportTable(table_name="eblock.bms_tc", sheet_name="bms_tc", sort_order=30),
+    DiagnosticExportTable(table_name="eblock.pcs_tc", sheet_name="pcs_tc", extra_where="pcs_id = 1", sort_order=40),
+    DiagnosticExportTable(table_name="eblock.pcs_tm", sheet_name="pcs_tm", extra_where="pcs_id = 1", sort_order=50),
+    DiagnosticExportTable(table_name="eblock.pcs_rs", sheet_name="pcs_rs", extra_where="pcs_id = 1", sort_order=60),
+    DiagnosticExportTable(table_name="eblock.elink_yk", sheet_name="elink_yk", has_eblock_id=False, sort_order=70),
+    DiagnosticExportTable(table_name="eblock.elink_yt", sheet_name="elink_yt", has_eblock_id=False, sort_order=80),
+    DiagnosticExportTable(table_name="eblock.elink_yx", sheet_name="elink_yx", has_eblock_id=False, sort_order=90),
+    DiagnosticExportTable(table_name="eblock.elink_yc", sheet_name="elink_yc", has_eblock_id=False, sort_order=100),
 ]
 
 LOGISTICS_SHIPMENT_SEED = [
@@ -295,10 +315,7 @@ class CustomerUserUpdatePayload(BaseModel):
 
 
 class MilestonePayload(BaseModel):
-    planned_date: Optional[date] = None
     actual_date: Optional[date] = None
-    status: Literal["已完成", "进行中", "待开始"] = "待开始"
-    notes: str = ""
 
 
 class AfterSalesLogPayload(BaseModel):
@@ -394,6 +411,33 @@ class EmpowermentSkillPayload(BaseModel):
     is_active: bool = True
 
 
+class VpnSitePayload(BaseModel):
+    name: str
+    vpn_ip: str
+    customer_company: str = ""
+
+
+class VpnExportPayload(BaseModel):
+    site_id: int
+    eblock_id: int = Field(default=1, ge=1)
+    start_time: datetime
+    end_time: datetime
+    tables: List[str] = Field(default_factory=list)
+
+
+class DiagnosticExportTablePayload(BaseModel):
+    table_name: str
+    sheet_name: str
+    has_eblock_id: bool = True
+    extra_where: str = ""
+    sort_order: int = 0
+    is_enabled: bool = True
+
+
+class VpnTerminalTicketPayload(BaseModel):
+    site_id: Optional[int] = None
+
+
 app = FastAPI(
     title="JD Energy Service Portal API",
     version="2.0.0",
@@ -405,6 +449,12 @@ UPLOAD_DIR = BACKEND_ROOT / "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 DOCS_UPLOAD_DIR = UPLOAD_DIR / "docs"
 os.makedirs(DOCS_UPLOAD_DIR, exist_ok=True)
+
+TERMINAL_TICKET_TTL_SECONDS = 30
+TERMINAL_IDLE_TIMEOUT_SECONDS = 900
+MAX_EXPORT_RANGE = timedelta(days=31)
+terminal_tickets: Dict[str, Dict[str, object]] = {}
+terminal_ticket_lock = threading.Lock()
 
 app.mount("/static_uploads", StaticFiles(directory=UPLOAD_DIR), name="static_uploads")
 
@@ -435,6 +485,7 @@ def on_startup() -> None:
     ensure_fault_components()
     ensure_logistics_statuses()
     ensure_empowerment_skills()
+    ensure_diagnostic_export_tables()
     seed_mode = os.getenv("SEED_MODE", "all").strip().lower()
     if seed_mode == "all":
         seed_database()
@@ -547,6 +598,21 @@ def ensure_empowerment_skills() -> None:
         except Exception:
             session.rollback()
             logger.exception("Failed to initialize default empowerment skills.")
+            raise
+
+
+def ensure_diagnostic_export_tables() -> None:
+    with get_session() as session:
+        try:
+            if session.exec(select(DiagnosticExportTable)).first() is None:
+                session.add_all(
+                    [DiagnosticExportTable(**item.model_dump(exclude={"id"})) for item in DIAGNOSTIC_EXPORT_TABLE_SEED]
+                )
+                session.commit()
+                logger.info("Default diagnostic export tables initialized successfully.")
+        except Exception:
+            session.rollback()
+            logger.exception("Failed to initialize diagnostic export tables.")
             raise
 
 
@@ -960,6 +1026,43 @@ def public_user(user: User, session) -> Dict[str, object]:
     return data
 
 
+def normalize_vpn_site_payload(payload: VpnSitePayload) -> Dict[str, str]:
+    name = payload.name.strip()
+    vpn_ip = payload.vpn_ip.strip()
+    customer_company = payload.customer_company.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Site name is required")
+    try:
+        ipaddress.ip_address(vpn_ip)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Station VPN IP must be a valid IPv4 or IPv6 address") from exc
+    return {"name": name, "vpn_ip": vpn_ip, "customer_company": customer_company}
+
+
+def normalize_diagnostic_table_payload(payload: DiagnosticExportTablePayload) -> Dict[str, object]:
+    table_name = payload.table_name.strip()
+    sheet_name = payload.sheet_name.strip()
+    extra_where = payload.extra_where.strip()
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*", table_name):
+        raise HTTPException(status_code=422, detail="Table name must use schema.table format")
+    if not sheet_name or len(sheet_name) > 31 or re.search(r"[\[\]:*?/\\]", sheet_name):
+        raise HTTPException(status_code=422, detail="Sheet name is invalid or exceeds 31 characters")
+    if any(token in extra_where for token in (";", "--", "/*", "*/")):
+        raise HTTPException(status_code=422, detail="Extra WHERE must be a single SQL condition")
+    return {
+        "table_name": table_name,
+        "sheet_name": sheet_name,
+        "has_eblock_id": payload.has_eblock_id,
+        "extra_where": extra_where,
+        "sort_order": payload.sort_order,
+        "is_enabled": payload.is_enabled,
+    }
+
+
+def public_vpn_task(task: VpnExportTask) -> Dict[str, object]:
+    return task.model_dump(exclude={"file_path"})
+
+
 @app.post("/api/auth/login")
 def login(payload: LoginPayload) -> Dict[str, object]:
     with get_session() as session:
@@ -1036,6 +1139,337 @@ def delete_user(user_id: int, _: User = Depends(require_write_access)) -> Dict[s
         session.delete(user)
         session.commit()
     return {"message": "deleted"}
+
+
+@app.get("/api/vpn/customer-options")
+def list_vpn_customer_options(_: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        items = sorted(legal_customer_companies(session), key=str.casefold)
+    return {"count": len(items), "items": items}
+
+
+@app.get("/api/vpn/sites")
+def list_vpn_sites(_: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        items = session.exec(select(VpnSite).order_by(VpnSite.name.asc())).all()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/vpn/sites")
+def create_vpn_site(payload: VpnSitePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    data = normalize_vpn_site_payload(payload)
+    with get_session() as session:
+        duplicate = session.exec(
+            select(VpnSite).where(or_(VpnSite.name == data["name"], VpnSite.vpn_ip == data["vpn_ip"]))
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="Site name or VPN IP already exists")
+        if data["customer_company"] and data["customer_company"].casefold() not in {
+            company.casefold() for company in legal_customer_companies(session)
+        }:
+            raise HTTPException(status_code=422, detail="Customer company is not registered")
+        item = VpnSite(**data)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/vpn/sites/{site_id}")
+def update_vpn_site(site_id: int, payload: VpnSitePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    data = normalize_vpn_site_payload(payload)
+    with get_session() as session:
+        item = session.get(VpnSite, site_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="VPN site not found")
+        duplicate = session.exec(
+            select(VpnSite).where(
+                or_(VpnSite.name == data["name"], VpnSite.vpn_ip == data["vpn_ip"]),
+                VpnSite.id != site_id,
+            )
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="Site name or VPN IP already exists")
+        if data["customer_company"] and data["customer_company"].casefold() not in {
+            company.casefold() for company in legal_customer_companies(session)
+        }:
+            raise HTTPException(status_code=422, detail="Customer company is not registered")
+        for key, value in data.items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/vpn/sites/{site_id}")
+def delete_vpn_site(site_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(VpnSite, site_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="VPN site not found")
+        if session.exec(select(VpnExportTask.id).where(VpnExportTask.site_id == site_id)).first() is not None:
+            raise HTTPException(status_code=409, detail="Site has export history and cannot be deleted")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
+
+
+@app.get("/api/vpn/export-tasks")
+def list_vpn_export_tasks(
+    site_id: Optional[int] = Query(default=None),
+    _: User = Depends(require_staff),
+) -> Dict[str, object]:
+    with get_session() as session:
+        statement = select(VpnExportTask).order_by(VpnExportTask.created_at.desc())
+        if site_id is not None:
+            statement = statement.where(VpnExportTask.site_id == site_id)
+        items = session.exec(statement).all()
+    serialized = [public_vpn_task(item) for item in items]
+    return {"count": len(serialized), "items": serialized}
+
+
+@app.get("/api/diagnostic/tables")
+def list_diagnostic_export_tables(_: User = Depends(current_user)) -> Dict[str, object]:
+    with get_session() as session:
+        items = session.exec(
+            select(DiagnosticExportTable).order_by(
+                DiagnosticExportTable.sort_order.asc(),
+                DiagnosticExportTable.id.asc(),
+            )
+        ).all()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/diagnostic/tables")
+def create_diagnostic_export_table(
+    payload: DiagnosticExportTablePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    data = normalize_diagnostic_table_payload(payload)
+    with get_session() as session:
+        duplicate = session.exec(
+            select(DiagnosticExportTable).where(
+                or_(
+                    DiagnosticExportTable.table_name == data["table_name"],
+                    DiagnosticExportTable.sheet_name == data["sheet_name"],
+                )
+            )
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="Table name or Sheet name already exists")
+        item = DiagnosticExportTable(**data)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+    return {"item": item}
+
+
+@app.put("/api/diagnostic/tables/{table_id}")
+def update_diagnostic_export_table(
+    table_id: int,
+    payload: DiagnosticExportTablePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    data = normalize_diagnostic_table_payload(payload)
+    with get_session() as session:
+        item = session.get(DiagnosticExportTable, table_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Diagnostic export table not found")
+        duplicate = session.exec(
+            select(DiagnosticExportTable).where(
+                or_(
+                    DiagnosticExportTable.table_name == data["table_name"],
+                    DiagnosticExportTable.sheet_name == data["sheet_name"],
+                ),
+                DiagnosticExportTable.id != table_id,
+            )
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="Table name or Sheet name already exists")
+        for key, value in data.items():
+            setattr(item, key, value)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+    return {"item": item}
+
+
+@app.delete("/api/diagnostic/tables/{table_id}")
+def delete_diagnostic_export_table(
+    table_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(DiagnosticExportTable, table_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Diagnostic export table not found")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
+
+
+@app.post("/api/vpn/export-tasks")
+def create_vpn_export_task(
+    payload: VpnExportPayload,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(require_staff),
+) -> Dict[str, object]:
+    if payload.start_time >= payload.end_time:
+        raise HTTPException(status_code=422, detail="End time must be later than start time")
+    if payload.end_time - payload.start_time > MAX_EXPORT_RANGE:
+        raise HTTPException(status_code=422, detail="Export time range cannot exceed 31 days")
+    tables = list(dict.fromkeys(payload.tables))
+    with get_session() as session:
+        configured_tables = session.exec(
+            select(DiagnosticExportTable).where(DiagnosticExportTable.table_name.in_(tables))
+        ).all() if tables else []
+        if not tables or len(configured_tables) != len(tables):
+            raise HTTPException(status_code=422, detail="One or more export tables are invalid")
+        site = session.get(VpnSite, payload.site_id)
+        if site is None:
+            raise HTTPException(status_code=404, detail="VPN site not found")
+        active_task = session.exec(
+            select(VpnExportTask.id).where(
+                VpnExportTask.site_id == payload.site_id,
+                VpnExportTask.status == "processing",
+            )
+        ).first()
+        if active_task is not None:
+            raise HTTPException(status_code=409, detail="This site already has an export in progress")
+        item = VpnExportTask(
+            site_id=site.id,
+            site_name=site.name,
+            eblock_id=payload.eblock_id,
+            start_time=payload.start_time,
+            end_time=payload.end_time,
+            selected_tables=tables,
+            status="processing",
+            created_by=user.username,
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        task_id = item.id
+        response = public_vpn_task(item)
+    background_tasks.add_task(run_export_task, task_id)
+    return {"item": response}
+
+
+@app.get("/api/vpn/export-tasks/{task_id}/download")
+def download_vpn_export(task_id: int, _: User = Depends(require_staff)):
+    with get_session() as session:
+        task = session.get(VpnExportTask, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Export task not found")
+        if task.status != "completed" or not task.file_path:
+            raise HTTPException(status_code=409, detail="Export file is not ready")
+        file_path = Path(task.file_path).resolve()
+        try:
+            file_path.relative_to(EXPORT_DIR.resolve())
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="Export file path is invalid") from exc
+        if not file_path.is_file():
+            raise HTTPException(status_code=404, detail="Export file no longer exists")
+        file_name = task.file_name
+    return FileResponse(file_path, media_type="application/zip", filename=file_name)
+
+
+@app.post("/api/vpn/terminal-ticket")
+def create_vpn_terminal_ticket(
+    payload: VpnTerminalTicketPayload,
+    user: User = Depends(require_staff),
+) -> Dict[str, object]:
+    if payload.site_id is not None:
+        with get_session() as session:
+            if session.get(VpnSite, payload.site_id) is None:
+                raise HTTPException(status_code=404, detail="VPN site not found")
+    ticket = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(seconds=TERMINAL_TICKET_TTL_SECONDS)
+    with terminal_ticket_lock:
+        now = datetime.utcnow()
+        expired_tickets = [key for key, value in terminal_tickets.items() if value["expires_at"] < now]
+        for expired_ticket in expired_tickets:
+            terminal_tickets.pop(expired_ticket, None)
+        terminal_tickets[ticket] = {
+            "user_id": user.id,
+            "site_id": payload.site_id,
+            "expires_at": expires_at,
+        }
+    return {"ticket": ticket, "expires_in": TERMINAL_TICKET_TTL_SECONDS}
+
+
+@app.websocket("/api/vpn/terminal/ws")
+async def vpn_terminal_websocket(websocket: WebSocket, ticket: str = Query(...)) -> None:
+    with terminal_ticket_lock:
+        ticket_data = terminal_tickets.pop(ticket, None)
+    if ticket_data is None or ticket_data["expires_at"] < datetime.utcnow():
+        await websocket.close(code=1008, reason="Invalid or expired terminal ticket")
+        return
+    await websocket.accept()
+
+    jump_client = None
+    site_client = None
+    channel = None
+    try:
+        site = None
+        if ticket_data["site_id"] is not None:
+            with get_session() as session:
+                stored_site = session.get(VpnSite, int(ticket_data["site_id"]))
+                if stored_site is None:
+                    raise RuntimeError("VPN site no longer exists")
+                site = VpnSite(**stored_site.model_dump())
+        jump_client, site_client, channel = await asyncio.to_thread(open_terminal_channel, site)
+
+        async def relay_ssh_output() -> None:
+            while channel is not None and not channel.closed:
+                data = await asyncio.to_thread(receive_channel, channel)
+                if data:
+                    await websocket.send_text(data.decode("utf-8", errors="replace"))
+                else:
+                    await asyncio.sleep(0.02)
+
+        async def relay_browser_input() -> None:
+            while True:
+                message = await asyncio.wait_for(
+                    websocket.receive_json(),
+                    timeout=TERMINAL_IDLE_TIMEOUT_SECONDS,
+                )
+                message_type = message.get("type")
+                if message_type == "input" and isinstance(message.get("data"), str):
+                    await asyncio.to_thread(channel.send, message["data"])
+                elif message_type == "resize":
+                    cols = max(20, min(int(message.get("cols", 120)), 400))
+                    rows = max(5, min(int(message.get("rows", 32)), 200))
+                    await asyncio.to_thread(channel.resize_pty, width=cols, height=rows)
+
+        tasks = [asyncio.create_task(relay_ssh_output()), asyncio.create_task(relay_browser_input())]
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*done, return_exceptions=True)
+        await asyncio.gather(*pending, return_exceptions=True)
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.exception("VPN terminal connection failed")
+        try:
+            await websocket.send_text(f"\r\n[Terminal connection failed: {exc}]\r\n")
+            await asyncio.sleep(0.05)
+        except Exception:
+            pass
+    finally:
+        if channel is not None:
+            channel.close()
+        if site_client is not None:
+            site_client.close()
+        if jump_client is not None:
+            jump_client.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @app.get("/api/config/fault-components")
@@ -1365,7 +1799,7 @@ def update_milestone(project_name: str, milestone_key: str, payload: MilestonePa
         item = session.exec(select(ProjectMilestone).where(ProjectMilestone.project_name == project_name, ProjectMilestone.milestone_key == milestone_key)).first()
         if item is None:
             item = ProjectMilestone(project_name=project_name, milestone_key=milestone_key)
-        item.planned_date, item.actual_date, item.status, item.notes = payload.planned_date, payload.actual_date, payload.status, payload.notes
+        item.actual_date = payload.actual_date
         item.updated_at = datetime.utcnow()
         session.add(item)
         session.commit()
@@ -1945,25 +2379,27 @@ def list_grid_scale_projects(_: User = Depends(require_staff)) -> Dict[str, obje
 @grid_scale_router.post("")
 def create_grid_scale_project(payload: GridScaleProjectUpsert, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        if session.get(GridScaleProject, payload.project_name) is not None:
+        if session.exec(select(GridScaleProject).where(GridScaleProject.project_name == payload.project_name)).first() is not None:
             raise HTTPException(status_code=409, detail="Project already exists")
-        item = GridScaleProject(**payload.model_dump())
+        existing_ids = [project.id or 0 for project in session.exec(select(GridScaleProject)).all()]
+        item = GridScaleProject(id=max(existing_ids, default=0) + 1, **payload.model_dump())
         session.add(item)
         session.commit()
         session.refresh(item)
         return {"message": "created", "item": item}
 
 
-@grid_scale_router.put("/{project_name}")
-def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert, _: User = Depends(require_write_access)) -> Dict[str, object]:
+@grid_scale_router.put("/{project_id}")
+def update_grid_scale_project(project_id: int, payload: GridScaleProjectUpsert, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        item = session.get(GridScaleProject, project_name)
+        item = session.get(GridScaleProject, project_id)
         if item is None:
             raise HTTPException(status_code=404, detail="Project not found")
+        project_name = item.project_name
         next_project_name = payload.project_name.strip()
         if not next_project_name:
             raise HTTPException(status_code=422, detail="Project name is required")
-        if next_project_name != project_name and session.get(GridScaleProject, next_project_name) is not None:
+        if next_project_name != project_name and session.exec(select(GridScaleProject).where(GridScaleProject.project_name == next_project_name)).first() is not None:
             raise HTTPException(status_code=409, detail="Project already exists")
         item.cod = payload.cod
         item.capacity_mwh = payload.capacity_mwh
@@ -1995,10 +2431,10 @@ def update_grid_scale_project(project_name: str, payload: GridScaleProjectUpsert
         return {"message": "updated", "item": item}
 
 
-@grid_scale_router.post("/{project_name}/status")
-def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
+@grid_scale_router.post("/{project_id}/status")
+def update_grid_scale_status(project_id: int, payload: GridScaleStatusUpdate, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        project = session.get(GridScaleProject, project_name)
+        project = session.get(GridScaleProject, project_id)
         if project is None:
             raise HTTPException(status_code=404, detail="Project not found")
         project.progress_status = payload.progress_status
@@ -2008,10 +2444,10 @@ def update_grid_scale_status(project_name: str, payload: GridScaleStatusUpdate, 
         return {"message": "updated", "item": project}
 
 
-@grid_scale_router.delete("/{project_name}")
-def delete_grid_scale_project(project_name: str, _: User = Depends(require_write_access)) -> Dict[str, object]:
+@grid_scale_router.delete("/{project_id}")
+def delete_grid_scale_project(project_id: int, _: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
-        item = session.get(GridScaleProject, project_name)
+        item = session.get(GridScaleProject, project_id)
         if item is None:
             raise HTTPException(status_code=404, detail="Project not found")
         session.delete(item)

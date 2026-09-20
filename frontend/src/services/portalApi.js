@@ -149,6 +149,63 @@ export const portalApi = {
   deleteEmpowermentSkill(id) {
     return requestJson(`/api/config/empowerment-skills/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
   },
+  listVpnCustomerOptions() {
+    return requestJson('/api/vpn/customer-options', { headers: authHeaders() })
+  },
+  listVpnSites() {
+    return requestJson('/api/vpn/sites', { headers: authHeaders() })
+  },
+  listDiagnosticTables() {
+    return requestJson('/api/diagnostic/tables', { headers: authHeaders() })
+  },
+  createDiagnosticTable(payload) {
+    return requestJson('/api/diagnostic/tables', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateDiagnosticTable(id, payload) {
+    return requestJson(`/api/diagnostic/tables/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteDiagnosticTable(id) {
+    return requestJson(`/api/diagnostic/tables/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  createVpnSite(payload) {
+    return requestJson('/api/vpn/sites', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateVpnSite(id, payload) {
+    return requestJson(`/api/vpn/sites/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteVpnSite(id) {
+    return requestJson(`/api/vpn/sites/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  listVpnExportTasks(siteId = null) {
+    const suffix = siteId ? `?site_id=${encodeURIComponent(String(siteId))}` : ''
+    return requestJson(`/api/vpn/export-tasks${suffix}`, { headers: authHeaders() })
+  },
+  createVpnExportTask(payload) {
+    return requestJson('/api/vpn/export-tasks', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  createVpnTerminalTicket(siteId = null) {
+    return requestJson('/api/vpn/terminal-ticket', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ site_id: siteId }) })
+  },
+  vpnTerminalWebSocketUrl(ticket) {
+    const configuredBase = API_BASE || window.location.origin
+    const url = new URL('/api/vpn/terminal/ws', configuredBase)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.searchParams.set('ticket', ticket)
+    return url.toString()
+  },
+  async downloadVpnExport(taskId, fileName) {
+    const response = await fetch(`${API_BASE}/api/vpn/export-tasks/${encodeURIComponent(String(taskId))}/download`, { headers: authHeaders() })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload.detail || `HTTP ${response.status}`)
+    }
+    const blob = await response.blob()
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = fileName || `vpn-export-${taskId}.zip`
+    link.click()
+    URL.revokeObjectURL(link.href)
+  },
   uploadImage(file) {
     const formData = new FormData()
     formData.append('file', file)
@@ -277,19 +334,19 @@ export const portalApi = {
       body: JSON.stringify(payload),
     })
   },
-  updateGridProject(projectName, payload) {
-    return requestJson(`/api/ledger/grid-scale/${encodeURIComponent(projectName)}`, {
+  updateGridProject(projectId, payload) {
+    return requestJson(`/api/ledger/grid-scale/${encodeURIComponent(String(projectId))}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
   },
-  deleteGridProject(projectName) {
-    return requestJson(`/api/ledger/grid-scale/${encodeURIComponent(projectName)}`, {
+  deleteGridProject(projectId) {
+    return requestJson(`/api/ledger/grid-scale/${encodeURIComponent(String(projectId))}`, {
       method: 'DELETE',
     })
   },
-  updateGridProjectStatus(projectName, progressStatus) {
-    return requestJson(`/api/ledger/grid-scale/${encodeURIComponent(projectName)}/status`, {
+  updateGridProjectStatus(projectId, progressStatus) {
+    return requestJson(`/api/ledger/grid-scale/${encodeURIComponent(String(projectId))}/status`, {
       method: 'POST',
       body: JSON.stringify({ progress_status: progressStatus }),
     })

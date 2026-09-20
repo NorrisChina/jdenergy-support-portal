@@ -54,6 +54,13 @@ def init_db() -> None:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))
             except Exception:
                 pass
+        grid_columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(gridscaleproject)"))
+        }
+        if "id" not in grid_columns:
+            connection.execute(text("ALTER TABLE gridscaleproject ADD COLUMN id INTEGER"))
+            connection.execute(text("UPDATE gridscaleproject SET id = rowid WHERE id IS NULL"))
+            logger.info("Added and backfilled gridscaleproject.id.")
         empowerment_columns = {
             row[1] for row in connection.execute(text("PRAGMA table_info(empowerment_records)"))
         }
