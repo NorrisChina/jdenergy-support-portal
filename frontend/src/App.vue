@@ -199,16 +199,13 @@
           </h3>
           <input
             v-model="loginDraft.username"
-              placeholder="设备序列号 / Serial Number"
+            placeholder="请输入账号 / Username"
             class="mt-5 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
-            /><input
-              v-model="serviceLogDraft.rd_contact"
-              placeholder="研发对接人 / R&D Contact"
-              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
-            /><select
+          />
+          <input
             v-model="loginDraft.password"
             type="password"
-            :placeholder="t('portal.password')"
+            placeholder="请输入密码 / Password"
             class="mt-3 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
             @keyup.enter="submitLogin"
           />
@@ -270,9 +267,13 @@
               }}</label>
               <input
                 id="fault-search"
-                v-model="faultKeyword"
+                placeholder="设备序列号 / Serial Number"
                 type="text"
-                class="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-5 py-4 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-400/60 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.12)]"
+              /><input
+                v-model="serviceLogDraft.rd_contact"
+                placeholder="研发对接人 / R&D Contact"
+                class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+              /><select
                 :placeholder="t('fault.placeholder')"
               />
               <button
