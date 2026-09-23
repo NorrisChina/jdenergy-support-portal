@@ -1853,6 +1853,7 @@ def list_after_sales_logs(
 def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(require_write_access)) -> Dict[str, object]:
     with get_session() as session:
         company = (payload.customer_company or payload.customer or "").strip()
+        project_name = payload.project_name.strip()
         component = payload.fault_component or payload.faulty_component
         if not component:
             raise HTTPException(status_code=422, detail="Fault component is required")
@@ -1860,17 +1861,15 @@ def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(r
             raise HTTPException(status_code=422, detail="Customer company is required")
         if company.casefold() not in {item.casefold() for item in legal_customer_companies(session)}:
             raise HTTPException(status_code=400, detail="Customer company is not registered")
-        project = session.get(GridScaleProject, payload.project_name)
-        dealer = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == payload.project_name)).first()
-        if project is None and dealer is None:
-            if not payload.project_name.strip():
-                raise HTTPException(status_code=422, detail="Project is required")
-            raise HTTPException(status_code=400, detail="Project does not exist")
-        project_company = (project.customer_company or project.partner_name or "").strip() if project else (dealer.customer_company or dealer.dealer_name or "").strip()
+        if not project_name:
+            raise HTTPException(status_code=422, detail="Project is required")
+        project = session.exec(select(GridScaleProject).where(GridScaleProject.project_name == project_name)).first()
+        dealer = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == project_name)).first()
+        project_company = (project.customer_company or project.partner_name or "").strip() if project else (dealer.customer_company or "").strip()
         if project_company and project_company.casefold() != company.casefold():
             raise HTTPException(status_code=400, detail="Project does not belong to customer company")
         bound_country = resolve_customer_country(session, company) or payload.country
-        item = AfterSalesLog(**payload.model_dump(exclude={"customer", "customer_company", "fault_component", "faulty_component", "country"}), customer_company=company, customer=company, fault_component=component, faulty_component=component, country=bound_country)
+        item = AfterSalesLog(**payload.model_dump(exclude={"customer", "customer_company", "fault_component", "faulty_component", "country", "project_name"}), project_name=project_name, customer_company=company, customer=company, fault_component=component, faulty_component=component, country=bound_country)
         session.add(item)
         session.commit()
         session.refresh(item)
@@ -1884,6 +1883,7 @@ def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User =
         if item is None:
             raise HTTPException(status_code=404, detail="After-sales log not found")
         company = (payload.customer_company or payload.customer or "").strip()
+        project_name = payload.project_name.strip()
         component = payload.fault_component or payload.faulty_component
         if not component:
             raise HTTPException(status_code=422, detail="Fault component is required")
@@ -1891,16 +1891,17 @@ def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User =
             raise HTTPException(status_code=422, detail="Customer company is required")
         if company.casefold() not in {item.casefold() for item in legal_customer_companies(session)}:
             raise HTTPException(status_code=400, detail="Customer company is not registered")
-        project = session.get(GridScaleProject, payload.project_name)
-        dealer = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == payload.project_name)).first()
-        if project is None and dealer is None:
-            raise HTTPException(status_code=400, detail="Project does not exist")
-        project_company = (project.customer_company or project.partner_name or "").strip() if project else (dealer.customer_company or dealer.dealer_name or "").strip()
+        if not project_name:
+            raise HTTPException(status_code=422, detail="Project is required")
+        project = session.exec(select(GridScaleProject).where(GridScaleProject.project_name == project_name)).first()
+        dealer = session.exec(select(CiDealerDelivery).where(CiDealerDelivery.dealer_name == project_name)).first()
+        project_company = (project.customer_company or project.partner_name or "").strip() if project else (dealer.customer_company or "").strip()
         if project_company and project_company.casefold() != company.casefold():
             raise HTTPException(status_code=400, detail="Project does not belong to customer company")
         bound_country = resolve_customer_country(session, company) or payload.country
-        for key, value in payload.model_dump(exclude={"customer_company", "customer", "fault_component", "faulty_component", "country"}).items():
+        for key, value in payload.model_dump(exclude={"customer_company", "customer", "fault_component", "faulty_component", "country", "project_name"}).items():
             setattr(item, key, value)
+        item.project_name = project_name
         item.customer_company = company
         item.customer = company
         item.fault_component = component

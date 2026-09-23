@@ -984,14 +984,24 @@
                   {{ t("ci.subtitle") }}
                 </p>
               </div>
-              <button
-                v-if="isInternalMode"
-                type="button"
-                class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
-                @click="openCiEditor()"
-              >
-                {{ t("ci.createDealer") }}
-              </button>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  v-if="isAuthenticated"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  @click="exportCiDeliveryDetails"
+                >
+                  导出交付明细
+                </button>
+                <button
+                  v-if="isInternalMode"
+                  type="button"
+                  class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
+                  @click="openCiEditor()"
+                >
+                  {{ t("ci.createDealer") }}
+                </button>
+              </div>
             </div>
           </div>
           <div class="ci-kpi-grid grid gap-3 sm:grid-cols-3">
@@ -4796,6 +4806,7 @@ function logout() {
 async function submitServiceLog() {
   serviceLogDraft.customer = serviceLogDraft.customer_company;
   serviceLogDraft.faulty_component = serviceLogDraft.fault_component;
+  serviceLogDraft.project_name = serviceLogDraft.project_name.trim();
   if (
     !serviceLogDraft.project_name ||
     !serviceLogDraft.fault_component ||
@@ -4962,6 +4973,53 @@ async function loadLedgerData() {
 async function loadCiDeliveryBatches(dealerId) {
   const payload = await portalApi.listCiDeliveryBatches(dealerId);
   ciBatchesByDealer.value = { ...ciBatchesByDealer.value, [dealerId]: payload.items ?? [] };
+}
+
+function exportCiDeliveryDetails() {
+  const headers = [
+    "国家/地区",
+    "客户/代理商名称",
+    "产品型号",
+    "交付台数",
+    "交付容量 (MWh)",
+    "交付时间",
+    "设备序列号",
+  ];
+  const rows = [];
+  for (const dealer of ciDeliveries.value) {
+    const batches = ciBatchesByDealer.value[dealer.id] || [];
+    const customerName = dealer.customer_company || dealer.dealer_name || "";
+    if (batches.length === 0) {
+      rows.push([dealer.region || "", customerName, "", "", "", "", ""]);
+      continue;
+    }
+    for (const batch of batches) {
+      const quantity = Number(batch.quantity) || 0;
+      const unitCapacity = batch.product_type === "100C" ? CI_100C_MWH_PER_UNIT : CI_250_MWH_PER_UNIT;
+      rows.push([
+        dealer.region || "",
+        customerName,
+        batch.product_type || "",
+        quantity,
+        (quantity * unitCapacity).toFixed(2),
+        batch.delivery_date || "",
+        batch.serial_numbers || "",
+      ]);
+    }
+  }
+  const escapeCsv = (value) => {
+    const text = String(value ?? "");
+    return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  };
+  const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n")}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dateStamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  link.href = url;
+  link.download = `工商业交付明细_${dateStamp}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 async function toggleCiDeliveryBatches(item) {
