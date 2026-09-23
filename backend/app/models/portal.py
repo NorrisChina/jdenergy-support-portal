@@ -75,7 +75,8 @@ class AfterSalesLog(SQLModel, table=True):
     fault_component: str = ""
     fault_description: str = ""
     onsite_solution: str = ""
-    serial_number: str = ""
+    serial_number: Optional[str] = Field(default="", index=True)
+    rd_contact: Optional[str] = Field(default="")
     status: str = "处理中 (Pending)"
     pending_reason: str = ""
     created_by: str

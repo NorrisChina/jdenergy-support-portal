@@ -354,6 +354,18 @@ export const portalApi = {
   listCiDeliveries() {
     return requestJson('/api/ledger/ci-deliveries')
   },
+  listCiDeliveryBatches(dealerId) {
+    return requestJson(`/api/ledger/ci-deliveries/${encodeURIComponent(String(dealerId))}/batches`, { headers: authHeaders() })
+  },
+  createCiDeliveryBatch(dealerId, payload) {
+    return requestJson(`/api/ledger/ci-deliveries/${encodeURIComponent(String(dealerId))}/batches`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateCiDeliveryBatch(batchId, payload) {
+    return requestJson(`/api/ledger/ci-delivery-batches/${encodeURIComponent(String(batchId))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteCiDeliveryBatch(batchId) {
+    return requestJson(`/api/ledger/ci-delivery-batches/${encodeURIComponent(String(batchId))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   createCiDelivery(payload) {
     return requestJson('/api/ledger/ci-deliveries', {
       method: 'POST',

@@ -175,7 +175,6 @@
           >
             <input
               v-model="milestoneDraft.actual_date"
-              type="date"
               class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white"
             /><button
               type="button"
@@ -200,9 +199,13 @@
           </h3>
           <input
             v-model="loginDraft.username"
-            :placeholder="t('portal.username')"
+              placeholder="设备序列号 / Serial Number"
             class="mt-5 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
-          /><input
+            /><input
+              v-model="serviceLogDraft.rd_contact"
+              placeholder="研发对接人 / R&D Contact"
+              class="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+            /><select
             v-model="loginDraft.password"
             type="password"
             :placeholder="t('portal.password')"
@@ -1013,15 +1016,15 @@
               </p>
             </div>
             <div
-              class="ci-kpi-card ci-kpi-card-250 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100"
+              class="ci-kpi-card ci-kpi-card-250 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
             >
-              <p class="text-xs uppercase tracking-[0.2em] text-emerald-200">
+              <p class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">
                 250
               </p>
-              <p class="kpi-number mt-1 font-semibold text-white">
+              <p class="kpi-number mt-1 text-base font-bold text-emerald-950">
                 {{ ciSummary.total250 }} 台
               </p>
-              <p class="kpi-number kpi-number-sub text-xs text-emerald-200">
+              <p class="kpi-number kpi-number-sub text-xs font-medium text-emerald-600">
                 {{ formatCiMwh(ciSummary.total250Mwh) }} MWh
               </p>
             </div>
@@ -1047,16 +1050,14 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/10 text-slate-200">
-                <tr
-                  v-for="item in ciCapacityRows"
-                  :key="item.dealer_name"
-                  class="bg-white/[0.02] hover:bg-white/[0.04]"
-                >
+                <template v-for="item in ciCapacityRows" :key="item.dealer_name">
+                <tr class="bg-white/[0.02] hover:bg-white/[0.04]">
                   <td class="key-cell px-5 py-4">{{ item.region }}</td>
                   <td class="key-cell px-5 py-4 font-medium text-white">
                     {{ item.dealer_name }}
                   </td>
-                  <td class="px-5 py-4">
+                  <td class="cursor-pointer px-5 py-4" @click="toggleCiDeliveryBatches(item)">
+                    <span class="mr-2 text-xs text-cyan-200">{{ ciExpandedDealerId === item.id ? '▼' : '▶' }}</span>
                     <p
                       class="delivery-metric delivery-metric-100c font-semibold text-cyan-200"
                     >
@@ -1074,7 +1075,8 @@
                       ></div>
                     </div>
                   </td>
-                  <td class="px-5 py-4">
+                  <td class="cursor-pointer px-5 py-4" @click="toggleCiDeliveryBatches(item)">
+                    <span class="mr-2 text-xs text-emerald-200">{{ ciExpandedDealerId === item.id ? '▼' : '▶' }}</span>
                     <p
                       class="delivery-metric delivery-metric-250 font-semibold text-emerald-200"
                     >
@@ -1118,6 +1120,30 @@
                     </div>
                   </td>
                 </tr>
+                <tr v-if="ciExpandedDealerId === item.id" :key="`${item.id}-batches`">
+                  <td colspan="5" class="border-y border-slate-200/80 bg-slate-50/70 p-4">
+                    <div class="grid gap-5 lg:grid-cols-2">
+                      <section v-for="productType in ['100C', '250']" :key="productType" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="mb-3 flex items-center justify-between gap-3">
+                          <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">{{ productType }} 交付明细</h4>
+                          <button v-if="isInternalMode" type="button" class="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-100" @click="openBatchDeliveryModal(item, productType)">+ 新增交付批次</button>
+                        </div>
+                        <div v-if="ciBatchesByDealer[item.id]?.filter((batch) => batch.product_type === productType).length" class="divide-y divide-slate-100">
+                          <div v-for="batch in ciBatchesByDealer[item.id].filter((entry) => entry.product_type === productType)" :key="batch.id" class="flex items-center justify-between gap-3 py-2 text-sm">
+                            <span class="text-sm font-semibold text-slate-800">{{ batch.quantity }} 台</span>
+                            <span class="font-mono text-xs text-slate-500">{{ batch.delivery_date }}</span>
+                            <div v-if="isInternalMode" class="flex gap-2 text-xs">
+                              <button type="button" class="mr-2 text-xs font-medium text-indigo-600 hover:text-indigo-800" @click="openBatchDeliveryModal(item, productType, batch)">{{ t('common.edit') }}</button>
+                              <button type="button" class="text-xs font-medium text-rose-500 hover:text-rose-700" @click="openDeleteDialog('ci-batch', `${item.id}:${batch.id}`, `${productType} ${batch.delivery_date}`, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                            </div>
+                          </div>
+                        </div>
+                        <p v-else class="text-sm text-slate-500">暂无交付批次</p>
+                      </section>
+                    </div>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -1258,12 +1284,14 @@
                 <th class="px-4 py-3">客户 (Customer)</th>
                 <th class="px-4 py-3">项目</th>
                 <th class="px-4 py-3">型号</th>
+                <th class="px-4 py-3">设备序列号 / Serial Number</th>
                 <th class="px-4 py-3">远程/现场 (Support Type)</th>
                 <th class="px-4 py-3">故障部位</th>
                 <th class="px-4 py-3">故障描述 (Fault Description)</th>
                 <th class="px-4 py-3">现场解决方案 (On-site Solution)</th>
                 <th class="px-4 py-3">照片 (Photos)</th>
                 <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3">研发对接人 / R&D Contact</th>
                 <th class="px-4 py-3">登记人</th>
                 <th v-if="isInternalMode" class="px-4 py-3">
                   {{ t("common.actions") }}
@@ -1275,12 +1303,14 @@
                 <th><select v-model="serviceLogCustomerFilter"><option value="">{{ t('common.all') }}</option><option v-for="customer in partnerOptions" :key="customer" :value="customer">{{ customer }}</option></select></th>
                 <th><input v-model="serviceLogProjectFilter" placeholder="搜索项目" /></th>
                 <th><select v-model="serviceLogModelFilter"><option value="">{{ t('common.all') }}</option><option>418</option><option>250</option><option>100C</option></select></th>
+                <th><input v-model="serviceLogSerialFilter" placeholder="搜索序列号" /></th>
                 <th><select v-model="serviceLogSupportFilter"><option value="">{{ t('common.all') }}</option><option value="远程 (Remote)">远程 (Remote)</option><option value="现场 (On-site)">现场 (On-site)</option></select></th>
                 <th><select v-model="serviceLogComponentFilter"><option value="">{{ t('common.all') }}</option><option v-for="component in faultyComponentOptions" :key="component" :value="component">{{ component }}</option></select></th>
                 <th><input v-model="serviceLogDescriptionFilter" placeholder="搜索故障描述" /></th>
                 <th></th>
                 <th></th>
                 <th><select v-model="serviceLogStatusFilter"><option value="">{{ t('common.all') }}</option><option value="处理中 (Pending)">处理中 (Pending)</option><option value="已解决 (Resolved)">已解决 (Resolved)</option></select></th>
+                <th><input v-model="serviceLogRdContactFilter" placeholder="搜索研发对接人" /></th>
                 <th><input v-model="serviceLogCreatedByFilter" placeholder="搜索登记人" /></th>
                 <th v-if="isInternalMode"><button type="button" class="text-xs text-cyan-200" @click="clearAfterSalesFilters">{{ t('common.clearFilters') }}</button></th>
               </tr>
@@ -1294,6 +1324,7 @@
                   {{ item.project_name }}
                 </td>
                 <td class="px-4 py-3">{{ item.product_model }}</td>
+                <td class="px-4 py-3">{{ item.serial_number || "-" }}</td>
                 <td class="px-4 py-3">{{ item.support_type }}</td>
                 <td class="px-4 py-3">{{ item.fault_component || item.faulty_component || "-" }}</td>
                 <td class="max-w-xs truncate px-4 py-3" :title="item.fault_description">{{ item.fault_description || "-" }}</td>
@@ -1311,6 +1342,7 @@
                   <span v-else class="text-slate-500">-</span>
                 </td>
                 <td class="px-4 py-3">{{ item.status }}</td>
+                <td class="px-4 py-3">{{ item.rd_contact || "-" }}</td>
                 <td class="px-4 py-3">{{ item.created_by }}</td>
                 <td v-if="isInternalMode" class="px-4 py-3">
                   <button
@@ -2643,30 +2675,6 @@
                   class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:opacity-60"
                 />
               </label>
-              <label class="block">
-                <span
-                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
-                  >100C</span
-                >
-                <input
-                  v-model.number="crudDraft.delivered_100c"
-                  type="number"
-                  min="0"
-                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
-                />
-              </label>
-              <label class="block">
-                <span
-                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
-                  >250</span
-                >
-                <input
-                  v-model.number="crudDraft.delivered_250"
-                  type="number"
-                  min="0"
-                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
-                />
-              </label>
             </template>
             <template v-else-if="crudModal.kind === 'technical-doc'">
               <label class="block">
@@ -2946,6 +2954,48 @@
       </div>
 
       <div
+        v-if="batchDeliveryModal.open"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+        @click.self="closeBatchDeliveryModal"
+      >
+        <div class="w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl shadow-black/30">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Delivery Batch</p>
+              <h3 class="mt-2 text-2xl font-semibold text-white">{{ batchDeliveryModal.mode === 'edit' ? '编辑交付批次' : '新增交付批次' }}</h3>
+              <p class="mt-1 text-sm text-slate-400">{{ batchDeliveryModal.dealerName }}</p>
+            </div>
+            <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white" @click="closeBatchDeliveryModal">{{ t('common.close') }}</button>
+          </div>
+          <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <label class="block">
+              <span class="mb-2 block text-xs font-semibold text-slate-400">产品类型</span>
+              <select v-model="batchDeliveryDraft.product_type" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white">
+                <option value="100C">100C</option>
+                <option value="250">250</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="mb-2 block text-xs font-semibold text-slate-400">交付台数 *</span>
+              <input v-model.number="batchDeliveryDraft.quantity" type="number" min="1" required class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
+            </label>
+            <label class="block">
+              <span class="mb-2 block text-xs font-semibold text-slate-400">交付时间 *</span>
+              <input v-model="batchDeliveryDraft.delivery_date" type="date" required class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="mb-2 block text-xs font-semibold text-slate-400">设备序列号 SN（选填）</span>
+              <textarea v-model="batchDeliveryDraft.serial_numbers" rows="4" placeholder="每行或逗号分隔一个 SN" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white"></textarea>
+            </label>
+          </div>
+          <div class="mt-6 flex justify-end gap-3">
+            <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white" @click="closeBatchDeliveryModal">{{ t('common.cancel') }}</button>
+            <button type="button" class="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" @click="saveBatchDelivery">{{ t('common.save') }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div
         v-if="imagePreviewUrl"
         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 backdrop-blur-sm"
         @click.self="closeImagePreview"
@@ -3081,6 +3131,10 @@ const faultHasSearched = ref(false);
 const ledgerLoading = ref(false);
 const gridProjects = ref([]);
 const ciDeliveries = ref([]);
+const ciBatchesByDealer = ref({});
+const ciExpandedDealerId = ref(null);
+const batchDeliveryModal = reactive({ open: false, mode: "create", dealerId: null, dealerName: "", batchId: null });
+const batchDeliveryDraft = reactive({ product_type: "100C", quantity: 1, delivery_date: new Date().toISOString().slice(0, 10), serial_numbers: "" });
 const projectDraftStatus = reactive({});
 
 const selectedWarehouse = ref("europe");
@@ -3136,6 +3190,8 @@ const serviceLogCustomerFilter = ref("");
 const serviceLogDateFilter = ref("");
 const serviceLogProjectFilter = ref("");
 const serviceLogModelFilter = ref("");
+const serviceLogSerialFilter = ref("");
+const serviceLogRdContactFilter = ref("");
 const serviceLogStatusFilter = ref("");
 const serviceLogCreatedByFilter = ref("");
 const serviceLogDescriptionFilter = ref("");
@@ -3231,6 +3287,7 @@ const serviceLogDraft = reactive({
   fault_description: "",
   onsite_solution: "",
   serial_number: "",
+  rd_contact: "",
   status: "处理中 (Pending)",
   pending_reason: "",
   created_by: "",
@@ -3362,7 +3419,7 @@ const filteredFaultComponents = computed(() => {
 });
 const filteredServiceLogs = computed(() => serviceLogs.value.filter((item) => (!serviceLogComponentFilter.value || (item.fault_component || item.faulty_component) === serviceLogComponentFilter.value) && (!serviceLogSupportFilter.value || item.support_type === serviceLogSupportFilter.value)));
 const serviceLogCountries = computed(() => [...new Set(serviceLogs.value.map((item) => item.country).filter(Boolean))].sort());
-const computedFilteredAfterSalesLogs = computed(() => filteredServiceLogs.value.filter((item) => (!serviceLogDateFilter.value || item.event_date === serviceLogDateFilter.value) && (!serviceLogCountryFilter.value || item.country === serviceLogCountryFilter.value) && (!serviceLogCustomerFilter.value || (item.customer_company || item.customer) === serviceLogCustomerFilter.value) && (!serviceLogProjectFilter.value || (item.project_name || '').toLowerCase().includes(serviceLogProjectFilter.value.toLowerCase())) && (!serviceLogModelFilter.value || item.product_model === serviceLogModelFilter.value) && (!serviceLogStatusFilter.value || item.status === serviceLogStatusFilter.value) && (!serviceLogCreatedByFilter.value || (item.created_by || '').toLowerCase().includes(serviceLogCreatedByFilter.value.toLowerCase())) && (!serviceLogDescriptionFilter.value || (item.fault_description || '').toLowerCase().includes(serviceLogDescriptionFilter.value.toLowerCase()))));
+const computedFilteredAfterSalesLogs = computed(() => filteredServiceLogs.value.filter((item) => (!serviceLogDateFilter.value || item.event_date === serviceLogDateFilter.value) && (!serviceLogCountryFilter.value || item.country === serviceLogCountryFilter.value) && (!serviceLogCustomerFilter.value || (item.customer_company || item.customer) === serviceLogCustomerFilter.value) && (!serviceLogProjectFilter.value || (item.project_name || '').toLowerCase().includes(serviceLogProjectFilter.value.toLowerCase())) && (!serviceLogModelFilter.value || item.product_model === serviceLogModelFilter.value) && (!serviceLogSerialFilter.value || (item.serial_number || '').toLowerCase().includes(serviceLogSerialFilter.value.toLowerCase())) && (!serviceLogRdContactFilter.value || (item.rd_contact || '').toLowerCase().includes(serviceLogRdContactFilter.value.toLowerCase())) && (!serviceLogStatusFilter.value || item.status === serviceLogStatusFilter.value) && (!serviceLogCreatedByFilter.value || (item.created_by || '').toLowerCase().includes(serviceLogCreatedByFilter.value.toLowerCase())) && (!serviceLogDescriptionFilter.value || (item.fault_description || '').toLowerCase().includes(serviceLogDescriptionFilter.value.toLowerCase()))));
 const filteredTickets = computed(() => tickets.value.filter((ticket) => {
   const company = ticket.customer_company || ticket.partner_name || ticket.customer_name || ''
   return (!ticketFilters.customer_company || company.toLowerCase().includes(ticketFilters.customer_company.toLowerCase()))
@@ -3684,8 +3741,9 @@ const CI_250_MWH_PER_UNIT = 0.25;
 
 const ciCapacityRows = computed(() => {
   const baseRows = ciDeliveries.value.map((item) => {
-    const delivered100c = Number(item.delivered_100c) || 0;
-    const delivered250 = Number(item.delivered_250) || 0;
+    const batches = ciBatchesByDealer.value[item.id] || [];
+    const delivered100c = batches.filter((batch) => batch.product_type === "100C").reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
+    const delivered250 = batches.filter((batch) => batch.product_type === "250").reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
     return {
       ...item,
       delivered_100c: delivered100c,
@@ -4651,6 +4709,8 @@ function clearAfterSalesFilters() {
   serviceLogDateFilter.value = "";
   serviceLogProjectFilter.value = "";
   serviceLogModelFilter.value = "";
+  serviceLogSerialFilter.value = "";
+  serviceLogRdContactFilter.value = "";
   serviceLogStatusFilter.value = "";
   serviceLogCreatedByFilter.value = "";
   serviceLogDescriptionFilter.value = "";
@@ -4776,6 +4836,7 @@ function editServiceLog(item) {
     fault_description: item.fault_description || "",
     onsite_solution: item.onsite_solution || "",
     serial_number: item.serial_number || "",
+    rd_contact: item.rd_contact || "",
     status: item.status || "处理中 (Pending)",
     pending_reason: item.pending_reason || "",
     created_by: item.created_by || "",
@@ -4880,6 +4941,10 @@ async function loadLedgerData() {
     ]);
     gridProjects.value = gridPayload.items ?? [];
     ciDeliveries.value = ciPayload.items ?? [];
+    const batchEntries = await Promise.all(
+      ciDeliveries.value.filter((item) => item.id != null).map(async (item) => [item.id, (await portalApi.listCiDeliveryBatches(item.id)).items ?? []]),
+    );
+    ciBatchesByDealer.value = Object.fromEntries(batchEntries);
     for (const project of gridProjects.value) {
       projectDraftStatus[project.project_name] = project.progress_status;
     }
@@ -4891,6 +4956,56 @@ async function loadLedgerData() {
   } finally {
     ledgerLoading.value = false;
   }
+}
+
+async function loadCiDeliveryBatches(dealerId) {
+  const payload = await portalApi.listCiDeliveryBatches(dealerId);
+  ciBatchesByDealer.value = { ...ciBatchesByDealer.value, [dealerId]: payload.items ?? [] };
+}
+
+async function toggleCiDeliveryBatches(item) {
+  if (ciExpandedDealerId.value === item.id) {
+    ciExpandedDealerId.value = null;
+    return;
+  }
+  ciExpandedDealerId.value = item.id;
+  await loadCiDeliveryBatches(item.id);
+}
+
+function openBatchDeliveryModal(dealer, productType = "100C", batch = null) {
+  batchDeliveryModal.open = true;
+  batchDeliveryModal.mode = batch ? "edit" : "create";
+  batchDeliveryModal.dealerId = dealer.id;
+  batchDeliveryModal.dealerName = dealer.dealer_name;
+  batchDeliveryModal.batchId = batch?.id ?? null;
+  Object.assign(batchDeliveryDraft, {
+    product_type: batch?.product_type || productType,
+    quantity: batch?.quantity || 1,
+    delivery_date: batch?.delivery_date || new Date().toISOString().slice(0, 10),
+    serial_numbers: batch?.serial_numbers || "",
+  });
+}
+
+function closeBatchDeliveryModal() {
+  batchDeliveryModal.open = false;
+  batchDeliveryModal.batchId = null;
+}
+
+async function saveBatchDelivery() {
+  const quantity = Number(batchDeliveryDraft.quantity);
+  if (!quantity || quantity <= 0 || !batchDeliveryDraft.delivery_date) {
+    setNotice("请输入大于 0 的交付台数和交付日期。", "error");
+    return;
+  }
+  const payload = { ...batchDeliveryDraft, quantity };
+  if (batchDeliveryModal.mode === "edit") {
+    await portalApi.updateCiDeliveryBatch(batchDeliveryModal.batchId, payload);
+  } else {
+    await portalApi.createCiDeliveryBatch(batchDeliveryModal.dealerId, payload);
+  }
+  await loadCiDeliveryBatches(batchDeliveryModal.dealerId);
+  closeBatchDeliveryModal();
+  setNotice(t("notices.ciSaved"), "success");
 }
 
 async function loadWarehouseData() {
@@ -5077,8 +5192,6 @@ async function submitCrud() {
     const payload = {
       dealer_name: crudDraft.dealer_name.trim(),
       region: crudDraft.region.trim(),
-      delivered_100c: Number(crudDraft.delivered_100c) || 0,
-      delivered_250: Number(crudDraft.delivered_250) || 0,
     };
     if (crudModal.mode === "create") {
       await portalApi.createCiDelivery(payload);
@@ -5175,6 +5288,11 @@ async function confirmDelete() {
   if (kind === "ci") {
     await portalApi.deleteCiDelivery(key);
     await loadLedgerData();
+  }
+  if (kind === "ci-batch") {
+    const [dealerId, batchId] = String(key).split(":");
+    await portalApi.deleteCiDeliveryBatch(batchId);
+    await loadCiDeliveryBatches(dealerId);
   }
   if (kind === "warehouse") {
     await portalApi.deleteWarehouseTransaction(key);

@@ -40,6 +40,18 @@ class CiDealerDelivery(SQLModel, table=True):
     customer_company: str = Field(default="", index=True)
 
 
+class CIDeliveryBatch(SQLModel, table=True):
+    __tablename__ = "ci_delivery_batches"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    dealer_id: int = Field(index=True)
+    product_type: str
+    quantity: int = Field(default=1)
+    delivery_date: str
+    serial_numbers: Optional[str] = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class WarehouseInventory(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     warehouse_name: str = Field(index=True)

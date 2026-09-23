@@ -48,9 +48,9 @@ def init_db() -> None:
     upgrade_users_schema()
     # create_all does not add columns to an existing SQLite database.
     with engine.begin() as connection:
-        for table, column in (("gridscaleproject", "customer_id"), ("gridscaleproject", "partner_name"), ("gridscaleproject", "customer_company"), ("gridscaleproject", "software_version"), ("cidealerdelivery", "customer_id"), ("cidealerdelivery", "customer_company"), ("customer_tickets", "resolved_at"), ("customer_tickets", "expected_date"), ("customer_tickets", "customer_company"), ("customer_tickets", "serial_number"), ("after_sales_logs", "customer_company"), ("after_sales_logs", "fault_component"), ("logistics_shipments", "remarks"), ("logistics_shipments", "created_date"), ("logistics_shipments", "specific_module"), ("logistics_shipments", "stage")):
+        for table, column in (("gridscaleproject", "customer_id"), ("gridscaleproject", "partner_name"), ("gridscaleproject", "customer_company"), ("gridscaleproject", "software_version"), ("cidealerdelivery", "customer_id"), ("cidealerdelivery", "customer_company"), ("customer_tickets", "resolved_at"), ("customer_tickets", "expected_date"), ("customer_tickets", "customer_company"), ("customer_tickets", "serial_number"), ("after_sales_logs", "customer_company"), ("after_sales_logs", "fault_component"), ("after_sales_logs", "serial_number"), ("after_sales_logs", "rd_contact"), ("logistics_shipments", "remarks"), ("logistics_shipments", "created_date"), ("logistics_shipments", "specific_module"), ("logistics_shipments", "stage")):
             try:
-                column_type = "TEXT" if column in {"partner_name", "customer_company", "resolved_at", "fault_component", "software_version", "remarks", "created_date", "specific_module", "stage"} else "INTEGER"
+                column_type = "TEXT" if column in {"partner_name", "customer_company", "resolved_at", "fault_component", "serial_number", "rd_contact", "software_version", "remarks", "created_date", "specific_module", "stage"} else "INTEGER"
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))
             except Exception:
                 pass
@@ -107,6 +107,26 @@ def init_db() -> None:
             text(
                 "UPDATE logistics_shipments "
                 "SET stage = COALESCE(NULLIF(stage, ''), 'delivery')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO ci_delivery_batches "
+                "(dealer_id, product_type, quantity, delivery_date, serial_numbers, created_at) "
+                "SELECT d.id, '100C', d.delivered_100c, DATE('now'), '', DATETIME('now') "
+                "FROM cidealerdelivery d "
+                "WHERE d.delivered_100c > 0 "
+                "AND NOT EXISTS (SELECT 1 FROM ci_delivery_batches b WHERE b.dealer_id = d.id AND b.product_type = '100C')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO ci_delivery_batches "
+                "(dealer_id, product_type, quantity, delivery_date, serial_numbers, created_at) "
+                "SELECT d.id, '250', d.delivered_250, DATE('now'), '', DATETIME('now') "
+                "FROM cidealerdelivery d "
+                "WHERE d.delivered_250 > 0 "
+                "AND NOT EXISTS (SELECT 1 FROM ci_delivery_batches b WHERE b.dealer_id = d.id AND b.product_type = '250')"
             )
         )
 

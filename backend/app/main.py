@@ -44,6 +44,7 @@ from .models.ledger import (
     WAREHOUSE_INVENTORY_SEED,
     WAREHOUSE_TRANSACTION_SEED,
     CiDealerDelivery,
+    CIDeliveryBatch,
     FaultCode,
     GridScaleProject,
     WarehouseInventory,
@@ -242,13 +243,20 @@ class GridScaleProjectUpsert(BaseModel):
 
 class CiDeliveryUpdate(BaseModel):
     region: str
-    delivered_100c: int
-    delivered_250: int
+    delivered_100c: int = 0
+    delivered_250: int = 0
     customer_company: Optional[str] = None
 
 
 class CiDeliveryCreateUpdate(CiDeliveryUpdate):
     dealer_name: str
+
+
+class CIDeliveryBatchPayload(BaseModel):
+    product_type: Literal["100C", "250"]
+    quantity: int = Field(default=1, gt=0)
+    delivery_date: str
+    serial_numbers: Optional[str] = ""
 
 
 class WarehouseTransactionCreate(BaseModel):
@@ -331,7 +339,8 @@ class AfterSalesLogPayload(BaseModel):
     faulty_component: Optional[str] = None
     fault_description: str = ""
     onsite_solution: str = ""
-    serial_number: str = ""
+    serial_number: Optional[str] = ""
+    rd_contact: Optional[str] = ""
     status: Literal["已解决 (Resolved)", "处理中 (Pending)"] = "处理中 (Pending)"
     pending_reason: str = ""
     created_by: str
@@ -1772,6 +1781,16 @@ def list_portal_ci_deliveries(user: User = Depends(current_user)) -> Dict[str, o
             company = user.customer_company or user.customer_name or ""
             statement = statement.where(or_(CiDealerDelivery.customer_company == company, CiDealerDelivery.dealer_name == company))
         items = session.exec(statement).all()
+        dealer_ids = [item.id for item in items if item.id is not None]
+        batches = session.exec(select(CIDeliveryBatch).where(CIDeliveryBatch.dealer_id.in_(dealer_ids))).all() if dealer_ids else []
+        totals = {}
+        for batch in batches:
+            dealer_totals = totals.setdefault(batch.dealer_id, {"100C": 0, "250": 0})
+            dealer_totals[batch.product_type] = dealer_totals.get(batch.product_type, 0) + batch.quantity
+        for item in items:
+            dealer_totals = totals.get(item.id or 0, {"100C": 0, "250": 0})
+            item.delivered_100c = dealer_totals.get("100C", 0)
+            item.delivered_250 = dealer_totals.get("250", 0)
     return {"count": len(items), "items": items}
 
 
@@ -2118,9 +2137,9 @@ def export_after_sales_logs(user: User = Depends(require_staff)):
         rows = session.exec(select(AfterSalesLog).order_by(AfterSalesLog.event_date.asc())).all()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "Country", "Customer", "Project", "Model", "Support", "Category", "Component", "Fault Description", "On-site Solution", "SN", "Status", "Follow-up", "Created By"])
+    writer.writerow(["Date", "Country", "Customer", "Project", "Model", "Serial Number", "Support", "Category", "Component", "Fault Description", "On-site Solution", "Status", "Follow-up", "R&D Contact", "Created By"])
     for row in rows:
-        writer.writerow([row.event_date, row.country, row.customer_company or row.customer, row.project_name, row.product_model, row.support_type, row.issue_category, row.fault_component or row.faulty_component, row.fault_description, row.onsite_solution, row.serial_number, row.status, row.pending_reason, row.created_by])
+        writer.writerow([row.event_date, row.country, row.customer_company or row.customer, row.project_name, row.product_model, row.serial_number or "", row.support_type, row.issue_category, row.fault_component or row.faulty_component, row.fault_description, row.onsite_solution, row.status, row.pending_reason, row.rd_contact or "", row.created_by])
     return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=after-sales-logs.csv"})
 
 
@@ -2524,7 +2543,92 @@ app.include_router(grid_scale_router)
 def list_ci_deliveries(_: User = Depends(require_staff)) -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(CiDealerDelivery)).all()
+        batches = session.exec(select(CIDeliveryBatch)).all()
+        totals = {}
+        for batch in batches:
+            dealer_totals = totals.setdefault(batch.dealer_id, {"100C": 0, "250": 0})
+            dealer_totals[batch.product_type] = dealer_totals.get(batch.product_type, 0) + batch.quantity
+        for item in items:
+            dealer_totals = totals.get(item.id or 0, {"100C": 0, "250": 0})
+            item.delivered_100c = dealer_totals.get("100C", 0)
+            item.delivered_250 = dealer_totals.get("250", 0)
     return {"count": len(items), "items": items}
+
+
+def validate_batch_delivery_date(delivery_date: str) -> str:
+    try:
+        return date.fromisoformat(delivery_date).isoformat()
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Delivery date must use YYYY-MM-DD") from exc
+
+
+def get_accessible_ci_dealer(session, dealer_id: int, user: User) -> CiDealerDelivery:
+    item = session.get(CiDealerDelivery, dealer_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Dealer not found")
+    if user.role == "customer":
+        company = (user.customer_company or user.customer_name or "").strip().lower()
+        if (item.customer_company or item.dealer_name).strip().lower() != company:
+            raise HTTPException(status_code=403, detail="Dealer is outside your tenant")
+    return item
+
+
+@app.get("/api/ledger/ci-deliveries/{dealer_id}/batches")
+def list_ci_delivery_batches(dealer_id: int, user: User = Depends(current_user)) -> Dict[str, object]:
+    with get_session() as session:
+        get_accessible_ci_dealer(session, dealer_id, user)
+        items = session.exec(
+            select(CIDeliveryBatch)
+            .where(CIDeliveryBatch.dealer_id == dealer_id)
+            .order_by(CIDeliveryBatch.delivery_date.desc(), CIDeliveryBatch.id.desc())
+        ).all()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/ledger/ci-deliveries/{dealer_id}/batches")
+def create_ci_delivery_batch(dealer_id: int, payload: CIDeliveryBatchPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    delivery_date = validate_batch_delivery_date(payload.delivery_date)
+    with get_session() as session:
+        get_accessible_ci_dealer(session, dealer_id, _)
+        item = CIDeliveryBatch(
+            dealer_id=dealer_id,
+            product_type=payload.product_type,
+            quantity=payload.quantity,
+            delivery_date=delivery_date,
+            serial_numbers=payload.serial_numbers or "",
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "created", "item": item}
+
+
+@app.put("/api/ledger/ci-delivery-batches/{batch_id}")
+def update_ci_delivery_batch(batch_id: int, payload: CIDeliveryBatchPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    delivery_date = validate_batch_delivery_date(payload.delivery_date)
+    with get_session() as session:
+        item = session.get(CIDeliveryBatch, batch_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Delivery batch not found")
+        item.product_type = payload.product_type
+        item.quantity = payload.quantity
+        item.delivery_date = delivery_date
+        item.serial_numbers = payload.serial_numbers or ""
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "updated", "item": item}
+
+
+@app.delete("/api/ledger/ci-delivery-batches/{batch_id}")
+def delete_ci_delivery_batch(batch_id: int, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(CIDeliveryBatch, batch_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Delivery batch not found")
+        session.delete(item)
+        session.commit()
+        return {"message": "deleted"}
 
 
 @app.post("/api/ledger/ci-deliveries")
@@ -2546,8 +2650,6 @@ def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate, _: User = De
         if item is None:
             raise HTTPException(status_code=404, detail="Dealer not found")
         item.region = payload.region
-        item.delivered_100c = payload.delivered_100c
-        item.delivered_250 = payload.delivered_250
         item.customer_company = (payload.customer_company or payload.dealer_name).strip()
         session.add(item)
         session.commit()
