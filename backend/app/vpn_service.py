@@ -71,20 +71,22 @@ def required_setting(name: str) -> str:
     return value
 
 
-def ssh_settings() -> Dict[str, object]:
-    return {
+def ssh_settings(include_tdengine: bool = True) -> Dict[str, object]:
+    settings: Dict[str, object] = {
         "jump_host": required_setting("VPN_JUMP_HOST"),
         "jump_port": int(os.getenv("VPN_JUMP_PORT", "22")),
         "jump_username": required_setting("VPN_JUMP_USERNAME"),
-        "jump_password": required_setting("VPN_JUMP_PASSWORD"),
+        "jump_password": os.getenv("VPN_JUMP_PASSWORD", "") or keychain_password(KEYCHAIN_SERVICES["VPN_JUMP_PASSWORD"]),
         "site_port": int(os.getenv("VPN_SITE_PORT", "22")),
         "site_username": required_setting("VPN_SITE_USERNAME"),
-        "site_password": required_setting("VPN_SITE_PASSWORD"),
-        "tdengine_username": required_setting("TDENGINE_USERNAME"),
-        "tdengine_password": required_setting("TDENGINE_PASSWORD"),
+        "site_password": os.getenv("VPN_SITE_PASSWORD", "") or keychain_password(KEYCHAIN_SERVICES["VPN_SITE_PASSWORD"]),
         "strict_host_key": os.getenv("VPN_SSH_STRICT_HOST_KEY", "true").lower() not in {"0", "false", "no"},
         "known_hosts": os.getenv("VPN_SSH_KNOWN_HOSTS", "").strip(),
     }
+    if include_tdengine:
+        settings["tdengine_username"] = required_setting("TDENGINE_USERNAME")
+        settings["tdengine_password"] = required_setting("TDENGINE_PASSWORD")
+    return settings
 
 
 def new_ssh_client(settings: Dict[str, object]) -> paramiko.SSHClient:
@@ -102,41 +104,16 @@ def new_ssh_client(settings: Dict[str, object]) -> paramiko.SSHClient:
 
 
 def connect_jump_host() -> Tuple[paramiko.SSHClient, Dict[str, object]]:
-    settings = ssh_settings()
+    settings = ssh_settings(include_tdengine=False)
+    if not settings["jump_password"]:
+        settings["jump_password"] = required_setting("VPN_JUMP_PASSWORD")
     client = new_ssh_client(settings)
-    client.connect(
-        hostname=str(settings["jump_host"]),
-        port=int(settings["jump_port"]),
-        username=str(settings["jump_username"]),
-        password=str(settings["jump_password"]),
-        timeout=15,
-        banner_timeout=15,
-        auth_timeout=15,
-        look_for_keys=False,
-        allow_agent=False,
-    )
-    return client, settings
-
-
-def connect_site(site: VpnSite) -> Tuple[paramiko.SSHClient, paramiko.SSHClient]:
-    jump_client, settings = connect_jump_host()
-    transport = jump_client.get_transport()
-    if transport is None or not transport.is_active():
-        jump_client.close()
-        raise RuntimeError("Jump host SSH transport is unavailable")
-    channel = transport.open_channel(
-        "direct-tcpip",
-        (site.vpn_ip, int(settings["site_port"])),
-        ("127.0.0.1", 0),
-    )
-    site_client = new_ssh_client(settings)
     try:
-        site_client.connect(
-            hostname=site.vpn_ip,
-            port=int(settings["site_port"]),
-            username=str(settings["site_username"]),
-            password=str(settings["site_password"]),
-            sock=channel,
+        client.connect(
+            hostname=str(settings["jump_host"]),
+            port=int(settings["jump_port"]),
+            username=str(settings["jump_username"]),
+            password=str(settings["jump_password"]),
             timeout=15,
             banner_timeout=15,
             auth_timeout=15,
@@ -144,9 +121,76 @@ def connect_site(site: VpnSite) -> Tuple[paramiko.SSHClient, paramiko.SSHClient]
             allow_agent=False,
         )
     except Exception:
-        channel.close()
-        jump_client.close()
+        client.close()
         raise
+    return client, settings
+
+
+def connect_site(site: VpnSite) -> Tuple[Optional[paramiko.SSHClient], paramiko.SSHClient]:
+    settings = ssh_settings(include_tdengine=False)
+    port = int(site.port or settings["site_port"])
+    username = site.username or str(settings["site_username"])
+    password = site.password or str(settings["site_password"])
+    if not password:
+        password = required_setting("VPN_SITE_PASSWORD")
+
+    jump_client: Optional[paramiko.SSHClient] = None
+    channel = None
+    via_jump = bool(site.use_jump_host and site.jump_host_ip)
+    if via_jump:
+        jump_password = site.jump_host_password or str(settings["jump_password"])
+        if not jump_password:
+            jump_password = required_setting("VPN_JUMP_PASSWORD")
+        jump_client = new_ssh_client(settings)
+        try:
+            jump_client.connect(
+                hostname=site.jump_host_ip,
+                port=int(site.jump_host_port or settings["jump_port"]),
+                username=site.jump_host_user or str(settings["jump_username"]),
+                password=jump_password,
+                timeout=15,
+                banner_timeout=15,
+                auth_timeout=15,
+                look_for_keys=False,
+                allow_agent=False,
+            )
+            transport = jump_client.get_transport()
+            if transport is None or not transport.is_active():
+                raise RuntimeError("跳板机 SSH 通道不可用")
+            channel = transport.open_channel(
+                "direct-tcpip",
+                (site.vpn_ip, port),
+                (site.jump_host_ip, 0),
+            )
+        except Exception as exc:
+            jump_client.close()
+            raise RuntimeError(
+                f"[连接失败] 无法连接跳板机 {site.jump_host_ip}:{site.jump_host_port or 22}：{exc}"
+            ) from exc
+
+    site_client = new_ssh_client(settings)
+    try:
+        site_client.connect(
+            hostname=site.vpn_ip,
+            port=port,
+            username=username,
+            password=password,
+            sock=channel,
+            timeout=15,
+            banner_timeout=15,
+            auth_timeout=15,
+            look_for_keys=False,
+            allow_agent=False,
+        )
+    except Exception as exc:
+        if channel is not None:
+            channel.close()
+        if jump_client is not None:
+            jump_client.close()
+        path_hint = "请确认目标 SSH 服务及跳板机转发配置" if via_jump else "请确认服务器底层 VPN 隧道已启动且目标 IP 可直连"
+        raise RuntimeError(
+            f"[连接失败] 无法连接现场目标 {site.vpn_ip}:{port}，{path_hint}。详情：{exc}"
+        ) from exc
     return jump_client, site_client
 
 

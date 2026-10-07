@@ -423,6 +423,18 @@ class EmpowermentSkillPayload(BaseModel):
 class VpnSitePayload(BaseModel):
     name: str
     vpn_ip: str
+    port: int = Field(default=22, ge=1, le=65535)
+    username: str = "root"
+    password: str = ""
+    use_jump_host: bool = False
+    jump_host_ip: str = ""
+    jump_host_port: int = Field(default=22, ge=1, le=65535)
+    jump_host_user: str = "root"
+    jump_host_password: str = ""
+    use_stormshield: bool = False
+    stormshield_server: str = ""
+    stormshield_user: str = ""
+    stormshield_password: str = ""
     customer_company: str = ""
 
 
@@ -1035,7 +1047,7 @@ def public_user(user: User, session) -> Dict[str, object]:
     return data
 
 
-def normalize_vpn_site_payload(payload: VpnSitePayload) -> Dict[str, str]:
+def normalize_vpn_site_payload(payload: VpnSitePayload) -> Dict[str, object]:
     name = payload.name.strip()
     vpn_ip = payload.vpn_ip.strip()
     customer_company = payload.customer_company.strip()
@@ -1044,8 +1056,24 @@ def normalize_vpn_site_payload(payload: VpnSitePayload) -> Dict[str, str]:
     try:
         ipaddress.ip_address(vpn_ip)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="Station VPN IP must be a valid IPv4 or IPv6 address") from exc
-    return {"name": name, "vpn_ip": vpn_ip, "customer_company": customer_company}
+        raise HTTPException(status_code=422, detail="目标内网 IP 必须是有效的 IPv4 或 IPv6 地址") from exc
+    return {
+        "name": name,
+        "vpn_ip": vpn_ip,
+        "port": payload.port,
+        "username": payload.username.strip() or "root",
+        "password": payload.password,
+        "use_jump_host": payload.use_jump_host,
+        "jump_host_ip": payload.jump_host_ip.strip(),
+        "jump_host_port": payload.jump_host_port,
+        "jump_host_user": payload.jump_host_user.strip() or "root",
+        "jump_host_password": payload.jump_host_password,
+        "use_stormshield": payload.use_stormshield,
+        "stormshield_server": payload.stormshield_server.strip(),
+        "stormshield_user": payload.stormshield_user.strip(),
+        "stormshield_password": payload.stormshield_password,
+        "customer_company": customer_company,
+    }
 
 
 def normalize_diagnostic_table_payload(payload: DiagnosticExportTablePayload) -> Dict[str, object]:
@@ -1070,6 +1098,10 @@ def normalize_diagnostic_table_payload(payload: DiagnosticExportTablePayload) ->
 
 def public_vpn_task(task: VpnExportTask) -> Dict[str, object]:
     return task.model_dump(exclude={"file_path"})
+
+
+def public_vpn_site(site: VpnSite) -> Dict[str, object]:
+    return site.model_dump(exclude={"password", "jump_host_password", "stormshield_password"})
 
 
 @app.post("/api/auth/login")
@@ -1161,12 +1193,20 @@ def list_vpn_customer_options(_: User = Depends(require_staff)) -> Dict[str, obj
 def list_vpn_sites(_: User = Depends(require_staff)) -> Dict[str, object]:
     with get_session() as session:
         items = session.exec(select(VpnSite).order_by(VpnSite.name.asc())).all()
-    return {"count": len(items), "items": items}
+    return {"count": len(items), "items": [public_vpn_site(item) for item in items]}
 
 
 @app.post("/api/vpn/sites")
 def create_vpn_site(payload: VpnSitePayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
     data = normalize_vpn_site_payload(payload)
+    if not data["password"]:
+        raise HTTPException(status_code=422, detail="新建站点必须填写目标机器密码")
+    if data["use_jump_host"] and not (data["jump_host_ip"] and data["jump_host_password"]):
+        raise HTTPException(status_code=422, detail="启用跳板机时必须填写跳板机 IP 和密码")
+    if data["use_stormshield"] and not all(
+        (data["stormshield_server"], data["stormshield_user"], data["stormshield_password"])
+    ):
+        raise HTTPException(status_code=422, detail="启用 Stormshield VPN 时必须填写网关、账号和密码")
     with get_session() as session:
         duplicate = session.exec(
             select(VpnSite).where(or_(VpnSite.name == data["name"], VpnSite.vpn_ip == data["vpn_ip"]))
@@ -1181,7 +1221,7 @@ def create_vpn_site(payload: VpnSitePayload, _: User = Depends(require_write_acc
         session.add(item)
         session.commit()
         session.refresh(item)
-        return {"item": item}
+        return {"item": public_vpn_site(item)}
 
 
 @app.put("/api/vpn/sites/{site_id}")
@@ -1191,6 +1231,18 @@ def update_vpn_site(site_id: int, payload: VpnSitePayload, _: User = Depends(req
         item = session.get(VpnSite, site_id)
         if item is None:
             raise HTTPException(status_code=404, detail="VPN site not found")
+        if data["use_jump_host"] and not (
+            data["jump_host_ip"] and (data["jump_host_password"] or item.jump_host_password)
+        ):
+            raise HTTPException(status_code=422, detail="启用跳板机时必须填写跳板机 IP 和密码")
+        if data["use_stormshield"] and not all(
+            (
+                data["stormshield_server"],
+                data["stormshield_user"],
+                data["stormshield_password"] or item.stormshield_password,
+            )
+        ):
+            raise HTTPException(status_code=422, detail="启用 Stormshield VPN 时必须填写网关、账号和密码")
         duplicate = session.exec(
             select(VpnSite).where(
                 or_(VpnSite.name == data["name"], VpnSite.vpn_ip == data["vpn_ip"]),
@@ -1204,12 +1256,14 @@ def update_vpn_site(site_id: int, payload: VpnSitePayload, _: User = Depends(req
         }:
             raise HTTPException(status_code=422, detail="Customer company is not registered")
         for key, value in data.items():
+            if key in {"password", "jump_host_password", "stormshield_password"} and not value:
+                continue
             setattr(item, key, value)
         item.updated_at = datetime.utcnow()
         session.add(item)
         session.commit()
         session.refresh(item)
-        return {"item": item}
+        return {"item": public_vpn_site(item)}
 
 
 @app.delete("/api/vpn/sites/{site_id}")
@@ -1464,7 +1518,10 @@ async def vpn_terminal_websocket(websocket: WebSocket, ticket: str = Query(...))
     except Exception as exc:
         logger.exception("VPN terminal connection failed")
         try:
-            await websocket.send_text(f"\r\n[Terminal connection failed: {exc}]\r\n")
+            message = str(exc)
+            if not message.startswith("[连接失败]"):
+                message = f"[连接失败] SSH 终端连接失败：{message}"
+            await websocket.send_text(f"\r\n{message}\r\n")
             await asyncio.sleep(0.05)
         except Exception:
             pass

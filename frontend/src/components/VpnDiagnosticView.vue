@@ -101,23 +101,74 @@
     </div>
 
     <div v-if="siteEditorOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4" @click.self="siteEditorOpen = false">
-      <form class="w-full max-w-lg rounded-lg bg-white p-6 shadow-2xl" @submit.prevent="saveSite">
+      <form class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-2xl" @submit.prevent="saveSite">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-slate-950">{{ copy.siteEditor }}</h3>
           <button type="button" class="text-sm text-slate-500" @click="siteEditorOpen = false">{{ copy.close }}</button>
         </div>
-        <label class="mt-5 block text-xs font-medium text-slate-600">{{ copy.siteName }}
-          <input v-model="siteDraft.name" required class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
-        </label>
-        <label class="mt-4 block text-xs font-medium text-slate-600">Station VPN IP
-          <input v-model="siteDraft.vpn_ip" required inputmode="decimal" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-sky-500" />
-        </label>
-        <label class="mt-4 block text-xs font-medium text-slate-600">{{ copy.customer }}
-          <select v-model="siteDraft.customer_company" class="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500">
-            <option value="">{{ copy.unbound }}</option>
-            <option v-for="customer in customerOptions" :key="customer" :value="customer">{{ customer }}</option>
-          </select>
-        </label>
+        <section class="mt-5 border-b border-slate-200 pb-5">
+          <h4 class="text-sm font-semibold text-slate-900">{{ siteCopy.target }}</h4>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="block text-xs font-medium text-slate-600">{{ copy.siteName }}
+              <input v-model="siteDraft.name" required :placeholder="siteCopy.siteNameExample" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.targetIp }}
+              <input v-model="siteDraft.vpn_ip" required inputmode="decimal" placeholder="172.21.56.31" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.targetPort }}
+              <input v-model.number="siteDraft.port" required type="number" min="1" max="65535" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.targetUser }}
+              <input v-model="siteDraft.username" required class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600 sm:col-span-2">{{ siteCopy.targetPassword }}
+              <input v-model="siteDraft.password" type="password" autocomplete="new-password" :required="!siteEditingId" :placeholder="siteEditingId ? siteCopy.keepPassword : ''" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600 sm:col-span-2">{{ copy.customer }}
+              <select v-model="siteDraft.customer_company" class="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-500">
+                <option value="">{{ copy.unbound }}</option>
+                <option v-for="customer in customerOptions" :key="customer" :value="customer">{{ customer }}</option>
+              </select>
+            </label>
+          </div>
+        </section>
+        <section class="border-b border-slate-200 py-5">
+          <label class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <input v-model="siteDraft.use_jump_host" type="checkbox" class="h-4 w-4 accent-sky-600" />
+            {{ siteCopy.useJumpHost }}
+          </label>
+          <div v-if="siteDraft.use_jump_host" class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.jumpIp }}
+              <input v-model="siteDraft.jump_host_ip" required placeholder="8.216.40.206" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.jumpPort }}
+              <input v-model.number="siteDraft.jump_host_port" required type="number" min="1" max="65535" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.jumpUser }}
+              <input v-model="siteDraft.jump_host_user" required class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.jumpPassword }}
+              <input v-model="siteDraft.jump_host_password" type="password" autocomplete="new-password" :required="!siteEditingId" :placeholder="siteEditingId ? siteCopy.keepPassword : ''" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+          </div>
+        </section>
+        <section class="py-5">
+          <label class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <input v-model="siteDraft.use_stormshield" type="checkbox" class="h-4 w-4 accent-sky-600" />
+            {{ siteCopy.useStormshield }}
+          </label>
+          <div v-if="siteDraft.use_stormshield" class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.stormshieldServer }}
+              <input v-model="siteDraft.stormshield_server" required placeholder="93.190.7.125" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600">{{ siteCopy.stormshieldUser }}
+              <input v-model="siteDraft.stormshield_user" required placeholder="chzheng" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+            <label class="block text-xs font-medium text-slate-600 sm:col-span-2">{{ siteCopy.stormshieldPassword }}
+              <input v-model="siteDraft.stormshield_password" type="password" autocomplete="new-password" :required="!siteEditingId" :placeholder="siteEditingId ? siteCopy.keepPassword : ''" class="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500" />
+            </label>
+          </div>
+        </section>
         <div class="mt-6 flex justify-end gap-3">
           <button v-if="siteEditingId" type="button" class="mr-auto text-sm font-semibold text-rose-600" @click="removeSite">{{ copy.delete }}</button>
           <button type="button" class="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="siteEditorOpen = false">{{ copy.cancel }}</button>
@@ -193,6 +244,15 @@ const copy = computed(() => props.locale === 'en-US' ? {
 } : {
   title: 'VPN 远程诊断与时序数据导出', subtitle: '双层 SSH 实时终端与 TDengine 无交互自动化取数。', siteManagement: '站点管理', newSite: '新建站点', selectSite: '选择当前调试站点', unbound: '未绑定客户', edit: '编辑', connectSite: '连接站点', exportPanel: 'TDengine 数据导出任务', startTime: '开始时间', endTime: '结束时间', tables: '选择导出表', selectAll: '全选', clearAll: '清空', manageTables: '管理表配置', tableManager: '诊断导出表配置', newTable: '新增表', editTable: '编辑表', tableName: '完整表名', sheetName: 'Excel Sheet 名称', extraWhere: '额外 WHERE 条件', sortOrder: '排序序号', hasEblock: '包含 eBlock ID 过滤', defaultEnabled: '默认勾选', enabled: '已启用', disabled: '未启用', noEblock: '无 eBlock 过滤', runExport: '一键执行并导出数据', submitting: '提交中...', history: '文件下载列表', refresh: '刷新', download: '下载 Excel / ZIP', noHistory: '暂无导出任务', jumpHost: '返回跳板机', siteEditor: '站点配置', siteName: '站点名称', customer: '绑定客户', close: '关闭', delete: '删除', cancel: '取消', save: '保存', processing: '处理中', completed: '已完成', failed: '失败', disconnected: '未连接', connecting: '连接中', connected: '已连接', confirmDelete: '确认删除该站点吗？', confirmTableDelete: '确认删除该导出表吗？'
 })
+const siteCopy = computed(() => props.locale === 'en-US' ? {
+  target: 'Target machine', siteNameExample: '75MWh_Crescom(31-46)', targetIp: 'Private target IP', targetPort: 'SSH port', targetUser: 'Target username', targetPassword: 'Target password',
+  useJumpHost: 'Use jump host', jumpIp: 'Jump host IP', jumpPort: 'Jump host SSH port', jumpUser: 'Jump host username', jumpPassword: 'Jump host password',
+  useStormshield: 'Use Stormshield SSL VPN', stormshieldServer: 'Gateway address', stormshieldUser: 'VPN username', stormshieldPassword: 'VPN password', keepPassword: 'Leave blank to keep saved password',
+} : {
+  target: '现场目标机器', siteNameExample: '75MWh_Crescom(31-46)', targetIp: '目标内网 IP', targetPort: '目标 SSH 端口', targetUser: '目标机器账号', targetPassword: '目标机器密码',
+  useJumpHost: '使用跳转机（Jump Host）', jumpIp: '跳板机 IP', jumpPort: '跳板机 SSH 端口', jumpUser: '跳板机账号', jumpPassword: '跳板机密码',
+  useStormshield: '使用 Stormshield SSL VPN', stormshieldServer: '网关服务器地址', stormshieldUser: 'VPN 账号', stormshieldPassword: 'VPN 密码', keepPassword: '留空则保留已保存的密码',
+})
 
 const exportTables = ref([])
 const sites = ref([])
@@ -204,7 +264,7 @@ const tableManagerOpen = ref(false)
 const tableEditingId = ref(null)
 const tableError = ref('')
 const siteEditingId = ref(null)
-const siteDraft = reactive({ name: '', vpn_ip: '', customer_company: '' })
+const siteDraft = reactive({ name: '', vpn_ip: '', port: 22, username: 'root', password: '', use_jump_host: false, jump_host_ip: '', jump_host_port: 22, jump_host_user: 'root', jump_host_password: '', use_stormshield: false, stormshield_server: '', stormshield_user: '', stormshield_password: '', customer_company: '' })
 const tableDraft = reactive({ table_name: '', sheet_name: '', has_eblock_id: true, extra_where: '', sort_order: 0, is_enabled: true })
 const submitting = ref(false)
 const socketState = ref('disconnected')
@@ -254,12 +314,26 @@ async function loadTasks() {
 
 function openSiteEditor(site = null) {
   siteEditingId.value = site?.id || null
-  Object.assign(siteDraft, { name: site?.name || '', vpn_ip: site?.vpn_ip || '', customer_company: site?.customer_company || '' })
+  Object.assign(siteDraft, {
+    name: site?.name || '', vpn_ip: site?.vpn_ip || '', port: site?.port || 22,
+    username: site?.username || 'root', password: '', use_jump_host: site?.use_jump_host || false,
+    jump_host_ip: site?.jump_host_ip || '', jump_host_port: site?.jump_host_port || 22,
+    jump_host_user: site?.jump_host_user || 'root', jump_host_password: '',
+    use_stormshield: site?.use_stormshield || false, stormshield_server: site?.stormshield_server || '',
+    stormshield_user: site?.stormshield_user || '', stormshield_password: '',
+    customer_company: site?.customer_company || '',
+  })
   siteEditorOpen.value = true
 }
 
 async function saveSite() {
-  const payload = { name: siteDraft.name.trim(), vpn_ip: siteDraft.vpn_ip.trim(), customer_company: siteDraft.customer_company }
+  const payload = {
+    ...siteDraft,
+    name: siteDraft.name.trim(), vpn_ip: siteDraft.vpn_ip.trim(), username: siteDraft.username.trim(),
+    jump_host_ip: siteDraft.jump_host_ip.trim(), jump_host_user: siteDraft.jump_host_user.trim(),
+    stormshield_server: siteDraft.stormshield_server.trim(), stormshield_user: siteDraft.stormshield_user.trim(),
+    customer_company: siteDraft.customer_company,
+  }
   if (siteEditingId.value) await portalApi.updateVpnSite(siteEditingId.value, payload)
   else await portalApi.createVpnSite(payload)
   siteEditorOpen.value = false

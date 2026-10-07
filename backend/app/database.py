@@ -25,6 +25,21 @@ USER_COLUMN_MIGRATIONS = {
     "created_at": "DATETIME",
 }
 
+VPN_SITE_COLUMN_MIGRATIONS = {
+    "port": "INTEGER NOT NULL DEFAULT 22",
+    "username": "TEXT NOT NULL DEFAULT 'root'",
+    "password": "TEXT NOT NULL DEFAULT ''",
+    "use_jump_host": "INTEGER NOT NULL DEFAULT 0",
+    "jump_host_ip": "TEXT NOT NULL DEFAULT ''",
+    "jump_host_port": "INTEGER NOT NULL DEFAULT 22",
+    "jump_host_user": "TEXT NOT NULL DEFAULT 'root'",
+    "jump_host_password": "TEXT NOT NULL DEFAULT ''",
+    "use_stormshield": "INTEGER NOT NULL DEFAULT 0",
+    "stormshield_server": "TEXT NOT NULL DEFAULT ''",
+    "stormshield_user": "TEXT NOT NULL DEFAULT ''",
+    "stormshield_password": "TEXT NOT NULL DEFAULT ''",
+}
+
 
 def upgrade_users_schema() -> None:
     if engine.dialect.name != "sqlite":
@@ -43,9 +58,27 @@ def upgrade_users_schema() -> None:
             logger.info("Added missing users.%s column.", column)
 
 
+def upgrade_vpn_sites_schema() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        existing_columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(vpn_sites)"))
+        }
+        for column, definition in VPN_SITE_COLUMN_MIGRATIONS.items():
+            if column in existing_columns:
+                continue
+            connection.execute(
+                text(f'ALTER TABLE vpn_sites ADD COLUMN "{column}" {definition}')
+            )
+            logger.info("Added missing vpn_sites.%s column.", column)
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     upgrade_users_schema()
+    upgrade_vpn_sites_schema()
     # create_all does not add columns to an existing SQLite database.
     with engine.begin() as connection:
         for table, column in (("gridscaleproject", "customer_id"), ("gridscaleproject", "partner_name"), ("gridscaleproject", "customer_company"), ("gridscaleproject", "software_version"), ("cidealerdelivery", "customer_id"), ("cidealerdelivery", "customer_company"), ("customer_tickets", "resolved_at"), ("customer_tickets", "expected_date"), ("customer_tickets", "customer_company"), ("customer_tickets", "serial_number"), ("after_sales_logs", "customer_company"), ("after_sales_logs", "fault_component"), ("after_sales_logs", "serial_number"), ("after_sales_logs", "rd_contact"), ("logistics_shipments", "remarks"), ("logistics_shipments", "created_date"), ("logistics_shipments", "specific_module"), ("logistics_shipments", "stage")):
