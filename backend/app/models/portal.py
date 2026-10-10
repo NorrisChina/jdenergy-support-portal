@@ -208,6 +208,8 @@ class VpnExportTask(SQLModel, table=True):
     end_time: datetime
     selected_tables: List[str] = Field(default_factory=list, sa_column=Column(SAJSON))
     status: str = Field(default="processing", index=True)
+    progress: int = Field(default=0)
+    current_log: str = Field(default="")
     file_name: str = ""
     file_path: str = ""
     error_message: str = ""

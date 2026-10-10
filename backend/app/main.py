@@ -58,8 +58,9 @@ from .models.technical_docs import (
     TECHNICAL_DOC_PRODUCT_SERIES,
     TechnicalDoc,
 )
+from .models.delivery_costs import AfterSalesCostEntry, CostAssumption, DeliveryCost, DeliveryCostProject
 from .models.portal import AfterSalesLog, CustomerTicket, DiagnosticExportTable, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User, VpnExportTask, VpnSite
-from .vpn_service import EXPORT_DIR, open_terminal_channel, receive_channel, run_export_task
+from .vpn_service import EXPORT_DIR, open_terminal_channel, receive_channel, request_export_cancel, run_export_task
 
 
 logger = logging.getLogger(__name__)
@@ -347,6 +348,41 @@ class AfterSalesLogPayload(BaseModel):
     attachments: List[str] = Field(default_factory=list)
 
 
+class DeliveryCostPayload(BaseModel):
+    project_type: Literal["418", "250", "100C"]
+    project_name: str = ""
+    customer_name: str = ""
+    delivery_headcount: int = Field(default=0, ge=0)
+    travel_cost: float = Field(default=0, ge=0)
+    labor_cost: float = Field(default=0, ge=0)
+    tool_cost: float = Field(default=0, ge=0)
+    hardware_cost: float = Field(default=0, ge=0)
+
+
+class AfterSalesCostEntryUpdatePayload(BaseModel):
+    travel_cost: Optional[float] = Field(default=None, ge=0)
+    labor_cost: Optional[float] = Field(default=None, ge=0)
+    tool_cost: Optional[float] = Field(default=None, ge=0)
+    hardware_cost: Optional[float] = Field(default=None, ge=0)
+
+
+class CostNotePayload(BaseModel):
+    field: Literal["travel_cost_note", "labor_cost_note", "tool_cost_note", "hardware_cost_note"]
+    note: str = Field(default="", max_length=2000)
+
+
+class CostAssumptionPayload(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    default_amount: float = Field(default=0, ge=0)
+    description: str = Field(default="", max_length=500)
+
+
+class CostAssumptionUpdatePayload(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    default_amount: Optional[float] = Field(default=None, ge=0)
+    description: Optional[str] = Field(default=None, max_length=500)
+
+
 class TicketPayload(BaseModel):
     project_name: str
     customer_company: Optional[str] = None
@@ -503,6 +539,7 @@ grid_scale_router = APIRouter(
 def on_startup() -> None:
     init_db()
     ensure_default_admin()
+    ensure_after_sales_costs()
     ensure_fault_components()
     ensure_logistics_statuses()
     ensure_empowerment_skills()
@@ -1143,6 +1180,9 @@ def create_user(payload: CustomerUserPayload, _: User = Depends(require_write_ac
             raise HTTPException(status_code=422, detail="Country is required")
         user = User(username=payload.username.strip(), password_hash=hash_password(payload.password), customer_name=company, customer_company=company, country=country, project_ids=[])
         session.add(user)
+        session.flush()
+        for project_type in ("250", "100C"):
+            _ensure_delivery_cost_row(session, project_type, "", company)
         session.commit()
         session.refresh(user)
         return {"item": public_user(user, session)}
@@ -1166,6 +1206,12 @@ def update_user(user_id: int, payload: CustomerUserUpdatePayload, _: User = Depe
         if payload.is_active is not None:
             user.is_active = payload.is_active
         session.add(user)
+        session.flush()
+        if user.is_active:
+            company_name = (user.customer_company or user.customer_name or "").strip()
+            if company_name:
+                for project_type in ("250", "100C"):
+                    _ensure_delivery_cost_row(session, project_type, "", company_name)
         session.commit()
         session.refresh(user)
         return {"item": public_user(user, session)}
@@ -1417,6 +1463,26 @@ def create_vpn_export_task(
         task_id = item.id
         response = public_vpn_task(item)
     background_tasks.add_task(run_export_task, task_id)
+    return {"item": response}
+
+
+@app.post("/api/vpn/export-tasks/{task_id}/cancel")
+def cancel_vpn_export_task(task_id: int, _: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        task = session.get(VpnExportTask, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Export task not found")
+        if task.status != "processing":
+            raise HTTPException(status_code=409, detail="Export task is no longer processing")
+        task.status = "canceled"
+        task.error_message = "由用户请求终止导出"
+        task.current_log = f"{task.current_log}\n正在终止任务并清理临时文件…"[-12000:]
+        task.completed_at = datetime.utcnow()
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        response = public_vpn_task(task)
+    request_export_cancel(task_id)
     return {"item": response}
 
 
@@ -1928,6 +1994,8 @@ def create_after_sales_log(payload: AfterSalesLogPayload, user: User = Depends(r
         bound_country = resolve_customer_country(session, company) or payload.country
         item = AfterSalesLog(**payload.model_dump(exclude={"customer", "customer_company", "fault_component", "faulty_component", "country", "project_name"}), project_name=project_name, customer_company=company, customer=company, fault_component=component, faulty_component=component, country=bound_country)
         session.add(item)
+        session.flush()
+        _sync_after_sales_cost_log(session, item)
         session.commit()
         session.refresh(item)
         return {"item": item}
@@ -1965,6 +2033,7 @@ def update_after_sales_log(log_id: int, payload: AfterSalesLogPayload, _: User =
         item.faulty_component = component
         item.country = bound_country
         session.add(item)
+        _sync_after_sales_cost_log(session, item)
         session.commit()
         session.refresh(item)
         return {"item": item}
@@ -1976,6 +2045,11 @@ def delete_after_sales_log(log_id: int, _: User = Depends(require_write_access))
         item = session.get(AfterSalesLog, log_id)
         if item is None:
             raise HTTPException(status_code=404, detail="After-sales log not found")
+        cost_entry = session.exec(
+            select(AfterSalesCostEntry).where(AfterSalesCostEntry.after_sales_log_id == log_id)
+        ).first()
+        if cost_entry is not None:
+            session.delete(cost_entry)
         session.delete(item)
         session.commit()
     return {"message": "deleted"}
@@ -2189,15 +2263,366 @@ def delete_empowerment_record(record_id: int, _: User = Depends(require_write_ac
     return {"message": "deleted"}
 
 
+def _cost_project_identity(project_type: str, project_name: str, customer_name: str) -> tuple[str, str]:
+    if project_type == "418":
+        name = project_name.strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="418项目需要填写项目名称")
+        return name, ""
+    name = customer_name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="250/100C项目需要填写客户名称")
+    return "", name
+
+
+def _validate_cost_project_source(session, project_type: str, project_name: str, customer_name: str) -> None:
+    expected_name = project_name if project_type == "418" else customer_name
+    if project_type == "418":
+        available_names = {
+            item.project_name.strip().casefold()
+            for item in session.exec(select(GridScaleProject)).all()
+            if item.project_name.strip()
+        }
+        source_label = "海外项目总览"
+    else:
+        available_names = {
+            (item.customer_company or item.customer_name or "").strip().casefold()
+            for item in session.exec(
+                select(User).where(User.role == "customer", User.is_active == True)  # noqa: E712
+            ).all()
+            if (item.customer_company or item.customer_name or "").strip()
+        }
+        source_label = "有效客户账号"
+    if expected_name.casefold() not in available_names:
+        raise HTTPException(status_code=422, detail=f"所选名称不存在于{source_label}数据源")
+
+
+def _find_cost_project(session, project_type: str, project_key: str) -> Optional[DeliveryCostProject]:
+    return next(
+        (
+            item
+            for item in session.exec(
+                select(DeliveryCostProject).where(DeliveryCostProject.project_type == project_type)
+            ).all()
+            if item.project_key.casefold() == project_key.casefold()
+        ),
+        None,
+    )
+
+
+def _get_or_create_cost_project(
+    session,
+    project_type: str,
+    project_name: str,
+    customer_name: str,
+) -> DeliveryCostProject:
+    project_name, customer_name = _cost_project_identity(project_type, project_name, customer_name)
+    project_key = project_name or customer_name
+    project = _find_cost_project(session, project_type, project_key)
+    if project is None:
+        project = DeliveryCostProject(
+            project_type=project_type,
+            project_key=project_key,
+            project_name=project_name,
+            customer_name=customer_name,
+        )
+        session.add(project)
+        session.flush()
+    return project
+
+
+def _ensure_delivery_cost_row(session, project_type: str, project_name: str, customer_name: str) -> DeliveryCostProject:
+    project = _get_or_create_cost_project(session, project_type, project_name, customer_name)
+    delivery = session.exec(select(DeliveryCost).where(DeliveryCost.project_id == project.id)).first()
+    if delivery is None:
+        session.add(DeliveryCost(project_id=project.id))
+        session.flush()
+    return project
+
+
+def _is_onsite_support(support_type: str) -> bool:
+    return "现场" in (support_type or "")
+
+
+def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
+    entry = session.exec(
+        select(AfterSalesCostEntry).where(AfterSalesCostEntry.after_sales_log_id == log.id)
+    ).first()
+    if not _is_onsite_support(log.support_type):
+        if entry is not None:
+            session.delete(entry)
+        return
+
+    project_type = log.product_model.strip().upper()
+    if project_type not in {"418", "250", "100C"}:
+        return
+    project_name = log.project_name.strip() if project_type == "418" else ""
+    customer_name = (log.customer_company or log.customer or "").strip() if project_type != "418" else ""
+    if not project_name and not customer_name:
+        return
+
+    project = _get_or_create_cost_project(session, project_type, project_name, customer_name)
+    if entry is None:
+        entry = AfterSalesCostEntry(
+            project_id=project.id,
+            event_date=log.event_date,
+            reference=f"售后记录 #{log.id}",
+            travel_cost=0,
+            labor_cost=0,
+            tool_cost=0,
+            hardware_cost=0,
+            import_batch_id=f"auto-{log.id}",
+            source_row=0,
+            after_sales_log_id=log.id,
+        )
+    else:
+        entry.project_id = project.id
+        entry.event_date = log.event_date
+    session.add(entry)
+
+
+def ensure_after_sales_costs() -> None:
+    with get_session() as session:
+        logs = session.exec(select(AfterSalesLog)).all()
+        for log in logs:
+            if _is_onsite_support(log.support_type):
+                _sync_after_sales_cost_log(session, log)
+        session.commit()
+
+
+def _cost_project_response(project, delivery, entries) -> Dict[str, object]:
+    return {
+        "id": project.id,
+        "project_type": project.project_type,
+        "project_name": project.project_name,
+        "customer_name": project.customer_name,
+        "delivery": delivery,
+        "after_sales": {
+            "trip_count": len(entries),
+            "travel_cost": round(sum(item.travel_cost for item in entries), 2),
+            "labor_cost": round(sum(item.labor_cost for item in entries), 2),
+            "tool_cost": round(sum(item.tool_cost for item in entries), 2),
+            "hardware_cost": round(sum(item.hardware_cost for item in entries), 2),
+        },
+        "entries": entries,
+    }
+
+
+@app.get("/api/delivery-costs/projects")
+def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        grid_projects = session.exec(select(GridScaleProject)).all()
+        for source_project in grid_projects:
+            name = source_project.project_name.strip()
+            if name:
+                _ensure_delivery_cost_row(session, "418", name, "")
+        customers = session.exec(
+            select(User).where(User.role == "customer", User.is_active == True)  # noqa: E712
+        ).all()
+        customer_names = {
+            (user.customer_company or user.customer_name or "").strip()
+            for user in customers
+        }
+        for company in customer_names:
+            if company:
+                for project_type in ("250", "100C"):
+                    _ensure_delivery_cost_row(session, project_type, "", company)
+        session.flush()
+
+        projects = session.exec(select(DeliveryCostProject).order_by(DeliveryCostProject.project_type, DeliveryCostProject.project_key)).all()
+        deliveries = {item.project_id: item for item in session.exec(select(DeliveryCost)).all()}
+        entries = session.exec(select(AfterSalesCostEntry).order_by(AfterSalesCostEntry.event_date.desc(), AfterSalesCostEntry.id.desc())).all()
+        entries_by_project = defaultdict(list)
+        for item in entries:
+            entries_by_project[item.project_id].append(item)
+        customer_by_project = {
+            item.project_name.strip().casefold(): (item.customer_company or item.partner_name or "").strip()
+            for item in grid_projects
+            if item.project_name.strip()
+        }
+        items = []
+        for project in projects:
+            item = _cost_project_response(project, deliveries.get(project.id), entries_by_project[project.id])
+            if project.project_type == "418":
+                item["customer_name"] = customer_by_project.get(project.project_key.casefold(), project.customer_name)
+            items.append(item)
+        session.commit()
+        project_order = {"418": 0, "250": 1, "100C": 2}
+        items.sort(key=lambda item: (project_order.get(item["project_type"], 9), (item["project_name"] or item["customer_name"]).casefold()))
+    return {"items": items}
+
+
+@app.get("/api/delivery-costs/assumptions")
+def list_cost_assumptions(_: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        items = session.exec(select(CostAssumption).order_by(CostAssumption.name.asc())).all()
+    return {"items": items}
+
+
+@app.post("/api/delivery-costs/assumptions")
+def create_cost_assumption(
+    payload: CostAssumptionPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="成本假设名称不能为空")
+    with get_session() as session:
+        duplicate = session.exec(select(CostAssumption).where(CostAssumption.name == name)).first()
+        if duplicate is not None:
+            raise HTTPException(status_code=409, detail="该成本假设名称已存在")
+        item = CostAssumption(name=name, default_amount=payload.default_amount, description=payload.description.strip())
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/delivery-costs/assumptions/{assumption_id}")
+def update_cost_assumption(
+    assumption_id: int,
+    payload: CostAssumptionUpdatePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(CostAssumption, assumption_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="成本假设不存在")
+        data = payload.model_dump(exclude_unset=True, exclude_none=True)
+        if "name" in data:
+            data["name"] = data["name"].strip()
+            duplicate = session.exec(select(CostAssumption).where(CostAssumption.name == data["name"], CostAssumption.id != assumption_id)).first()
+            if duplicate is not None:
+                raise HTTPException(status_code=409, detail="该成本假设名称已存在")
+            if not data["name"]:
+                raise HTTPException(status_code=422, detail="成本假设名称不能为空")
+        if "description" in data:
+            data["description"] = data["description"].strip()
+        for key, value in data.items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/delivery-costs/assumptions/{assumption_id}")
+def delete_cost_assumption(
+    assumption_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(CostAssumption, assumption_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="成本假设不存在")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
+
+
+@app.put("/api/delivery-costs/delivery/{delivery_id}")
+def update_delivery_cost(delivery_id: int, payload: DeliveryCostPayload, _: User = Depends(require_write_access)) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(DeliveryCost, delivery_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="交付成本记录不存在")
+        project_name, customer_name = _cost_project_identity(payload.project_type, payload.project_name, payload.customer_name)
+        _validate_cost_project_source(session, payload.project_type, project_name, customer_name)
+        target = _find_cost_project(session, payload.project_type, project_name or customer_name)
+        if target is not None and target.id != item.project_id:
+            duplicate = session.exec(select(DeliveryCost).where(DeliveryCost.project_id == target.id)).first()
+            if duplicate is not None:
+                raise HTTPException(status_code=409, detail="目标项目/客户已有交付成本记录")
+        target = _get_or_create_cost_project(session, payload.project_type, project_name, customer_name)
+        target.project_name = project_name
+        target.customer_name = customer_name
+        item.project_id = target.id
+        for key, value in payload.model_dump(exclude={"project_type", "project_name", "customer_name"}).items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/delivery-costs/after-sales/{entry_id}")
+def delete_after_sales_cost_entry(entry_id: int, _: User = Depends(require_write_access)) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(AfterSalesCostEntry, entry_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="售后成本明细不存在")
+        if item.after_sales_log_id is not None:
+            raise HTTPException(status_code=409, detail="自动关联明细需通过售后交付记录管理")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
+
+
+@app.put("/api/delivery-costs/after-sales/{entry_id}")
+def update_after_sales_cost_entry(
+    entry_id: int,
+    payload: AfterSalesCostEntryUpdatePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(AfterSalesCostEntry, entry_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="售后成本明细不存在")
+        for key, value in payload.model_dump(exclude_unset=True, exclude_none=True).items():
+            setattr(item, key, value)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+def _save_cost_note(session, item, payload: CostNotePayload) -> Dict[str, object]:
+    setattr(item, payload.field, payload.note.strip())
+    if isinstance(item, DeliveryCost):
+        item.updated_at = datetime.utcnow()
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return {"item": item}
+
+
+@app.put("/api/delivery-costs/delivery/{delivery_id}/notes")
+def update_delivery_cost_note(
+    delivery_id: int,
+    payload: CostNotePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(DeliveryCost, delivery_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="交付成本记录不存在")
+        return _save_cost_note(session, item, payload)
+
+
+@app.put("/api/delivery-costs/after-sales/{entry_id}/notes")
+def update_after_sales_cost_note(
+    entry_id: int,
+    payload: CostNotePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(AfterSalesCostEntry, entry_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="售后成本明细不存在")
+        return _save_cost_note(session, item, payload)
+
+
 @app.get("/api/after-sales/logs/export")
 def export_after_sales_logs(user: User = Depends(require_staff)):
     with get_session() as session:
         rows = session.exec(select(AfterSalesLog).order_by(AfterSalesLog.event_date.asc())).all()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "Country", "Customer", "Project", "Model", "Serial Number", "Support", "Category", "Component", "Fault Description", "On-site Solution", "Status", "Follow-up", "R&D Contact", "Created By"])
+    writer.writerow(["售后记录ID", "Date", "Country", "Customer", "Project", "Model", "Serial Number", "Support", "Category", "Component", "Fault Description", "On-site Solution", "Status", "Follow-up", "R&D Contact", "Created By"])
     for row in rows:
-        writer.writerow([row.event_date, row.country, row.customer_company or row.customer, row.project_name, row.product_model, row.serial_number or "", row.support_type, row.issue_category, row.fault_component or row.faulty_component, row.fault_description, row.onsite_solution, row.status, row.pending_reason, row.rd_contact or "", row.created_by])
+        writer.writerow([row.id, row.event_date, row.country, row.customer_company or row.customer, row.project_name, row.product_model, row.serial_number or "", row.support_type, row.issue_category, row.fault_component or row.faulty_component, row.fault_description, row.onsite_solution, row.status, row.pending_reason, row.rd_contact or "", row.created_by])
     return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=after-sales-logs.csv"})
 
 
@@ -2461,6 +2886,8 @@ def create_grid_scale_project(payload: GridScaleProjectUpsert, _: User = Depends
         existing_ids = [project.id or 0 for project in session.exec(select(GridScaleProject)).all()]
         item = GridScaleProject(id=max(existing_ids, default=0) + 1, **payload.model_dump())
         session.add(item)
+        session.flush()
+        _ensure_delivery_cost_row(session, "418", item.project_name.strip(), "")
         session.commit()
         session.refresh(item)
         return {"message": "created", "item": item}
@@ -2503,6 +2930,8 @@ def update_grid_scale_project(project_id: int, payload: GridScaleProjectUpsert, 
                 transaction.related_project = next_project_name
                 session.add(transaction)
         session.add(item)
+        session.flush()
+        _ensure_delivery_cost_row(session, "418", item.project_name.strip(), "")
         session.commit()
         session.refresh(item)
         return {"message": "updated", "item": item}
@@ -2696,6 +3125,10 @@ def create_ci_delivery(payload: CiDeliveryCreateUpdate, _: User = Depends(requir
             raise HTTPException(status_code=409, detail="Dealer already exists")
         item = CiDealerDelivery(**payload.model_dump(exclude={"customer_company"}), customer_company=(payload.customer_company or payload.dealer_name).strip())
         session.add(item)
+        session.flush()
+        company = (item.customer_company or item.dealer_name).strip()
+        for project_type in ("250", "100C"):
+            _ensure_delivery_cost_row(session, project_type, "", company)
         session.commit()
         session.refresh(item)
         return {"message": "created", "item": item}
@@ -2710,6 +3143,10 @@ def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate, _: User = De
         item.region = payload.region
         item.customer_company = (payload.customer_company or payload.dealer_name).strip()
         session.add(item)
+        session.flush()
+        company = (item.customer_company or item.dealer_name).strip()
+        for project_type in ("250", "100C"):
+            _ensure_delivery_cost_row(session, project_type, "", company)
         session.commit()
         session.refresh(item)
         return {"message": "updated", "item": item}

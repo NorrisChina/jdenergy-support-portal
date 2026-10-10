@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +25,74 @@ from .models.portal import DiagnosticExportTable, VpnExportTask, VpnSite
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 EXPORT_DIR = BACKEND_ROOT / "uploads" / "vpn_exports"
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+_export_runtime_lock = threading.Lock()
+_export_runtime: Dict[int, Dict[str, object]] = {}
+
+
+def _runtime_for_task(task_id: int) -> Dict[str, object]:
+    with _export_runtime_lock:
+        runtime = _export_runtime.get(task_id)
+        if runtime is None:
+            runtime = {"cancel": threading.Event(), "client": None, "pid": None}
+            _export_runtime[task_id] = runtime
+        return runtime
+
+
+def request_export_cancel(task_id: int) -> None:
+    runtime = _runtime_for_task(task_id)
+    cancel_event = runtime["cancel"]
+    cancel_event.set()
+    client = runtime.get("client")
+    pid = runtime.get("pid")
+    if client is not None and pid:
+        remote_dir = f"/tmp/jd-vpn-export-{task_id}"
+        command = (
+            f"kill -TERM {int(pid)} 2>/dev/null || true; "
+            f"pkill -TERM -P {int(pid)} 2>/dev/null || true; "
+            f"rm -rf {shlex.quote(remote_dir)}"
+        )
+        try:
+            client.exec_command(command, timeout=5)
+        except Exception:
+            pass
+
+
+def _update_export_task(
+    task_id: int,
+    *,
+    progress: Optional[int] = None,
+    log: Optional[str] = None,
+    append_log: bool = True,
+    status: Optional[str] = None,
+    error_message: Optional[str] = None,
+    file_name: Optional[str] = None,
+    file_path: Optional[str] = None,
+) -> Optional[str]:
+    with get_session() as session:
+        task = session.get(VpnExportTask, task_id)
+        if task is None:
+            return None
+        if task.status != "processing":
+            return task.status
+        if progress is not None:
+            task.progress = max(0, min(100, progress))
+        if log is not None:
+            task.current_log = (
+                f"{task.current_log}\n{log}" if append_log and task.current_log else log
+            )[-12000:]
+        if status is not None:
+            task.status = status
+            task.completed_at = datetime.utcnow()
+        if error_message is not None:
+            task.error_message = error_message[:1000]
+        if file_name is not None:
+            task.file_name = file_name
+        if file_path is not None:
+            task.file_path = file_path
+        session.add(task)
+        session.commit()
+        return task.status
 
 
 class VpnConfigurationError(RuntimeError):
@@ -281,10 +350,14 @@ def run_export_task(task_id: int) -> None:
     jump_client: Optional[paramiko.SSHClient] = None
     site_client: Optional[paramiko.SSHClient] = None
     remote_dir = f"/tmp/jd-vpn-export-{task_id}"
+    runtime = _runtime_for_task(task_id)
+    cancel_event = runtime["cancel"]
     try:
         with get_session() as session:
             task = session.get(VpnExportTask, task_id)
             if task is None:
+                return
+            if task.status != "processing":
                 return
             site = session.get(VpnSite, task.site_id)
             if site is None:
@@ -305,37 +378,102 @@ def run_export_task(task_id: int) -> None:
         task = VpnExportTask(**task_data)
         site = VpnSite(**site_data)
         settings = ssh_settings()
+        _update_export_task(task_id, progress=2, log="正在连接现场目标机器…", append_log=False)
         jump_client, site_client = connect_site(site)
-        command, remote_files = build_export_command(
-            export_tables,
-            task.eblock_id,
-            task.start_time,
-            task.end_time,
-            remote_dir,
-            str(settings["tdengine_username"]),
-            str(settings["tdengine_password"]),
-        )
-        _, stdout, stderr = site_client.exec_command(command, timeout=1800)
-        exit_code = stdout.channel.recv_exit_status()
-        error_output = stderr.read().decode("utf-8", errors="replace").strip()
-        if exit_code != 0:
-            raise RuntimeError(error_output or f"Remote export command exited with code {exit_code}")
+        runtime["client"] = site_client
+        if cancel_event.is_set():
+            raise InterruptedError("任务已取消")
+
+        remote_files: Dict[str, str] = {}
+        site_client.exec_command(f"mkdir -p {shlex.quote(remote_dir)}", timeout=15)
+        total_tables = len(export_tables)
+        for index, table in enumerate(export_tables, start=1):
+            if cancel_event.is_set():
+                raise InterruptedError("任务已取消")
+            remote_path = f"{remote_dir}/{table.sheet_name}.csv"
+            error_path = f"{remote_path}.err"
+            remote_files[table.sheet_name] = remote_path
+            sql = sql_for_table(table, task.eblock_id, task.start_time, task.end_time)
+            taos_command = " ".join(
+                [
+                    "exec taos",
+                    f"-u{shlex.quote(str(settings['tdengine_username']))}",
+                    f"-p{shlex.quote(str(settings['tdengine_password']))}",
+                    "-s",
+                    shlex.quote(sql),
+                    ">",
+                    shlex.quote(remote_path),
+                    "2>",
+                    shlex.quote(error_path),
+                ]
+            )
+            launch_command = (
+                f"nohup sh -c {shlex.quote(taos_command)} "
+                f">/dev/null 2>&1 </dev/null & echo $!"
+            )
+            _update_export_task(
+                task_id,
+                progress=5 + int((index - 1) * 75 / total_tables),
+                log=f"[{index}/{total_tables}] 正在导出 {table.table_name}…",
+            )
+            _, pid_stdout, _ = site_client.exec_command(launch_command, timeout=15)
+            pid_text = pid_stdout.read().decode("utf-8", errors="replace").strip()
+            if not pid_text.isdigit():
+                raise RuntimeError(f"无法启动 {table.table_name} 导出进程")
+            process_id = int(pid_text)
+            runtime["pid"] = process_id
+            while True:
+                if cancel_event.is_set():
+                    request_export_cancel(task_id)
+                    raise InterruptedError("任务已取消")
+                _, check_stdout, _ = site_client.exec_command(
+                    f"kill -0 {process_id} 2>/dev/null", timeout=10
+                )
+                process_running = check_stdout.channel.recv_exit_status() == 0
+                if not process_running:
+                    break
+                cancel_event.wait(0.5)
+            runtime["pid"] = None
+            _, result_stdout, _ = site_client.exec_command(
+                f"if test -s {shlex.quote(error_path)}; then cat {shlex.quote(error_path)}; exit 1; fi; "
+                f"test -f {shlex.quote(remote_path)}",
+                timeout=15,
+            )
+            result_output = result_stdout.read().decode("utf-8", errors="replace").strip()
+            if result_stdout.channel.recv_exit_status() != 0:
+                raise RuntimeError(result_output or f"{table.table_name} 导出失败")
+            completed_progress = 5 + int(index * 75 / total_tables)
+            _update_export_task(
+                task_id,
+                progress=completed_progress,
+                log=f"[{index}/{total_tables}] {table.table_name} 导出完成，进度 {completed_progress}%",
+            )
 
         stamp = task.created_at.strftime("%Y%m%d-%H%M%S")
         safe_site_name = safe_export_name(task.site_name)
         archive_name = f"{safe_site_name}-{stamp}.zip"
         archive_path = EXPORT_DIR / archive_name
+        _update_export_task(task_id, progress=82, log="正在下载 CSV 并生成 Excel…")
         with tempfile.TemporaryDirectory(prefix=f"vpn-export-{task_id}-") as temp_dir_name:
             temp_dir = Path(temp_dir_name)
             local_csv_files: Dict[str, Path] = {}
             sftp = site_client.open_sftp()
             try:
-                for table, remote_path in remote_files.items():
+                for index, (table, remote_path) in enumerate(remote_files.items(), start=1):
+                    if cancel_event.is_set():
+                        raise InterruptedError("任务已取消")
                     local_path = temp_dir / f"{table}.csv"
                     sftp.get(remote_path, str(local_path))
                     local_csv_files[table] = local_path
+                    _update_export_task(
+                        task_id,
+                        progress=82 + int(index * 10 / max(1, len(remote_files))),
+                        log=f"已下载 {table} ({index}/{len(remote_files)})",
+                    )
             finally:
                 sftp.close()
+            if cancel_event.is_set():
+                raise InterruptedError("任务已取消")
             workbook_path = temp_dir / f"{safe_site_name}-{stamp}.xlsx"
             build_workbook(local_csv_files, workbook_path)
             with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -344,29 +482,51 @@ def run_export_task(task_id: int) -> None:
                 archive.write(workbook_path, arcname=workbook_path.name)
 
         site_client.exec_command(f"rm -rf {shlex.quote(remote_dir)}")
-        with get_session() as session:
-            stored_task = session.get(VpnExportTask, task_id)
-            if stored_task is not None:
-                stored_task.status = "completed"
-                stored_task.file_name = archive_name
-                stored_task.file_path = str(archive_path)
-                stored_task.completed_at = datetime.utcnow()
-                session.add(stored_task)
-                session.commit()
+        if cancel_event.is_set():
+            archive_path.unlink(missing_ok=True)
+            raise InterruptedError("任务已取消")
+        final_status = _update_export_task(
+            task_id,
+            status="completed",
+            progress=100,
+            log="导出完成，可下载文件。",
+            file_name=archive_name,
+            file_path=str(archive_path),
+        )
+        if final_status == "canceled":
+            archive_path.unlink(missing_ok=True)
+    except InterruptedError:
+        if site_client is not None:
+            try:
+                site_client.exec_command(f"rm -rf {shlex.quote(remote_dir)}", timeout=5)
+            except Exception:
+                pass
+        _update_export_task(task_id, log="任务已取消，临时文件已清理。", status="canceled")
     except Exception as exc:
-        with get_session() as session:
-            stored_task = session.get(VpnExportTask, task_id)
-            if stored_task is not None:
-                stored_task.status = "failed"
-                stored_task.error_message = str(exc)[:1000]
-                stored_task.completed_at = datetime.utcnow()
-                session.add(stored_task)
-                session.commit()
+        if site_client is not None:
+            try:
+                site_client.exec_command(f"rm -rf {shlex.quote(remote_dir)}", timeout=5)
+            except Exception:
+                pass
+        current_status = _update_export_task(
+            task_id,
+            status="failed",
+            progress=0,
+            log=f"导出失败：{exc}",
+            error_message=str(exc),
+        )
+        if current_status == "canceled":
+            _update_export_task(task_id, log="任务已取消，临时文件已清理。")
     finally:
         if site_client is not None:
             site_client.close()
         if jump_client is not None:
             jump_client.close()
+        runtime["client"] = None
+        runtime["pid"] = None
+        with _export_runtime_lock:
+            if _export_runtime.get(task_id) is runtime:
+                _export_runtime.pop(task_id, None)
 
 
 def open_terminal_channel(site: Optional[VpnSite], cols: int = 120, rows: int = 32):

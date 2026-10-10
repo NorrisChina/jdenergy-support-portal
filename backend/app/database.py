@@ -40,6 +40,11 @@ VPN_SITE_COLUMN_MIGRATIONS = {
     "stormshield_password": "TEXT NOT NULL DEFAULT ''",
 }
 
+VPN_EXPORT_TASK_COLUMN_MIGRATIONS = {
+    "progress": "INTEGER NOT NULL DEFAULT 0",
+    "current_log": "TEXT NOT NULL DEFAULT ''",
+}
+
 
 def upgrade_users_schema() -> None:
     if engine.dialect.name != "sqlite":
@@ -75,10 +80,51 @@ def upgrade_vpn_sites_schema() -> None:
             logger.info("Added missing vpn_sites.%s column.", column)
 
 
+def upgrade_vpn_export_tasks_schema() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        existing_columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(vpn_export_tasks)"))
+        }
+        for column, definition in VPN_EXPORT_TASK_COLUMN_MIGRATIONS.items():
+            if column in existing_columns:
+                continue
+            connection.execute(
+                text(f'ALTER TABLE vpn_export_tasks ADD COLUMN "{column}" {definition}')
+            )
+            logger.info("Added missing vpn_export_tasks.%s column.", column)
+
+
+def upgrade_delivery_cost_schema() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        for table in ("delivery_costs", "after_sales_cost_entries"):
+            existing_columns = {
+                row[1] for row in connection.execute(text(f'PRAGMA table_info("{table}")'))
+            }
+            if "hardware_cost" not in existing_columns:
+                connection.execute(
+                    text(f'ALTER TABLE "{table}" ADD COLUMN hardware_cost REAL NOT NULL DEFAULT 0')
+                )
+                logger.info("Added %s.hardware_cost column.", table)
+            for column in ("travel_cost_note", "labor_cost_note", "tool_cost_note", "hardware_cost_note"):
+                if column not in existing_columns:
+                    connection.execute(
+                        text(f'ALTER TABLE "{table}" ADD COLUMN "{column}" TEXT NOT NULL DEFAULT \'\'')
+                    )
+                    logger.info("Added %s.%s column.", table, column)
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     upgrade_users_schema()
     upgrade_vpn_sites_schema()
+    upgrade_vpn_export_tasks_schema()
+    upgrade_delivery_cost_schema()
     # create_all does not add columns to an existing SQLite database.
     with engine.begin() as connection:
         for table, column in (("gridscaleproject", "customer_id"), ("gridscaleproject", "partner_name"), ("gridscaleproject", "customer_company"), ("gridscaleproject", "software_version"), ("cidealerdelivery", "customer_id"), ("cidealerdelivery", "customer_company"), ("customer_tickets", "resolved_at"), ("customer_tickets", "expected_date"), ("customer_tickets", "customer_company"), ("customer_tickets", "serial_number"), ("after_sales_logs", "customer_company"), ("after_sales_logs", "fault_component"), ("after_sales_logs", "serial_number"), ("after_sales_logs", "rd_contact"), ("logistics_shipments", "remarks"), ("logistics_shipments", "created_date"), ("logistics_shipments", "specific_module"), ("logistics_shipments", "stage")):

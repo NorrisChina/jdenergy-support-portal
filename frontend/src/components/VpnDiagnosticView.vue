@@ -77,9 +77,18 @@
                   <p class="truncate text-xs font-semibold text-slate-800">{{ task.file_name || `${task.site_name} #${task.id}` }}</p>
                   <p class="mt-1 text-[11px] text-slate-500">{{ formatDate(task.created_at) }}</p>
                 </div>
-                <span class="rounded-full px-2 py-1 text-[10px] font-semibold" :class="statusClass(task.status)">{{ statusLabel(task.status) }}</span>
+                <div class="flex shrink-0 items-center gap-2">
+                  <span class="rounded-full px-2 py-1 text-[10px] font-semibold" :class="statusClass(task.status)">{{ statusLabel(task.status) }}</span>
+                  <button v-if="task.status === 'processing'" type="button" class="rounded border border-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50" :disabled="cancelingTaskId === task.id" @click="cancelExportTask(task)">{{ cancelingTaskId === task.id ? copy.cancelingTask : copy.cancelTask }}</button>
+                </div>
               </div>
               <p class="mt-2 text-[11px] leading-5 text-slate-500">{{ formatDate(task.start_time) }}<br />{{ formatDate(task.end_time) }}</p>
+              <div v-if="task.status === 'processing' || task.status === 'completed'" class="mt-3">
+                <div class="mb-1 flex items-center justify-between text-[10px] text-slate-500"><span>{{ copy.progress }}</span><span>{{ task.progress || 0 }}%</span></div>
+                <div class="h-1.5 overflow-hidden rounded-full bg-slate-200"><div class="h-full rounded-full bg-sky-600 transition-[width] duration-500" :style="{ width: `${task.progress || 0}%` }"></div></div>
+              </div>
+              <button v-if="task.status === 'processing'" type="button" class="mt-2 text-[11px] font-semibold text-sky-700 hover:text-sky-900" @click="expandedTaskId = expandedTaskId === task.id ? null : task.id">{{ expandedTaskId === task.id ? copy.hideLogs : copy.viewLogs }}</button>
+              <pre v-if="expandedTaskId === task.id" class="mt-2 max-h-36 overflow-auto whitespace-pre-wrap rounded bg-slate-950 p-2 font-mono text-[10px] leading-4 text-emerald-300">{{ task.current_log || copy.waitingLog }}</pre>
               <p v-if="task.error_message" class="mt-2 line-clamp-2 text-[11px] text-rose-600" :title="task.error_message">{{ task.error_message }}</p>
               <button v-if="task.status === 'completed'" type="button" class="mt-2 text-xs font-semibold text-sky-700 hover:text-sky-900" @click="downloadTask(task)">{{ copy.download }}</button>
             </article>
@@ -240,9 +249,9 @@ const props = defineProps({
 })
 
 const copy = computed(() => props.locale === 'en-US' ? {
-  title: 'VPN Remote Diagnostics & Time-Series Export', subtitle: 'Secure dual-hop terminal and automated TDengine exports.', siteManagement: 'Sites', newSite: 'New site', selectSite: 'Select a diagnostic site', unbound: 'Unbound customer', edit: 'Edit', connectSite: 'Connect site', exportPanel: 'TDengine export task', startTime: 'Start time', endTime: 'End time', tables: 'Export tables', selectAll: 'Select all', clearAll: 'Clear', manageTables: 'Manage tables', tableManager: 'Diagnostic export tables', newTable: 'New table', editTable: 'Edit table', tableName: 'Full table name', sheetName: 'Excel Sheet name', extraWhere: 'Extra WHERE condition', sortOrder: 'Sort order', hasEblock: 'Filter by eBlock ID', defaultEnabled: 'Selected by default', enabled: 'Enabled', disabled: 'Disabled', noEblock: 'No eBlock filter', runExport: 'Run and export', submitting: 'Submitting...', history: 'Export history', refresh: 'Refresh', download: 'Download Excel / ZIP', noHistory: 'No export history', jumpHost: 'Jump host', siteEditor: 'Site settings', siteName: 'Site name', customer: 'Customer', close: 'Close', delete: 'Delete', cancel: 'Cancel', save: 'Save', processing: 'Processing', completed: 'Completed', failed: 'Failed', disconnected: 'Disconnected', connecting: 'Connecting', connected: 'Connected', confirmDelete: 'Delete this site?', confirmTableDelete: 'Delete this export table?'
+  title: 'VPN Remote Diagnostics & Time-Series Export', subtitle: 'Secure dual-hop terminal and automated TDengine exports.', siteManagement: 'Sites', newSite: 'New site', selectSite: 'Select a diagnostic site', unbound: 'Unbound customer', edit: 'Edit', connectSite: 'Connect site', exportPanel: 'TDengine export task', startTime: 'Start time', endTime: 'End time', tables: 'Export tables', selectAll: 'Select all', clearAll: 'Clear', manageTables: 'Manage tables', tableManager: 'Diagnostic export tables', newTable: 'New table', editTable: 'Edit table', tableName: 'Full table name', sheetName: 'Excel Sheet name', extraWhere: 'Extra WHERE condition', sortOrder: 'Sort order', hasEblock: 'Filter by eBlock ID', defaultEnabled: 'Selected by default', enabled: 'Enabled', disabled: 'Disabled', noEblock: 'No eBlock filter', runExport: 'Run and export', submitting: 'Submitting...', history: 'Export history', refresh: 'Refresh', download: 'Download Excel / ZIP', noHistory: 'No export history', jumpHost: 'Jump host', siteEditor: 'Site settings', siteName: 'Site name', customer: 'Customer', close: 'Close', delete: 'Delete', cancel: 'Cancel', save: 'Save', processing: 'Processing', completed: 'Completed', failed: 'Failed', canceled: 'Canceled', progress: 'Progress', viewLogs: 'View logs / progress', hideLogs: 'Hide logs', waitingLog: 'Waiting for export logs…', cancelTask: 'Cancel task', cancelingTask: 'Stopping…', confirmCancelTask: 'Are you sure you want to stop this export task?', disconnected: 'Disconnected', connecting: 'Connecting', connected: 'Connected', confirmDelete: 'Delete this site?', confirmTableDelete: 'Delete this export table?'
 } : {
-  title: 'VPN 远程诊断与时序数据导出', subtitle: '双层 SSH 实时终端与 TDengine 无交互自动化取数。', siteManagement: '站点管理', newSite: '新建站点', selectSite: '选择当前调试站点', unbound: '未绑定客户', edit: '编辑', connectSite: '连接站点', exportPanel: 'TDengine 数据导出任务', startTime: '开始时间', endTime: '结束时间', tables: '选择导出表', selectAll: '全选', clearAll: '清空', manageTables: '管理表配置', tableManager: '诊断导出表配置', newTable: '新增表', editTable: '编辑表', tableName: '完整表名', sheetName: 'Excel Sheet 名称', extraWhere: '额外 WHERE 条件', sortOrder: '排序序号', hasEblock: '包含 eBlock ID 过滤', defaultEnabled: '默认勾选', enabled: '已启用', disabled: '未启用', noEblock: '无 eBlock 过滤', runExport: '一键执行并导出数据', submitting: '提交中...', history: '文件下载列表', refresh: '刷新', download: '下载 Excel / ZIP', noHistory: '暂无导出任务', jumpHost: '返回跳板机', siteEditor: '站点配置', siteName: '站点名称', customer: '绑定客户', close: '关闭', delete: '删除', cancel: '取消', save: '保存', processing: '处理中', completed: '已完成', failed: '失败', disconnected: '未连接', connecting: '连接中', connected: '已连接', confirmDelete: '确认删除该站点吗？', confirmTableDelete: '确认删除该导出表吗？'
+  title: 'VPN 远程诊断与时序数据导出', subtitle: '双层 SSH 实时终端与 TDengine 无交互自动化取数。', siteManagement: '站点管理', newSite: '新建站点', selectSite: '选择当前调试站点', unbound: '未绑定客户', edit: '编辑', connectSite: '连接站点', exportPanel: 'TDengine 数据导出任务', startTime: '开始时间', endTime: '结束时间', tables: '选择导出表', selectAll: '全选', clearAll: '清空', manageTables: '管理表配置', tableManager: '诊断导出表配置', newTable: '新增表', editTable: '编辑表', tableName: '完整表名', sheetName: 'Excel Sheet 名称', extraWhere: '额外 WHERE 条件', sortOrder: '排序序号', hasEblock: '包含 eBlock ID 过滤', defaultEnabled: '默认勾选', enabled: '已启用', disabled: '未启用', noEblock: '无 eBlock 过滤', runExport: '一键执行并导出数据', submitting: '提交中...', history: '文件下载列表', refresh: '刷新', download: '下载 Excel / ZIP', noHistory: '暂无导出任务', jumpHost: '返回跳板机', siteEditor: '站点配置', siteName: '站点名称', customer: '绑定客户', close: '关闭', delete: '删除', cancel: '取消', save: '保存', processing: '处理中', completed: '已完成', failed: '失败', canceled: '已终止', progress: '导出进度', viewLogs: '查看日志 / 进度', hideLogs: '收起日志', waitingLog: '等待导出日志…', cancelTask: '中断任务', cancelingTask: '正在终止…', confirmCancelTask: '确认要终止当前的导出任务吗？', disconnected: '未连接', connecting: '连接中', connected: '已连接', confirmDelete: '确认删除该站点吗？', confirmTableDelete: '确认删除该导出表吗？'
 })
 const siteCopy = computed(() => props.locale === 'en-US' ? {
   target: 'Target machine', siteNameExample: '75MWh_Crescom(31-46)', targetIp: 'Private target IP', targetPort: 'SSH port', targetUser: 'Target username', targetPassword: 'Target password',
@@ -258,6 +267,8 @@ const exportTables = ref([])
 const sites = ref([])
 const customerOptions = ref([])
 const tasks = ref([])
+const expandedTaskId = ref(null)
+const cancelingTaskId = ref(null)
 const selectedSiteId = ref('')
 const siteEditorOpen = ref(false)
 const tableManagerOpen = ref(false)
@@ -411,6 +422,26 @@ async function downloadTask(task) {
   await portalApi.downloadVpnExport(task.id, task.file_name)
 }
 
+async function cancelExportTask(task) {
+  if (!window.confirm(copy.value.confirmCancelTask)) return
+  cancelingTaskId.value = task.id
+  const previousTask = { ...task }
+  Object.assign(task, {
+    status: 'canceled',
+    error_message: '由用户请求终止导出',
+    current_log: `${task.current_log || ''}\n正在终止任务并清理临时文件…`.trim(),
+  })
+  try {
+    await portalApi.cancelVpnExportTask(task.id)
+    await loadTasks()
+  } catch (error) {
+    Object.assign(task, previousTask)
+    window.alert(error.message)
+  } finally {
+    cancelingTaskId.value = null
+  }
+}
+
 function formatDate(value) {
   return value ? new Date(value).toLocaleString(props.locale) : '-'
 }
@@ -422,6 +453,7 @@ function statusLabel(status) {
 function statusClass(status) {
   if (status === 'completed') return 'bg-emerald-50 text-emerald-700'
   if (status === 'failed') return 'bg-rose-50 text-rose-700'
+  if (status === 'canceled') return 'bg-slate-100 text-slate-600'
   return 'bg-amber-50 text-amber-700'
 }
 
@@ -478,7 +510,7 @@ onMounted(async () => {
   resizeObserver.observe(terminalElement.value)
   await Promise.all([loadSites(), loadTasks(), loadDiagnosticTables(true)])
   await connectTerminal(null)
-  taskTimer = window.setInterval(() => { if (tasks.value.some((task) => task.status === 'processing')) loadTasks() }, 4000)
+  taskTimer = window.setInterval(() => { if (tasks.value.some((task) => task.status === 'processing')) loadTasks() }, 1500)
 })
 
 onUnmounted(() => {

@@ -84,6 +84,36 @@ export const portalApi = {
   deleteEmpowermentRecord(id) {
     return requestJson(`/api/empowerment/records/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
   },
+  listDeliveryCostProjects() {
+    return requestJson('/api/delivery-costs/projects', { headers: authHeaders() })
+  },
+  listCostAssumptions() {
+    return requestJson('/api/delivery-costs/assumptions', { headers: authHeaders() })
+  },
+  createCostAssumption(payload) {
+    return requestJson('/api/delivery-costs/assumptions', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateCostAssumption(id, payload) {
+    return requestJson(`/api/delivery-costs/assumptions/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteCostAssumption(id) {
+    return requestJson(`/api/delivery-costs/assumptions/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  updateDeliveryCost(id, payload) {
+    return requestJson(`/api/delivery-costs/delivery/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteAfterSalesCostEntry(id) {
+    return requestJson(`/api/delivery-costs/after-sales/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  updateAfterSalesCostEntry(id, payload) {
+    return requestJson(`/api/delivery-costs/after-sales/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateDeliveryCostNote(id, payload) {
+    return requestJson(`/api/delivery-costs/delivery/${encodeURIComponent(String(id))}/notes`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateAfterSalesCostNote(id, payload) {
+    return requestJson(`/api/delivery-costs/after-sales/${encodeURIComponent(String(id))}/notes`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
   listTickets(filters = {}) {
     const query = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
@@ -182,6 +212,9 @@ export const portalApi = {
   },
   createVpnExportTask(payload) {
     return requestJson('/api/vpn/export-tasks', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  cancelVpnExportTask(id) {
+    return requestJson(`/api/vpn/export-tasks/${encodeURIComponent(String(id))}/cancel`, { method: 'POST', headers: authHeaders() })
   },
   createVpnTerminalTicket(siteId = null) {
     return requestJson('/api/vpn/terminal-ticket', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ site_id: siteId }) })

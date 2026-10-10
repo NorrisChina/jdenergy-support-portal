@@ -40,6 +40,7 @@ export const messages = {
     },
     views: {
       overview: '海外项目总览',
+      deliveryCosts: '交付与售后成本管理',
       logistics: '发货物流跟踪',
       empowerment: '客户/供应商赋能计划',
       afterSales: '故障排查与解决',
@@ -323,6 +324,7 @@ export const messages = {
     },
     views: {
       overview: 'Overseas Project Overview',
+      deliveryCosts: 'Delivery & After-Sales Costs',
       logistics: 'Logistics Tracking',
       empowerment: 'Customer/Supplier Empowerment Plan',
       afterSales: 'Fault diagnosis & resolution',

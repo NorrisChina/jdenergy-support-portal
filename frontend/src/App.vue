@@ -676,6 +676,13 @@
             {{ t("overviewTabs.ciDashboard") }}
           </button>
         </div>
+        <div class="mb-5 flex flex-wrap items-center gap-3">
+          <label for="overview-customer-filter-418" class="text-sm font-semibold text-slate-200">客户名称</label>
+          <select id="overview-customer-filter-418" v-model="overviewCustomerFilter" class="min-w-56 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white">
+            <option value="">全部客户</option>
+            <option v-for="company in overviewCustomerOptions" :key="company" :value="company">{{ company }}</option>
+          </select>
+        </div>
         <div
           class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
         >
@@ -793,7 +800,7 @@
               >
               · {{ t("grid.projectCount") }}：<span
                 class="font-semibold text-white"
-                >{{ gridProjects.length }}</span
+                  >{{ filteredGridProjects.length }}</span
               >
             </p>
           </div>
@@ -964,6 +971,13 @@
             {{ t("overviewTabs.ciDashboard") }}
           </button>
         </div>
+        <div class="mb-5 flex flex-wrap items-center gap-3">
+          <label for="overview-customer-filter-ci" class="text-sm font-semibold text-slate-200">客户名称</label>
+          <select id="overview-customer-filter-ci" v-model="overviewCustomerFilter" class="min-w-56 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white">
+            <option value="">全部客户</option>
+            <option v-for="company in overviewCustomerOptions" :key="company" :value="company">{{ company }}</option>
+          </select>
+        </div>
         <div
           class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
         >
@@ -1010,7 +1024,7 @@
             >
               {{ t("ci.dealerCount") }}：<span
                 class="kpi-number font-semibold text-white"
-                >{{ ciDeliveries.length }}</span
+                >{{ ciCapacityRows.length }}</span
               >
             </div>
             <div
@@ -1160,6 +1174,11 @@
           </div>
         </div>
       </section>
+
+      <DeliveryCostManagementView
+        v-else-if="activeView === 'delivery-costs'"
+        :can-manage="isSuperAdmin"
+      />
 
       <section
         v-else-if="activeView === 'service-logs'"
@@ -3048,6 +3067,9 @@ import { usePortalState } from "./composables/usePortalState";
 const VpnDiagnosticView = defineAsyncComponent(() =>
   import("./components/VpnDiagnosticView.vue"),
 );
+const DeliveryCostManagementView = defineAsyncComponent(() =>
+  import("./components/DeliveryCostManagementView.vue"),
+);
 
 const {
   state: portalState,
@@ -3057,6 +3079,7 @@ const {
 } = usePortalState();
 
 const activeView = ref("overview");
+const overviewCustomerFilter = ref("");
 
 const navGroups = computed(() => [
   {
@@ -3064,6 +3087,9 @@ const navGroups = computed(() => [
     label: t("nav.overview"),
     items: [
       { key: "overview", label: t("views.overview") },
+      ...(!isCustomer.value
+        ? [{ key: "delivery-costs", label: t("views.deliveryCosts") }]
+        : []),
       { key: "logistics", label: t("views.logistics") },
       ...(!isCustomer.value
         ? [{ key: "warehouse", label: t("views.warehouse") }]
@@ -3654,6 +3680,31 @@ function t(path) {
 
 const todayTick = ref(Date.now());
 
+function normalizeOverviewCompany(value) {
+  return String(value || "").trim().toLocaleLowerCase();
+}
+
+function overviewCompanyMatches(item) {
+  if (!overviewCustomerFilter.value) return true;
+  return normalizeOverviewCompany(item.customer_company || item.partner_name || item.dealer_name || item.customer_name)
+    === normalizeOverviewCompany(overviewCustomerFilter.value);
+}
+
+const overviewCustomerOptions = computed(() => {
+  const names = [
+    ...users.value
+      .filter((item) => item.role === "customer" && item.is_active !== false)
+      .map((item) => item.customer_company || item.customer_name),
+    ...gridProjects.value.map((item) => item.customer_company || item.partner_name),
+    ...ciDeliveries.value.map((item) => item.customer_company || item.dealer_name),
+  ];
+  return [...new Set(names.map((name) => String(name || "").trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, "zh-CN"));
+});
+
+const filteredGridProjects = computed(() => gridProjects.value.filter(overviewCompanyMatches));
+const filteredCiDeliveries = computed(() => ciDeliveries.value.filter(overviewCompanyMatches));
+
 const faultHint = computed(() => {
   if (!faultHasSearched.value) {
     return isEnglish.value
@@ -3672,7 +3723,7 @@ const faultTotalPages = computed(() =>
 );
 
 const gridSummary = computed(() => {
-  const totalMwh = gridProjects.value.reduce(
+  const totalMwh = filteredGridProjects.value.reduce(
     (sum, project) => sum + (Number(project.capacity_mwh) || 0),
     0,
   );
@@ -3686,7 +3737,7 @@ const gridSummary = computed(() => {
     "bg-sky-400/80",
   ];
 
-  const projects = gridProjects.value.map((project, index) => {
+  const projects = filteredGridProjects.value.map((project, index) => {
     const capacityMwh = Number(project.capacity_mwh) || 0;
     const ratio = totalMwh > 0 ? (capacityMwh / totalMwh) * 100 : 0;
     const codDiff = getCodDayDiff(project.cod, totalDayValue);
@@ -3751,7 +3802,7 @@ const CI_100C_MWH_PER_UNIT = 0.1;
 const CI_250_MWH_PER_UNIT = 0.25;
 
 const ciCapacityRows = computed(() => {
-  const baseRows = ciDeliveries.value.map((item) => {
+  const baseRows = filteredCiDeliveries.value.map((item) => {
     const batches = ciBatchesByDealer.value[item.id] || [];
     const delivered100c = batches.filter((batch) => batch.product_type === "100C").reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
     const delivered250 = batches.filter((batch) => batch.product_type === "250").reduce((sum, batch) => sum + (Number(batch.quantity) || 0), 0);
