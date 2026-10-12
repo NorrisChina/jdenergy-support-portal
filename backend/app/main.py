@@ -2464,7 +2464,7 @@ def _cost_amount_summary(item, person_days) -> Dict[str, object]:
     return data
 
 
-def _cost_project_response(project, delivery, entries, person_days_by_cost, fixed_costs) -> Dict[str, object]:
+def _cost_project_response(project, delivery, entries, person_days_by_cost) -> Dict[str, object]:
     delivery_details = _cost_amount_summary(
         delivery,
         person_days_by_cost.get(("delivery", delivery.id), []),
@@ -2483,8 +2483,6 @@ def _cost_project_response(project, delivery, entries, person_days_by_cost, fixe
         "project_name": project.project_name,
         "customer_name": project.customer_name,
         "delivery": delivery_details,
-        "fixed_costs": fixed_costs,
-        "fixed_cost_total": round(sum(item.total_price for item in fixed_costs), 2),
         "after_sales": {
             "trip_count": len(entries),
             "total_man_days": round(sum(detail["total_man_days"] for detail in entry_details), 2),
@@ -2524,9 +2522,6 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
         fixed_cost_entries = session.exec(
             select(FixedCostEntry).order_by(FixedCostEntry.customer_name, FixedCostEntry.start_date, FixedCostEntry.id)
         ).all()
-        fixed_costs_by_customer = defaultdict(list)
-        for item in fixed_cost_entries:
-            fixed_costs_by_customer[item.customer_name.strip().casefold()].append(item)
         person_days = session.exec(select(CostPersonDay)).all()
         person_days_by_cost = defaultdict(list)
         for detail in person_days:
@@ -2549,30 +2544,10 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
                 deliveries.get(project.id),
                 entries_by_project[project.id],
                 person_days_by_cost,
-                [],
             )
             if project.project_type == "418":
                 item["customer_name"] = customer_by_project.get(project.project_key.casefold(), project.customer_name)
             items.append(item)
-        fixed_cost_owner = set()
-        for item in items:
-            customer_key = item["customer_name"].strip().casefold()
-            if not customer_key:
-                item["fixed_costs"] = []
-                item["fixed_cost_total"] = 0
-                item["after_sales"]["fixed_cost_total"] = 0
-                continue
-            if item["project_type"] == "418" and customer_key in fixed_cost_owner:
-                customer_fixed_costs = []
-            else:
-                customer_fixed_costs = fixed_costs_by_customer[customer_key]
-                if item["project_type"] == "418":
-                    fixed_cost_owner.add(customer_key)
-            fixed_cost_total = round(sum(fixed.total_price for fixed in customer_fixed_costs), 2)
-            item["fixed_costs"] = customer_fixed_costs
-            item["fixed_cost_total"] = fixed_cost_total
-            item["after_sales"]["fixed_cost_total"] = fixed_cost_total
-            item["after_sales"]["total_cost"] = round(item["after_sales"]["total_cost"] + fixed_cost_total, 2)
         session.commit()
         project_order = {"418": 0, "250": 1, "100C": 2}
         items.sort(key=lambda item: (project_order.get(item["project_type"], 9), (item["project_name"] or item["customer_name"]).casefold()))

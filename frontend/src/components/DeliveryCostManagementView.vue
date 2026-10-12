@@ -18,6 +18,24 @@
       {{ notice }}
     </div>
 
+    <div class="flex flex-wrap items-center gap-3">
+      <label for="delivery-cost-customer-filter" class="text-sm font-semibold text-slate-700">客户名称</label>
+      <select id="delivery-cost-customer-filter" v-model="selectedCustomer" class="min-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">
+        <option value="">全部客户</option>
+        <option v-for="name in customerOptions" :key="name" :value="name">{{ name }}</option>
+      </select>
+    </div>
+
+    <div class="grid gap-3 md:grid-cols-2">
+      <article class="relative overflow-hidden border-l-4 border-cyan-700 bg-white px-5 py-5 shadow-sm"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">总交付成本</p><p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">¥ {{ money(totalDeliveryCost) }}</p></article>
+      <article class="relative overflow-hidden border-l-4 border-amber-500 bg-white px-5 py-5 shadow-sm"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">总售后成本</p><p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">¥ {{ money(totalAfterSalesCost) }}</p></article>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">项目 / 客户数</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ globalVisibleProjects.length }}</p></div>
+      <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">售后出差次数</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ totalTripCount }}</p></div>
+      <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">固定成本记录</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ fixedCostRows.length }}</p></div>
+    </div>
+
     <nav class="flex gap-1 border-b border-slate-200" aria-label="成本类别">
       <button v-for="item in projectTypes" :key="item.key" type="button" class="border-b-2 px-4 py-3 text-sm font-semibold transition" :class="activeType === item.key ? 'border-cyan-700 text-cyan-800' : 'border-transparent text-slate-500 hover:text-slate-900'" @click="activeType = item.key">
         {{ item.label }} <span v-if="item.key !== 'fixed-costs'" class="ml-1 text-xs font-normal text-slate-400">{{ countByType(item.key) }}</span>
@@ -26,8 +44,7 @@
 
     <section v-if="activeType === 'fixed-costs'" class="space-y-4">
       <div class="flex flex-wrap items-end justify-between gap-3">
-        <div><p class="text-xs font-semibold uppercase tracking-wider text-cyan-700">CUSTOMER FIXED COSTS</p><h3 class="mt-1 text-xl font-semibold text-slate-900">固定成本</h3></div>
-        <p class="text-sm text-slate-500">固定成本合计 <strong class="ml-2 text-lg tabular-nums text-slate-900">¥ {{ money(allFixedCostTotal) }}</strong></p>
+        <div><p class="text-xs font-semibold uppercase tracking-wider text-cyan-700">CUSTOMER FIXED COSTS</p><h3 class="mt-1 text-xl font-semibold text-slate-900">客户固定成本记录</h3></div>
       </div>
       <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div v-if="loading" class="px-5 py-12 text-center text-sm text-slate-500">正在加载固定成本…</div>
@@ -44,29 +61,6 @@
         </div>
       </div>
     </section>
-
-    <div v-if="activeType !== 'fixed-costs' && activeType === '418'" class="flex flex-wrap items-center gap-3">
-      <label for="delivery-cost-customer-filter" class="text-sm font-semibold text-slate-700">客户筛选</label>
-      <select id="delivery-cost-customer-filter" v-model="selectedCustomer" class="min-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">
-        <option value="">全部客户</option>
-        <option v-for="name in gridScaleCustomers" :key="name" :value="name">{{ name }}</option>
-      </select>
-    </div>
-
-    <div v-if="activeType !== 'fixed-costs'" class="grid gap-3 md:grid-cols-2">
-      <article class="relative overflow-hidden border-l-4 border-cyan-700 bg-white px-5 py-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">总交付成本</p>
-        <p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">¥ {{ money(totalDeliveryCost) }}</p>
-      </article>
-      <article class="relative overflow-hidden border-l-4 border-amber-500 bg-white px-5 py-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">总售后成本</p>
-        <p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">¥ {{ money(totalAfterSalesCost) }}</p>
-      </article>
-    </div>
-    <div v-if="activeType !== 'fixed-costs'" class="grid gap-3 sm:grid-cols-2">
-      <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">{{ activeType === '418' ? '项目数' : '客户数' }}</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ visibleProjects.length }}</p></div>
-      <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">售后出差次数</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ totalTripCount }}</p></div>
-    </div>
 
     <div v-if="activeType !== 'fixed-costs'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
@@ -239,15 +233,18 @@ const fixedCostDays = computed(() => {
   return end < start ? 0 : end - start + 1
 })
 const fixedCostTotal = computed(() => fixedCostDays.value * Math.max(Number(fixedCostDraft.daily_price) || 0, 0))
-const typeProjects = computed(() => projects.value.filter((item) => item.project_type === activeType.value))
-const gridScaleCustomers = computed(() => [...new Set(projects.value.filter((item) => item.project_type === '418').map((item) => item.customer_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
-const customerOptions = computed(() => [...new Set(projects.value.map((item) => item.customer_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
-const fixedCostRows = computed(() => [...fixedCosts.value].sort((left, right) => left.customer_name.localeCompare(right.customer_name, 'zh-CN') || left.start_date.localeCompare(right.start_date) || left.name.localeCompare(right.name, 'zh-CN')))
-const allFixedCostTotal = computed(() => fixedCostRows.value.reduce((sum, item) => sum + Number(item.total_price || 0), 0))
-const visibleProjects = computed(() => typeProjects.value.filter((item) => activeType.value !== '418' || !selectedCustomer.value || item.customer_name === selectedCustomer.value))
-const totalDeliveryCost = computed(() => visibleProjects.value.reduce((sum, item) => sum + deliveryTotal(item), 0))
-const totalAfterSalesCost = computed(() => visibleProjects.value.reduce((sum, item) => sum + afterSalesTotal(item), 0))
-const totalTripCount = computed(() => visibleProjects.value.reduce((sum, item) => sum + item.after_sales.trip_count, 0))
+const customerOptions = computed(() => [...new Set([
+  ...projects.value.map((item) => item.customer_name),
+  ...fixedCosts.value.map((item) => item.customer_name),
+].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
+const globalVisibleProjects = computed(() => projects.value.filter((item) => !selectedCustomer.value || item.customer_name === selectedCustomer.value))
+const fixedCostRows = computed(() => [...fixedCosts.value]
+  .filter((item) => !selectedCustomer.value || item.customer_name === selectedCustomer.value)
+  .sort((left, right) => left.customer_name.localeCompare(right.customer_name, 'zh-CN') || left.start_date.localeCompare(right.start_date) || left.name.localeCompare(right.name, 'zh-CN')))
+const visibleProjects = computed(() => globalVisibleProjects.value.filter((item) => item.project_type === activeType.value))
+const totalDeliveryCost = computed(() => globalVisibleProjects.value.reduce((sum, item) => sum + deliveryTotal(item), 0))
+const totalAfterSalesCost = computed(() => globalVisibleProjects.value.reduce((sum, item) => sum + afterSalesTotal(item), 0) + fixedCostRows.value.reduce((sum, item) => sum + Number(item.total_price || 0), 0))
+const totalTripCount = computed(() => globalVisibleProjects.value.reduce((sum, item) => sum + item.after_sales.trip_count, 0))
 
 function deliveryTotal(item) {
   return Number(item.delivery?.total_cost || 0)
