@@ -112,6 +112,7 @@ def upgrade_delivery_cost_schema() -> None:
         "total_man_days_note": "TEXT NOT NULL DEFAULT ''",
         "per_day_cost_note": "TEXT NOT NULL DEFAULT ''",
         "one_time_cost_note": "TEXT NOT NULL DEFAULT ''",
+        "total_cost_note": "TEXT NOT NULL DEFAULT ''",
         "meal_allowance_note": "TEXT NOT NULL DEFAULT ''",
         "local_transport_cost_note": "TEXT NOT NULL DEFAULT ''",
         "salary_cost_note": "TEXT NOT NULL DEFAULT ''",

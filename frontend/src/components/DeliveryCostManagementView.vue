@@ -102,19 +102,20 @@
                 <td :colspan="activeType === '418' ? 7 : 6" class="bg-slate-50 px-4 py-4">
                   <div class="overflow-x-auto">
                     <table class="w-full min-w-[880px] text-left text-xs">
-                      <thead class="text-slate-500"><tr><th class="pb-2 pr-4">记录</th><th class="pb-2 pr-4">总人天</th><th class="pb-2 pr-4">每人天成本</th><th class="pb-2 pr-4">一次性成本</th><th class="pb-2 pr-4">硬件更换</th><th v-if="canManage" class="pb-2">操作</th></tr></thead>
+                      <thead class="text-slate-500"><tr><th class="pb-2 pr-4">记录</th><th class="pb-2 pr-4">总人天</th><th class="pb-2 pr-4">每人天成本</th><th class="pb-2 pr-4">一次性成本</th><th class="pb-2 pr-4">硬件更换</th><th class="pb-2 pr-4">本行总成本</th><th v-if="canManage" class="pb-2">操作</th></tr></thead>
                       <tbody class="divide-y divide-slate-200">
                         <template v-for="line in costLines(project)" :key="`${line.kind}-${line.id}`">
                           <tr class="font-medium text-slate-700">
                             <td class="py-2 pr-4">{{ line.label }}</td>
-                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ line.item.total_man_days.toLocaleString('zh-CN') }} 天</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'people')">{{ isBreakdownOpen(line, 'people') ? '收起' : '人员' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.totalManDays, line.item.total_man_days_note)">备注</button></div></td>
-                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.per_day_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'per-day')">{{ isBreakdownOpen(line, 'per-day') ? '收起' : '分项' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.perDay, line.item.per_day_cost_note)">备注</button></div></td>
-                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.one_time_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'one-time')">{{ isBreakdownOpen(line, 'one-time') ? '收起' : '分项' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.oneTime, line.item.one_time_cost_note)">备注</button></div></td>
-                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.hardware_replacement_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.hardware, line.item.hardware_replacement_cost_note)">备注</button></div></td>
-                            <td v-if="canManage" class="py-2"><button type="button" class="mr-3 font-semibold text-cyan-800" @click="openCostEdit(line)">编辑</button><button v-if="line.kind === 'after-sales' && !line.item.after_sales_log_id" type="button" class="font-semibold text-rose-600" @click="removeEntry(line.id)">删除</button></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ line.item.total_man_days.toLocaleString('zh-CN') }} 天</span><button v-if="canManage" type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'people')">{{ isBreakdownOpen(line, 'people') ? '收起' : '编辑' }}</button><button v-else type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'people')">人员</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.totalManDays, line.item.total_man_days_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.per_day_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'per-day')">{{ isBreakdownOpen(line, 'per-day') ? '收起' : canManage ? '编辑' : '分项' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.perDay, line.item.per_day_cost_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.one_time_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'one-time')">{{ isBreakdownOpen(line, 'one-time') ? '收起' : canManage ? '编辑' : '分项' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.oneTime, line.item.one_time_cost_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><template v-if="isInlineCostOpen(line, 'hardware_replacement_cost')"><input v-model.number="inlineCostEditor.value" type="number" min="0" step="0.01" class="w-24 rounded border border-slate-300 px-2 py-1 text-xs tabular-nums"/><button type="button" class="text-[10px] font-semibold text-cyan-800" @click="saveInlineCost(line)">保存</button><button type="button" class="text-[10px] text-slate-500" @click="closeInlineCostEditor">取消</button></template><template v-else><span>{{ money(line.item.hardware_replacement_cost) }}</span><button v-if="canManage" type="button" class="text-[10px] font-semibold text-cyan-700" @click="openInlineCostEditor(line, 'hardware_replacement_cost')">编辑</button></template><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.hardware, line.item.hardware_replacement_cost_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2 font-semibold tabular-nums"><span>{{ money(line.item.total_cost) }}</span><button type="button" class="text-[10px] font-medium text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.totalCost, line.item.total_cost_note)">备注</button></div></td>
+                            <td v-if="canManage" class="py-2"><button v-if="line.kind === 'after-sales' && !line.item.after_sales_log_id" type="button" class="font-semibold text-rose-600" @click="removeEntry(line.id)">删除</button></td>
                           </tr>
-                          <tr v-if="isNoteEditorOpen(line.kind, line.id)"><td :colspan="canManage ? 6 : 5" class="pb-3"><div class="rounded-lg border border-cyan-200 bg-white p-3"><label class="block text-xs font-semibold text-slate-600">{{ noteEditor.field?.label }}备注<textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 read-only:bg-slate-50" placeholder="填写这项费用的说明" /></label><div class="mt-2 flex justify-end gap-2"><button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveNote">{{ saving ? '保存中…' : '保存备注' }}</button></div></div></td></tr>
-                          <tr v-if="isBreakdownOpen(line, 'people')"><td :colspan="canManage ? 6 : 5" class="bg-white px-3 py-3"><div class="space-y-2"><div v-for="person in line.item.person_days" :key="person.id" class="grid items-center gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_120px_auto_auto]">
+                          <tr v-if="isNoteEditorOpen(line.kind, line.id)"><td :colspan="canManage ? 7 : 6" class="pb-3"><div class="rounded-lg border border-cyan-200 bg-white p-3"><label class="block text-xs font-semibold text-slate-600">{{ noteEditor.field?.label }}备注<textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 read-only:bg-slate-50" placeholder="填写这项费用的说明" /></label><div class="mt-2 flex justify-end gap-2"><button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveNote">{{ saving ? '保存中…' : '保存备注' }}</button></div></div></td></tr>
+                          <tr v-if="isBreakdownOpen(line, 'people')"><td :colspan="canManage ? 7 : 6" class="bg-white px-3 py-3"><div class="space-y-2"><div v-for="person in line.item.person_days" :key="person.id" class="grid items-center gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_120px_auto_auto]">
                             <input v-model.trim="person.person_name" :disabled="!canManage" class="rounded border border-slate-300 px-2 py-1.5 text-xs disabled:bg-slate-100" aria-label="人名" />
                             <label class="flex items-center gap-2 text-xs text-slate-500"><input v-model.number="person.days" :disabled="!canManage" type="number" min="0" step="0.25" class="w-full rounded border border-slate-300 px-2 py-1.5 text-right tabular-nums disabled:bg-slate-100" />天</label>
                             <button type="button" class="text-xs font-semibold text-cyan-700" @click="togglePersonNote(person)">备注</button>
@@ -123,9 +124,9 @@
                           </div>
                           <form v-if="canManage" class="grid gap-2 rounded-md border border-dashed border-slate-300 p-2 sm:grid-cols-[1fr_120px_auto]" @submit.prevent="addPerson(line)"><input v-model.trim="personDraft.person_name" required maxlength="120" class="rounded border border-slate-300 px-2 py-1.5 text-xs" placeholder="人名"/><label class="flex items-center gap-2 text-xs text-slate-500"><input v-model.number="personDraft.days" required min="0" step="0.25" type="number" class="w-full rounded border border-slate-300 px-2 py-1.5 text-right"/>天</label><button type="submit" class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white" :disabled="saving">添加人员</button></form>
                           <p v-if="!line.item.person_days.length" class="text-xs text-slate-500">暂无人员人天明细</p></div></td></tr>
-                          <template v-for="group in ['per-day', 'one-time']" :key="`${line.kind}-${line.id}-${group}`"><tr v-if="isBreakdownOpen(line, group)"><td :colspan="canManage ? 6 : 5" class="bg-white px-3 py-3"><div class="space-y-1"><template v-for="field in groupFields(group)" :key="field.key"><div class="grid items-center gap-3 border-b border-slate-100 py-2 sm:grid-cols-[180px_1fr_auto]"><span class="text-xs font-medium text-slate-600">{{ field.label }}</span><span class="text-xs font-semibold tabular-nums text-slate-800">{{ money(line.item[field.key]) }}</span><button type="button" class="text-xs font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, field, line.item[`${field.key}_note`])">备注</button></div><div v-if="isCostNoteOpen(line.kind, line.id, field.key)" class="rounded-md border border-cyan-200 bg-slate-50 p-2"><textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="w-full rounded border border-slate-300 px-2 py-1.5 text-xs read-only:bg-white"/><div class="mt-1 flex justify-end gap-2"><button type="button" class="text-xs text-slate-500" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="text-xs font-semibold text-cyan-800" @click="saveNote">保存备注</button></div></div></template></div></td></tr></template>
+                          <template v-for="group in ['per-day', 'one-time']" :key="`${line.kind}-${line.id}-${group}`"><tr v-if="isBreakdownOpen(line, group)"><td :colspan="canManage ? 7 : 6" class="bg-white px-3 py-3"><div class="space-y-1"><template v-for="field in groupFields(group)" :key="field.key"><div class="grid items-center gap-3 border-b border-slate-100 py-2 sm:grid-cols-[180px_1fr_auto]"><span class="text-xs font-medium text-slate-600">{{ field.label }}</span><div class="flex items-center gap-2"><template v-if="isInlineCostOpen(line, field.key)"><input v-model.number="inlineCostEditor.value" type="number" min="0" step="0.01" class="w-28 rounded border border-slate-300 px-2 py-1 text-xs tabular-nums"/><button type="button" class="text-xs font-semibold text-cyan-800" @click="saveInlineCost(line)">保存</button><button type="button" class="text-xs text-slate-500" @click="closeInlineCostEditor">取消</button></template><template v-else><span class="text-xs font-semibold tabular-nums text-slate-800">{{ money(line.item[field.key]) }}</span><button v-if="canManage" type="button" class="text-[10px] font-semibold text-cyan-700" @click="openInlineCostEditor(line, field.key)">编辑</button></template></div><button type="button" class="text-xs font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, field, line.item[`${field.key}_note`])">备注</button></div><div v-if="isCostNoteOpen(line.kind, line.id, field.key)" class="rounded-md border border-cyan-200 bg-slate-50 p-2"><textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="w-full rounded border border-slate-300 px-2 py-1.5 text-xs read-only:bg-white"/><div class="mt-1 flex justify-end gap-2"><button type="button" class="text-xs text-slate-500" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="text-xs font-semibold text-cyan-800" @click="saveNote">保存备注</button></div></div></template></div></td></tr></template>
                         </template>
-                        <tr v-if="!costLines(project).length"><td :colspan="canManage ? 6 : 5" class="py-3 text-slate-500">暂无成本明细</td></tr>
+                        <tr v-if="!costLines(project).length"><td :colspan="canManage ? 7 : 6" class="py-3 text-slate-500">暂无成本明细</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -135,17 +136,6 @@
           </tbody>
         </table>
       </div>
-    </div>
-
-    <div v-if="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6" @click.self="modalOpen = false">
-      <form class="max-h-full w-full max-w-xl overflow-y-auto rounded-xl bg-white p-5 shadow-2xl" @submit.prevent="saveDelivery">
-        <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-cyan-700">DELIVERY COST</p><h3 class="mt-1 text-lg font-semibold text-slate-900">编辑交付成本</h3><p class="mt-1 text-sm text-slate-500">{{ draft.project_name || draft.customer_name }}</p></div><button type="button" class="rounded-md px-2 py-1 text-lg text-slate-500 hover:bg-slate-100" aria-label="关闭" @click="modalOpen = false">×</button></div>
-        <div class="mt-5 space-y-4">
-          <section v-for="group in costGroups" :key="group.key"><h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ group.label }}</h4><div class="grid gap-3 sm:grid-cols-2"><label v-for="field in group.fields" :key="field.key" class="text-sm font-medium text-slate-700">{{ field.label }}<input v-model.number="draft[field.key]" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div></section>
-          <label class="block text-sm font-medium text-slate-700">硬件更换<input v-model.number="draft.hardware_replacement_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-        </div>
-        <div class="mt-6 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600" @click="modalOpen = false">取消</button><button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button></div>
-      </form>
     </div>
 
     <div v-if="fixedCostModal.open" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4 py-6" @click.self="fixedCostModal.open = false">
@@ -163,14 +153,6 @@
         </div>
         <p v-if="fixedCostError" class="mt-3 text-sm text-rose-700">{{ fixedCostError }}</p>
         <div class="mt-6 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600" @click="fixedCostModal.open = false">取消</button><button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" :disabled="saving || fixedCostDays < 1">{{ saving ? '保存中…' : '保存固定成本' }}</button></div>
-      </form>
-    </div>
-
-    <div v-if="detailEdit.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6" @click.self="detailEdit.open = false">
-      <form class="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl" @submit.prevent="saveDetailEdit">
-        <h3 class="text-lg font-semibold text-slate-900">编辑售后成本</h3>
-        <div class="mt-4 space-y-4"><section v-for="group in costGroups" :key="group.key"><h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ group.label }}</h4><div class="grid gap-3 sm:grid-cols-2"><label v-for="field in group.fields" :key="field.key" class="text-sm font-medium text-slate-700">{{ field.label }}<input v-model.number="detailDraft[field.key]" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div></section><label class="block text-sm font-medium text-slate-700">硬件更换<input v-model.number="detailDraft.hardware_replacement_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div>
-        <div class="mt-6 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600" @click="detailEdit.open = false">取消</button><button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button></div>
       </form>
     </div>
 
@@ -211,8 +193,6 @@ const projects = ref([])
 const fixedCosts = ref([])
 const loading = ref(false)
 const saving = ref(false)
-const modalOpen = ref(false)
-const editingId = ref(null)
 const expandedId = ref(null)
 const notice = ref('')
 const noticeType = ref('success')
@@ -234,12 +214,11 @@ const noteFields = {
   totalManDays: { key: 'total_man_days', label: '总人天' },
   perDay: { key: 'per_day_cost', label: '每人天成本合计' },
   oneTime: { key: 'one_time_cost', label: '一次性成本合计' },
+  totalCost: { key: 'total_cost', label: '本行总成本' },
   hardware: { key: 'hardware_replacement_cost', label: '硬件更换' },
 }
-const draft = reactive({ project_type: '418', project_name: '', customer_name: '', ...Object.fromEntries(costAmountFields.filter((field) => field.group !== 'hardware').map((field) => [field.key, 0])), hardware_replacement_cost: 0 })
-const detailEdit = reactive({ open: false, kind: '', id: null, item: null })
 const noteEditor = reactive({ open: false, kind: '', id: null, field: null, text: '' })
-const detailDraft = reactive(Object.fromEntries(costAmountFields.map((field) => [field.key, 0])))
+const inlineCostEditor = reactive({ open: false, kind: '', id: null, field_key: '', value: 0 })
 const expandedBreakdown = reactive({ kind: '', id: null, group: '' })
 const personDraft = reactive({ person_name: '', days: 0 })
 const personNoteEditorId = ref(null)
@@ -271,12 +250,11 @@ const totalAfterSalesCost = computed(() => visibleProjects.value.reduce((sum, it
 const totalTripCount = computed(() => visibleProjects.value.reduce((sum, item) => sum + item.after_sales.trip_count, 0))
 
 function deliveryTotal(item) {
-  if (!item.delivery) return 0
-  return Number(item.delivery.per_day_cost || 0) + Number(item.delivery.one_time_cost || 0) + Number(item.delivery.hardware_replacement_cost || 0)
+  return Number(item.delivery?.total_cost || 0)
 }
 
 function afterSalesTotal(item) {
-  return Number(item.after_sales?.per_day_cost || 0) + Number(item.after_sales?.one_time_cost || 0) + Number(item.after_sales?.hardware_replacement_cost || 0) + Number(item.after_sales?.fixed_cost_total || 0)
+  return Number(item.after_sales?.total_cost || 0)
 }
 
 function costLines(project) {
@@ -309,11 +287,31 @@ function isBreakdownOpen(line, group) {
 }
 
 function isNoteEditorOpen(kind, id) {
-  return noteEditor.open && noteEditor.kind === kind && noteEditor.id === id && ['total_man_days', 'per_day_cost', 'one_time_cost', 'hardware_replacement_cost'].includes(noteEditor.field?.key)
+  return noteEditor.open && noteEditor.kind === kind && noteEditor.id === id && ['total_man_days', 'per_day_cost', 'one_time_cost', 'total_cost', 'hardware_replacement_cost'].includes(noteEditor.field?.key)
 }
 
 function isCostNoteOpen(kind, id, fieldKey) {
   return noteEditor.open && noteEditor.kind === kind && noteEditor.id === id && noteEditor.field?.key === fieldKey
+}
+
+function isInlineCostOpen(line, fieldKey) {
+  return inlineCostEditor.open && inlineCostEditor.kind === line.kind && inlineCostEditor.id === line.id && inlineCostEditor.field_key === fieldKey
+}
+
+function openInlineCostEditor(line, fieldKey) {
+  inlineCostEditor.open = true
+  inlineCostEditor.kind = line.kind
+  inlineCostEditor.id = line.id
+  inlineCostEditor.field_key = fieldKey
+  inlineCostEditor.value = Number(line.item[fieldKey] || 0)
+}
+
+function closeInlineCostEditor() {
+  inlineCostEditor.open = false
+  inlineCostEditor.kind = ''
+  inlineCostEditor.id = null
+  inlineCostEditor.field_key = ''
+  inlineCostEditor.value = 0
 }
 
 function money(value) {
@@ -356,24 +354,6 @@ async function loadProjects() {
   }
 }
 
-function openCostEdit(line) {
-  detailEdit.open = true
-  detailEdit.kind = line.kind
-  detailEdit.id = line.id
-  detailEdit.item = line.item
-  for (const field of costAmountFields) detailDraft[field.key] = Number(line.item[field.key] || 0)
-  if (line.kind === 'delivery') {
-    editingId.value = line.id
-    Object.assign(draft, {
-      project_type: line.project_type,
-      project_name: line.project_name || '',
-      customer_name: line.customer_name || '',
-      ...Object.fromEntries(costAmountFields.map((field) => [field.key, Number(line.item[field.key] || 0)])),
-    })
-    modalOpen.value = true
-  }
-}
-
 function toggleNoteEditor(kind, id, field, note) {
   const key = noteKey(kind, id, field.key)
   if (noteEditor.open && noteKey(noteEditor.kind, noteEditor.id, noteEditor.field?.key) === key) {
@@ -395,21 +375,6 @@ function closeNoteEditor() {
   noteEditor.text = ''
 }
 
-async function saveDetailEdit() {
-  saving.value = true
-  try {
-    const payload = Object.fromEntries(costAmountFields.map(({ key }) => [key, Number(detailDraft[key]) || 0]))
-    await portalApi.updateAfterSalesCostEntry(detailEdit.id, payload)
-    detailEdit.open = false
-    showNotice('成本明细已保存')
-    await loadProjects()
-  } catch (error) {
-    showNotice(error.message || '成本明细保存失败', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
 async function saveNote() {
   saving.value = true
   try {
@@ -425,17 +390,31 @@ async function saveNote() {
   }
 }
 
-async function saveDelivery() {
+async function saveInlineCost(line) {
+  const amount = Number(inlineCostEditor.value)
+  if (!Number.isFinite(amount) || amount < 0) {
+    showNotice('成本金额必须是大于等于0的有效数字。', 'error')
+    return
+  }
   saving.value = true
   try {
-    const payload = { ...draft }
-    await portalApi.updateDeliveryCost(editingId.value, payload)
-    modalOpen.value = false
-    detailEdit.open = false
-    showNotice('交付成本已保存')
+    if (line.kind === 'delivery') {
+      const payload = {
+        project_type: line.project_type,
+        project_name: line.project_name,
+        customer_name: line.customer_name,
+        ...Object.fromEntries(costAmountFields.map(({ key }) => [key, Number(line.item[key] || 0)])),
+        [inlineCostEditor.field_key]: amount,
+      }
+      await portalApi.updateDeliveryCost(line.item.id, payload)
+    } else {
+      await portalApi.updateAfterSalesCostEntry(line.item.id, { [inlineCostEditor.field_key]: amount })
+    }
+    closeInlineCostEditor()
+    showNotice('成本金额已保存')
     await loadProjects()
   } catch (error) {
-    showNotice(error.message || '保存失败', 'error')
+    showNotice(error.message || '成本金额保存失败', 'error')
   } finally {
     saving.value = false
   }

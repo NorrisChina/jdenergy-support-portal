@@ -375,7 +375,7 @@ class AfterSalesCostEntryUpdatePayload(BaseModel):
 
 class CostNotePayload(BaseModel):
     field: Literal[
-        "total_man_days_note", "per_day_cost_note", "one_time_cost_note",
+        "total_man_days_note", "per_day_cost_note", "one_time_cost_note", "total_cost_note",
         "meal_allowance_note", "local_transport_cost_note", "salary_cost_note",
         "accommodation_cost_note", "long_distance_cost_note", "visa_cost_note",
         "tool_cost_note", "hardware_replacement_cost_note",
@@ -2455,6 +2455,12 @@ def _cost_amount_summary(item, person_days) -> Dict[str, object]:
     data["total_man_days"] = round(sum(person.days for person in person_days), 2)
     data["per_day_cost"] = round(sum(getattr(item, field) for field in PER_DAY_COST_FIELDS), 2)
     data["one_time_cost"] = round(sum(getattr(item, field) for field in ONE_TIME_COST_FIELDS), 2)
+    data["total_cost"] = round(
+        data["total_man_days"] * data["per_day_cost"]
+        + data["one_time_cost"]
+        + item.hardware_replacement_cost,
+        2,
+    )
     return data
 
 
@@ -2485,6 +2491,7 @@ def _cost_project_response(project, delivery, entries, person_days_by_cost, fixe
             "per_day_cost": round(sum(detail["per_day_cost"] for detail in entry_details), 2),
             "one_time_cost": round(sum(detail["one_time_cost"] for detail in entry_details), 2),
             "hardware_replacement_cost": round(sum(item.hardware_replacement_cost for item in entries), 2),
+            "total_cost": round(sum(detail["total_cost"] for detail in entry_details), 2),
         },
         "entries": entry_details,
     }
@@ -2565,6 +2572,7 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
             item["fixed_costs"] = customer_fixed_costs
             item["fixed_cost_total"] = fixed_cost_total
             item["after_sales"]["fixed_cost_total"] = fixed_cost_total
+            item["after_sales"]["total_cost"] = round(item["after_sales"]["total_cost"] + fixed_cost_total, 2)
         session.commit()
         project_order = {"418": 0, "250": 1, "100C": 2}
         items.sort(key=lambda item: (project_order.get(item["project_type"], 9), (item["project_name"] or item["customer_name"]).casefold()))
