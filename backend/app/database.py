@@ -102,6 +102,9 @@ def upgrade_delivery_cost_schema() -> None:
         return
 
     cost_columns = {
+        "travel_cost": "REAL NOT NULL DEFAULT 0",
+        "labor_cost": "REAL NOT NULL DEFAULT 0",
+        "hardware_cost": "REAL NOT NULL DEFAULT 0",
         "meal_allowance": "REAL NOT NULL DEFAULT 0",
         "local_transport_cost": "REAL NOT NULL DEFAULT 0",
         "salary_cost": "REAL NOT NULL DEFAULT 0",

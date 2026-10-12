@@ -28,6 +28,7 @@ class DeliveryCost(SQLModel, table=True):
     project_id: int = Field(foreign_key="delivery_cost_projects.id", index=True, unique=True)
     travel_cost: float = Field(default=0.0, ge=0)
     labor_cost: float = Field(default=0.0, ge=0)
+    hardware_cost: float = Field(default=0.0, ge=0)
     meal_allowance: float = Field(default=0, ge=0)
     local_transport_cost: float = Field(default=0, ge=0)
     salary_cost: float = Field(default=0, ge=0)
@@ -60,6 +61,7 @@ class AfterSalesCostEntry(SQLModel, table=True):
     reference: str = ""
     travel_cost: float = Field(default=0.0, ge=0)
     labor_cost: float = Field(default=0.0, ge=0)
+    hardware_cost: float = Field(default=0.0, ge=0)
     meal_allowance: float = Field(default=0, ge=0)
     local_transport_cost: float = Field(default=0, ge=0)
     salary_cost: float = Field(default=0, ge=0)

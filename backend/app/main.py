@@ -2419,6 +2419,7 @@ def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
             reference=f"售后记录 #{log.id}",
             travel_cost=0.0,
             labor_cost=0.0,
+            hardware_cost=0.0,
             meal_allowance=0,
             local_transport_cost=0,
             salary_cost=0,
