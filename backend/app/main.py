@@ -2417,6 +2417,8 @@ def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
             project_id=project.id,
             event_date=log.event_date,
             reference=f"售后记录 #{log.id}",
+            travel_cost=0.0,
+            labor_cost=0.0,
             meal_allowance=0,
             local_transport_cost=0,
             salary_cost=0,
@@ -2450,6 +2452,8 @@ ONE_TIME_COST_FIELDS = ("long_distance_cost", "visa_cost", "tool_cost")
 
 def _cost_amount_summary(item, person_days) -> Dict[str, object]:
     data = item.model_dump()
+    data.pop("travel_cost", None)
+    data.pop("labor_cost", None)
     people = [person.model_dump() for person in person_days]
     data["person_days"] = people
     data["total_man_days"] = round(sum(person.days for person in person_days), 2)
