@@ -6,6 +6,7 @@
         <h2 class="mt-2 text-2xl font-semibold text-slate-900">交付与售后成本管理</h2>
       </div>
       <div class="flex flex-wrap gap-2">
+        <button v-if="canManage" type="button" class="rounded-lg border border-cyan-700 bg-white px-3 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-50" @click="openFixedCost()">添加固定成本</button>
         <button v-if="canManage" type="button" class="rounded-lg bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800" @click="openAssumptions">成本假设</button>
         <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" :disabled="loading" @click="loadProjects">
           刷新
@@ -59,7 +60,7 @@
             <tr>
               <th class="px-4 py-3">{{ activeType === '418' ? '项目名称' : '客户名称' }}</th>
               <th v-if="activeType === '418'" class="px-4 py-3">客户名称</th>
-              <th class="px-4 py-3">交付人数</th><th class="px-4 py-3">售后出差</th>
+              <th class="px-4 py-3">交付人天</th><th class="px-4 py-3">售后出差</th>
               <th class="px-4 py-3">总交付成本</th><th class="px-4 py-3">总售后成本</th><th class="px-4 py-3">操作</th>
             </tr>
           </thead>
@@ -68,7 +69,7 @@
               <tr class="hover:bg-slate-50/70">
                 <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{{ project.project_name || project.customer_name }}</td>
                 <td v-if="activeType === '418'" class="whitespace-nowrap px-4 py-3 text-slate-600">{{ project.customer_name || '—' }}</td>
-                <td class="px-4 py-3 tabular-nums">{{ project.delivery?.delivery_headcount ?? '—' }}</td>
+                <td class="px-4 py-3 tabular-nums">{{ project.delivery?.total_man_days ?? 0 }}</td>
                 <td class="px-4 py-3 tabular-nums">{{ project.after_sales.trip_count }}</td>
                 <td class="px-4 py-3 font-semibold tabular-nums">{{ money(deliveryTotal(project)) }}</td>
                 <td class="px-4 py-3 font-semibold tabular-nums">{{ money(afterSalesTotal(project)) }}</td>
@@ -79,29 +80,39 @@
               <tr v-if="expandedId === project.id">
                 <td :colspan="activeType === '418' ? 7 : 6" class="bg-slate-50 px-4 py-4">
                   <div class="overflow-x-auto">
-                    <table class="w-full min-w-[760px] text-left text-xs">
-                      <thead class="text-slate-500"><tr><th class="pb-2 pr-4">类型 / 日期</th><th class="pb-2 pr-4">记录 / 人数</th><th class="pb-2 pr-4">差旅</th><th class="pb-2 pr-4">用工</th><th class="pb-2 pr-4">工具</th><th class="pb-2 pr-4">硬件</th><th v-if="canManage" class="pb-2">操作</th></tr></thead>
+                    <table class="w-full min-w-[880px] text-left text-xs">
+                      <thead class="text-slate-500"><tr><th class="pb-2 pr-4">记录</th><th class="pb-2 pr-4">总人天</th><th class="pb-2 pr-4">每人天成本</th><th class="pb-2 pr-4">一次性成本</th><th class="pb-2 pr-4">硬件更换</th><th v-if="canManage" class="pb-2">操作</th></tr></thead>
                       <tbody class="divide-y divide-slate-200">
-                        <tr v-if="project.delivery" class="font-medium text-slate-700">
-                          <td class="py-2 pr-4">交付成本</td><td class="py-2 pr-4">{{ project.delivery.delivery_headcount }} 人</td>
-                          <td v-for="field in costFields" :key="field.key" class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(project.delivery[field.key]) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700 hover:text-cyan-950" :title="project.delivery[`${field.key}_note`] || '添加备注'" :aria-label="project.delivery[`${field.key}_note`] ? '查看或编辑备注' : '添加备注'" @click="toggleNoteEditor('delivery', project.delivery.id, field, project.delivery[`${field.key}_note`])">备注</button></div></td>
-                          <td v-if="canManage" class="py-2"><button type="button" class="font-semibold text-cyan-800 hover:text-cyan-950" @click="openEdit(project)">编辑</button></td>
-                        </tr>
-                        <tr v-if="noteEditor.open && noteEditor.kind === 'delivery' && noteEditor.id === project.delivery?.id">
-                          <td :colspan="canManage ? 7 : 6" class="pb-3"><div class="rounded-lg border border-cyan-200 bg-white p-3"><label class="block text-xs font-semibold text-slate-600">{{ noteEditor.field?.label }}备注<textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 read-only:bg-slate-50" placeholder="填写这项费用的说明" /></label><div class="mt-2 flex justify-end gap-2"><button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveNote">{{ saving ? '保存中…' : '保存备注' }}</button></div></div></td>
-                        </tr>
-                        <tr v-for="entry in project.entries" :key="entry.id">
-                          <td class="py-2 pr-4">现场售后 · {{ entry.event_date || '—' }}</td><td class="py-2 pr-4">{{ entry.after_sales_log_id ? `售后记录 #${entry.after_sales_log_id}` : entry.reference || `导入批次 ${entry.import_batch_id.slice(0, 8)}` }}</td>
-                          <td v-for="field in costFields" :key="field.key" class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(entry[field.key]) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700 hover:text-cyan-950" :title="entry[`${field.key}_note`] || '添加备注'" :aria-label="entry[`${field.key}_note`] ? '查看或编辑备注' : '添加备注'" @click="toggleNoteEditor('after-sales', entry.id, field, entry[`${field.key}_note`])">备注</button></div></td>
-                          <td v-if="canManage" class="py-2"><button type="button" class="mr-3 font-semibold text-cyan-800 hover:text-cyan-950" @click="openAfterSalesEdit(entry)">编辑</button><button v-if="!entry.after_sales_log_id" type="button" class="font-semibold text-rose-600" @click="removeEntry(entry.id)">删除</button><span v-else class="text-slate-400">源记录联动</span></td>
-                        </tr>
-                        <tr v-for="entry in project.entries" :key="`note-${entry.id}`" v-if="noteEditor.open && noteEditor.kind === 'after-sales' && noteEditor.id === entry.id">
-                          <td :colspan="canManage ? 7 : 6" class="pb-3"><div class="rounded-lg border border-cyan-200 bg-white p-3"><label class="block text-xs font-semibold text-slate-600">{{ noteEditor.field?.label }}备注<textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 read-only:bg-slate-50" placeholder="填写这项费用的说明" /></label><div class="mt-2 flex justify-end gap-2"><button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveNote">{{ saving ? '保存中…' : '保存备注' }}</button></div></div></td>
-                        </tr>
-                        <tr v-if="!project.delivery && !project.entries.length"><td :colspan="canManage ? 7 : 6" class="py-3 text-slate-500">暂无成本明细</td></tr>
+                        <template v-for="line in costLines(project)" :key="`${line.kind}-${line.id}`">
+                          <tr class="font-medium text-slate-700">
+                            <td class="py-2 pr-4">{{ line.label }}</td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ line.item.total_man_days.toLocaleString('zh-CN') }} 天</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'people')">{{ isBreakdownOpen(line, 'people') ? '收起' : '人员' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.totalManDays, line.item.total_man_days_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.per_day_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'per-day')">{{ isBreakdownOpen(line, 'per-day') ? '收起' : '分项' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.perDay, line.item.per_day_cost_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.one_time_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleBreakdown(line, 'one-time')">{{ isBreakdownOpen(line, 'one-time') ? '收起' : '分项' }}</button><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.oneTime, line.item.one_time_cost_note)">备注</button></div></td>
+                            <td class="py-2 pr-4"><div class="flex items-center gap-2"><span>{{ money(line.item.hardware_replacement_cost) }}</span><button type="button" class="text-[10px] font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, noteFields.hardware, line.item.hardware_replacement_cost_note)">备注</button></div></td>
+                            <td v-if="canManage" class="py-2"><button type="button" class="mr-3 font-semibold text-cyan-800" @click="openCostEdit(line)">编辑</button><button v-if="line.kind === 'after-sales' && !line.item.after_sales_log_id" type="button" class="font-semibold text-rose-600" @click="removeEntry(line.id)">删除</button></td>
+                          </tr>
+                          <tr v-if="isNoteEditorOpen(line.kind, line.id)"><td :colspan="canManage ? 6 : 5" class="pb-3"><div class="rounded-lg border border-cyan-200 bg-white p-3"><label class="block text-xs font-semibold text-slate-600">{{ noteEditor.field?.label }}备注<textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 read-only:bg-slate-50" placeholder="填写这项费用的说明" /></label><div class="mt-2 flex justify-end gap-2"><button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveNote">{{ saving ? '保存中…' : '保存备注' }}</button></div></div></td></tr>
+                          <tr v-if="isBreakdownOpen(line, 'people')"><td :colspan="canManage ? 6 : 5" class="bg-white px-3 py-3"><div class="space-y-2"><div v-for="person in line.item.person_days" :key="person.id" class="grid items-center gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_120px_auto_auto]">
+                            <input v-model.trim="person.person_name" :disabled="!canManage" class="rounded border border-slate-300 px-2 py-1.5 text-xs disabled:bg-slate-100" aria-label="人名" />
+                            <label class="flex items-center gap-2 text-xs text-slate-500"><input v-model.number="person.days" :disabled="!canManage" type="number" min="0" step="0.25" class="w-full rounded border border-slate-300 px-2 py-1.5 text-right tabular-nums disabled:bg-slate-100" />天</label>
+                            <button type="button" class="text-xs font-semibold text-cyan-700" @click="togglePersonNote(person)">备注</button>
+                            <div v-if="canManage" class="flex gap-2"><button type="button" class="text-xs font-semibold text-cyan-800" :disabled="saving" @click="savePerson(line, person)">保存</button><button type="button" class="text-xs font-semibold text-rose-600" @click="deletePerson(person)">删除</button></div>
+                            <div v-if="personNoteEditorId === person.id" class="col-span-full rounded border border-cyan-200 bg-white p-2"><textarea v-model="personNoteDraft" rows="2" maxlength="2000" :readonly="!canManage" class="w-full rounded border border-slate-300 px-2 py-1.5 text-xs read-only:bg-slate-50" placeholder="人天备注"/><div v-if="canManage" class="mt-1 text-right"><button type="button" class="text-xs font-semibold text-cyan-800" @click="savePersonNote(person)">保存备注</button></div></div>
+                          </div>
+                          <form v-if="canManage" class="grid gap-2 rounded-md border border-dashed border-slate-300 p-2 sm:grid-cols-[1fr_120px_auto]" @submit.prevent="addPerson(line)"><input v-model.trim="personDraft.person_name" required maxlength="120" class="rounded border border-slate-300 px-2 py-1.5 text-xs" placeholder="人名"/><label class="flex items-center gap-2 text-xs text-slate-500"><input v-model.number="personDraft.days" required min="0" step="0.25" type="number" class="w-full rounded border border-slate-300 px-2 py-1.5 text-right"/>天</label><button type="submit" class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white" :disabled="saving">添加人员</button></form>
+                          <p v-if="!line.item.person_days.length" class="text-xs text-slate-500">暂无人员人天明细</p></div></td></tr>
+                          <template v-for="group in ['per-day', 'one-time']" :key="`${line.kind}-${line.id}-${group}`"><tr v-if="isBreakdownOpen(line, group)"><td :colspan="canManage ? 6 : 5" class="bg-white px-3 py-3"><div class="space-y-1"><template v-for="field in groupFields(group)" :key="field.key"><div class="grid items-center gap-3 border-b border-slate-100 py-2 sm:grid-cols-[180px_1fr_auto]"><span class="text-xs font-medium text-slate-600">{{ field.label }}</span><span class="text-xs font-semibold tabular-nums text-slate-800">{{ money(line.item[field.key]) }}</span><button type="button" class="text-xs font-semibold text-cyan-700" @click="toggleNoteEditor(line.kind, line.id, field, line.item[`${field.key}_note`])">备注</button></div><div v-if="isCostNoteOpen(line.kind, line.id, field.key)" class="rounded-md border border-cyan-200 bg-slate-50 p-2"><textarea v-model="noteEditor.text" rows="2" maxlength="2000" :readonly="!canManage" class="w-full rounded border border-slate-300 px-2 py-1.5 text-xs read-only:bg-white"/><div class="mt-1 flex justify-end gap-2"><button type="button" class="text-xs text-slate-500" @click="closeNoteEditor">关闭</button><button v-if="canManage" type="button" class="text-xs font-semibold text-cyan-800" @click="saveNote">保存备注</button></div></div></template></div></td></tr></template>
+                        </template>
+                        <tr v-if="!costLines(project).length"><td :colspan="canManage ? 6 : 5" class="py-3 text-slate-500">暂无成本明细</td></tr>
                       </tbody>
                     </table>
                   </div>
+                  <section class="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                    <div class="mb-2 flex items-center justify-between gap-3"><h4 class="text-xs font-semibold uppercase tracking-wide text-slate-600">{{ project.customer_name || '客户' }}固定成本 · 合计 {{ money(project.fixed_cost_total || 0) }}</h4></div>
+                    <div v-if="project.fixed_costs?.length" class="overflow-x-auto"><table class="w-full min-w-[680px] text-left text-xs"><thead class="text-slate-500"><tr><th class="py-2 pr-3">项目</th><th class="py-2 pr-3">每日价格</th><th class="py-2 pr-3">开始日期</th><th class="py-2 pr-3">结束日期</th><th class="py-2 pr-3">总天数</th><th class="py-2 pr-3">总价格</th><th class="py-2 pr-3">备注</th><th v-if="canManage" class="py-2">操作</th></tr></thead><tbody class="divide-y divide-slate-100"><tr v-for="item in project.fixed_costs" :key="item.id"><td class="py-2 pr-3 font-medium text-slate-800">{{ item.name }}</td><td class="py-2 pr-3">{{ money(item.daily_price) }}</td><td class="py-2 pr-3">{{ item.start_date }}</td><td class="py-2 pr-3">{{ item.end_date }}</td><td class="py-2 pr-3">{{ item.total_days }} 天</td><td class="py-2 pr-3 font-semibold">{{ money(item.total_price) }}</td><td class="max-w-48 truncate py-2 pr-3" :title="item.note">{{ item.note || '—' }}</td><td v-if="canManage" class="whitespace-nowrap py-2"><button type="button" class="mr-3 font-semibold text-cyan-800" @click="openFixedCost(item)">编辑</button><button type="button" class="font-semibold text-rose-600" @click="deleteFixedCost(item)">删除</button></td></tr></tbody></table></div>
+                    <p v-else class="py-2 text-xs text-slate-500">暂无固定成本</p>
+                  </section>
                 </td>
               </tr>
             </template>
@@ -113,23 +124,36 @@
     <div v-if="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6" @click.self="modalOpen = false">
       <form class="max-h-full w-full max-w-xl overflow-y-auto rounded-xl bg-white p-5 shadow-2xl" @submit.prevent="saveDelivery">
         <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-cyan-700">DELIVERY COST</p><h3 class="mt-1 text-lg font-semibold text-slate-900">编辑交付成本</h3><p class="mt-1 text-sm text-slate-500">{{ draft.project_name || draft.customer_name }}</p></div><button type="button" class="rounded-md px-2 py-1 text-lg text-slate-500 hover:bg-slate-100" aria-label="关闭" @click="modalOpen = false">×</button></div>
-        <div class="mt-5 grid gap-4 sm:grid-cols-2">
-          <label class="text-sm font-medium text-slate-700">交付人数<input v-model.number="draft.delivery_headcount" type="number" min="0" step="1" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <label class="text-sm font-medium text-slate-700">总差旅成本<input v-model.number="draft.travel_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <label class="text-sm font-medium text-slate-700">总用工成本<input v-model.number="draft.labor_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <label class="text-sm font-medium text-slate-700">现场工具成本<input v-model.number="draft.tool_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <label class="text-sm font-medium text-slate-700">现场硬件成本<input v-model.number="draft.hardware_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+        <div class="mt-5 space-y-4">
+          <section v-for="group in costGroups" :key="group.key"><h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ group.label }}</h4><div class="grid gap-3 sm:grid-cols-2"><label v-for="field in group.fields" :key="field.key" class="text-sm font-medium text-slate-700">{{ field.label }}<input v-model.number="draft[field.key]" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div></section>
+          <label class="block text-sm font-medium text-slate-700">硬件更换<input v-model.number="draft.hardware_replacement_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
         </div>
         <div class="mt-6 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600" @click="modalOpen = false">取消</button><button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button></div>
+      </form>
+    </div>
+
+    <div v-if="fixedCostModal.open" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4 py-6" @click.self="fixedCostModal.open = false">
+      <form class="w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl" @submit.prevent="saveFixedCost">
+        <header class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-cyan-700">FIXED COST</p><h3 class="mt-1 text-lg font-semibold text-slate-900">{{ fixedCostModal.id ? '编辑固定成本' : '添加固定成本' }}</h3></div><button type="button" class="rounded-md px-2 py-1 text-lg text-slate-500 hover:bg-slate-100" aria-label="关闭" @click="fixedCostModal.open = false">×</button></header>
+        <div class="mt-5 grid gap-4 sm:grid-cols-2">
+          <label class="text-sm font-medium text-slate-700 sm:col-span-2">客户名称<select v-model="fixedCostDraft.customer_name" required class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option disabled value="">选择客户账号</option><option v-for="customer in customerOptions" :key="customer" :value="customer">{{ customer }}</option></select></label>
+          <label class="text-sm font-medium text-slate-700 sm:col-span-2">固定成本项目<input v-model.trim="fixedCostDraft.name" required maxlength="160" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="如：租车、租房、临时薪资" /></label>
+          <label class="text-sm font-medium text-slate-700 sm:col-span-2">每日价格<input v-model.number="fixedCostDraft.daily_price" required type="number" min="0" step="0.01" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 tabular-nums" /></label>
+          <label class="text-sm font-medium text-slate-700">开始时间<input v-model="fixedCostDraft.start_date" required type="date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+          <label class="text-sm font-medium text-slate-700">结束时间<input v-model="fixedCostDraft.end_date" required type="date" :min="fixedCostDraft.start_date" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+          <div class="rounded-lg bg-slate-50 px-3 py-3"><p class="text-xs text-slate-500">总天数（含起止日期）</p><p class="mt-1 font-semibold tabular-nums text-slate-900">{{ fixedCostDays }} 天</p></div>
+          <div class="rounded-lg bg-cyan-50 px-3 py-3"><p class="text-xs text-cyan-800">自动计算总价格</p><p class="mt-1 font-semibold tabular-nums text-cyan-950">¥ {{ money(fixedCostTotal) }}</p></div>
+          <label class="text-sm font-medium text-slate-700 sm:col-span-2">备注<textarea v-model.trim="fixedCostDraft.note" maxlength="2000" rows="3" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="说明该固定成本的用途" /></label>
+        </div>
+        <p v-if="fixedCostError" class="mt-3 text-sm text-rose-700">{{ fixedCostError }}</p>
+        <div class="mt-6 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600" @click="fixedCostModal.open = false">取消</button><button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" :disabled="saving || fixedCostDays < 1">{{ saving ? '保存中…' : '保存固定成本' }}</button></div>
       </form>
     </div>
 
     <div v-if="detailEdit.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6" @click.self="detailEdit.open = false">
       <form class="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl" @submit.prevent="saveDetailEdit">
         <h3 class="text-lg font-semibold text-slate-900">编辑售后成本</h3>
-        <div class="mt-4 grid gap-4 sm:grid-cols-2">
-          <label v-for="field in costFields" :key="field.key" class="text-sm font-medium text-slate-700">{{ field.label }}<input v-model.number="detailDraft[field.key]" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-        </div>
+        <div class="mt-4 space-y-4"><section v-for="group in costGroups" :key="group.key"><h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ group.label }}</h4><div class="grid gap-3 sm:grid-cols-2"><label v-for="field in group.fields" :key="field.key" class="text-sm font-medium text-slate-700">{{ field.label }}<input v-model.number="detailDraft[field.key]" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div></section><label class="block text-sm font-medium text-slate-700">硬件更换<input v-model.number="detailDraft.hardware_replacement_cost" type="number" min="0" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label></div>
         <div class="mt-6 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600" @click="detailEdit.open = false">取消</button><button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button></div>
       </form>
     </div>
@@ -174,40 +198,117 @@ const editingId = ref(null)
 const expandedId = ref(null)
 const notice = ref('')
 const noticeType = ref('success')
-const draft = reactive({ project_type: '418', project_name: '', customer_name: '', delivery_headcount: 0, travel_cost: 0, labor_cost: 0, tool_cost: 0, hardware_cost: 0 })
-const detailEdit = reactive({ open: false, kind: '', id: null })
+const costAmountFields = [
+  { key: 'meal_allowance', label: '餐补', group: 'per-day' },
+  { key: 'local_transport_cost', label: '交通', group: 'per-day' },
+  { key: 'salary_cost', label: '薪资', group: 'per-day' },
+  { key: 'accommodation_cost', label: '住宿', group: 'per-day' },
+  { key: 'long_distance_cost', label: '大交通', group: 'one-time' },
+  { key: 'visa_cost', label: '签证', group: 'one-time' },
+  { key: 'tool_cost', label: '工具', group: 'one-time' },
+  { key: 'hardware_replacement_cost', label: '硬件更换', group: 'hardware' },
+]
+const costGroups = [
+  { key: 'per-day', label: '每人天成本', fields: costAmountFields.filter((field) => field.group === 'per-day') },
+  { key: 'one-time', label: '一次性成本', fields: costAmountFields.filter((field) => field.group === 'one-time') },
+]
+const noteFields = {
+  totalManDays: { key: 'total_man_days', label: '总人天' },
+  perDay: { key: 'per_day_cost', label: '每人天成本合计' },
+  oneTime: { key: 'one_time_cost', label: '一次性成本合计' },
+  hardware: { key: 'hardware_replacement_cost', label: '硬件更换' },
+}
+const draft = reactive({ project_type: '418', project_name: '', customer_name: '', ...Object.fromEntries(costAmountFields.filter((field) => field.group !== 'hardware').map((field) => [field.key, 0])), hardware_replacement_cost: 0 })
+const detailEdit = reactive({ open: false, kind: '', id: null, item: null })
 const noteEditor = reactive({ open: false, kind: '', id: null, field: null, text: '' })
-const detailDraft = reactive({ travel_cost: 0, labor_cost: 0, tool_cost: 0, hardware_cost: 0 })
+const detailDraft = reactive(Object.fromEntries(costAmountFields.map((field) => [field.key, 0])))
+const expandedBreakdown = reactive({ kind: '', id: null, group: '' })
+const personDraft = reactive({ person_name: '', days: 0 })
+const personNoteEditorId = ref(null)
+const personNoteDraft = ref('')
 const assumptionsOpen = ref(false)
 const assumptions = ref([])
 const assumptionNotice = ref('')
 const assumptionNoticeType = ref('success')
 const assumptionEditingId = ref(null)
 const assumptionDraft = reactive({ name: '', default_amount: 0, description: '' })
-const costFields = [
-  { key: 'travel_cost', label: '差旅' },
-  { key: 'labor_cost', label: '用工' },
-  { key: 'tool_cost', label: '工具' },
-  { key: 'hardware_cost', label: '硬件' },
-]
-
+const fixedCostModal = reactive({ open: false, id: null })
+const fixedCostDraft = reactive({ customer_name: '', name: '', daily_price: 0, start_date: localToday(), end_date: localToday(), note: '' })
+const fixedCostError = ref('')
+const fixedCostDays = computed(() => {
+  if (!fixedCostDraft.start_date || !fixedCostDraft.end_date) return 0
+  const start = dateToUtcDay(fixedCostDraft.start_date)
+  const end = dateToUtcDay(fixedCostDraft.end_date)
+  return end < start ? 0 : end - start + 1
+})
+const fixedCostTotal = computed(() => fixedCostDays.value * Math.max(Number(fixedCostDraft.daily_price) || 0, 0))
 const typeProjects = computed(() => projects.value.filter((item) => item.project_type === activeType.value))
 const gridScaleCustomers = computed(() => [...new Set(projects.value.filter((item) => item.project_type === '418').map((item) => item.customer_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
+const customerOptions = computed(() => [...new Set(projects.value.map((item) => item.customer_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
 const visibleProjects = computed(() => typeProjects.value.filter((item) => activeType.value !== '418' || !selectedCustomer.value || item.customer_name === selectedCustomer.value))
 const totalDeliveryCost = computed(() => visibleProjects.value.reduce((sum, item) => sum + deliveryTotal(item), 0))
 const totalAfterSalesCost = computed(() => visibleProjects.value.reduce((sum, item) => sum + afterSalesTotal(item), 0))
 const totalTripCount = computed(() => visibleProjects.value.reduce((sum, item) => sum + item.after_sales.trip_count, 0))
 
 function deliveryTotal(item) {
-  return ['travel_cost', 'labor_cost', 'tool_cost', 'hardware_cost'].reduce((sum, key) => sum + Number(item.delivery?.[key] || 0), 0)
+  const fixedCosts = Number(item.fixed_cost_total || 0)
+  if (!item.delivery) return fixedCosts
+  return Number(item.delivery.per_day_cost || 0) + Number(item.delivery.one_time_cost || 0) + Number(item.delivery.hardware_replacement_cost || 0) + fixedCosts
 }
 
 function afterSalesTotal(item) {
-  return ['travel_cost', 'labor_cost', 'tool_cost', 'hardware_cost'].reduce((sum, key) => sum + Number(item.after_sales?.[key] || 0), 0)
+  return Number(item.after_sales?.per_day_cost || 0) + Number(item.after_sales?.one_time_cost || 0) + Number(item.after_sales?.hardware_replacement_cost || 0) + Number(item.after_sales?.fixed_cost_total || 0)
+}
+
+function costLines(project) {
+  const lines = []
+  if (project.delivery) lines.push({ kind: 'delivery', id: project.delivery.id, item: project.delivery, project_type: project.project_type, project_name: project.project_name, customer_name: project.customer_name, label: '交付成本' })
+  for (const entry of project.entries) {
+    lines.push({ kind: 'after-sales', id: entry.id, item: entry, project_type: project.project_type, project_name: project.project_name, customer_name: project.customer_name, label: `现场售后 · ${entry.event_date || '—'} · ${entry.after_sales_log_id ? `记录 #${entry.after_sales_log_id}` : entry.reference || ''}` })
+  }
+  return lines
+}
+
+function groupFields(group) {
+  return costAmountFields.filter((field) => field.group === group)
+}
+
+function toggleBreakdown(line, group) {
+  if (expandedBreakdown.kind === line.kind && expandedBreakdown.id === line.id && expandedBreakdown.group === group) {
+    expandedBreakdown.kind = ''
+    expandedBreakdown.id = null
+    expandedBreakdown.group = ''
+  } else {
+    expandedBreakdown.kind = line.kind
+    expandedBreakdown.id = line.id
+    expandedBreakdown.group = group
+  }
+}
+
+function isBreakdownOpen(line, group) {
+  return expandedBreakdown.kind === line.kind && expandedBreakdown.id === line.id && expandedBreakdown.group === group
+}
+
+function isNoteEditorOpen(kind, id) {
+  return noteEditor.open && noteEditor.kind === kind && noteEditor.id === id && ['total_man_days', 'per_day_cost', 'one_time_cost', 'hardware_replacement_cost'].includes(noteEditor.field?.key)
+}
+
+function isCostNoteOpen(kind, id, fieldKey) {
+  return noteEditor.open && noteEditor.kind === kind && noteEditor.id === id && noteEditor.field?.key === fieldKey
 }
 
 function money(value) {
   return Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function localToday() {
+  const today = new Date()
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+}
+
+function dateToUtcDay(value) {
+  const [year, month, day] = value.split('-').map(Number)
+  return Date.UTC(year, month - 1, day) / 86400000
 }
 
 function countByType(type) {
@@ -235,26 +336,22 @@ async function loadProjects() {
   }
 }
 
-function openEdit(project) {
-  editingId.value = project.delivery.id
-  Object.assign(draft, {
-    project_type: project.project_type,
-    project_name: project.project_name,
-    customer_name: project.customer_name,
-    delivery_headcount: project.delivery.delivery_headcount,
-    travel_cost: project.delivery.travel_cost,
-    labor_cost: project.delivery.labor_cost,
-    tool_cost: project.delivery.tool_cost,
-    hardware_cost: project.delivery.hardware_cost || 0,
-  })
-  modalOpen.value = true
-}
-
-function openAfterSalesEdit(entry) {
+function openCostEdit(line) {
   detailEdit.open = true
-  detailEdit.kind = 'after-sales'
-  detailEdit.id = entry.id
-  for (const field of costFields) detailDraft[field.key] = Number(entry[field.key] || 0)
+  detailEdit.kind = line.kind
+  detailEdit.id = line.id
+  detailEdit.item = line.item
+  for (const field of costAmountFields) detailDraft[field.key] = Number(line.item[field.key] || 0)
+  if (line.kind === 'delivery') {
+    editingId.value = line.id
+    Object.assign(draft, {
+      project_type: line.project_type,
+      project_name: line.project_name || '',
+      customer_name: line.customer_name || '',
+      ...Object.fromEntries(costAmountFields.map((field) => [field.key, Number(line.item[field.key] || 0)])),
+    })
+    modalOpen.value = true
+  }
 }
 
 function toggleNoteEditor(kind, id, field, note) {
@@ -281,7 +378,7 @@ function closeNoteEditor() {
 async function saveDetailEdit() {
   saving.value = true
   try {
-    const payload = Object.fromEntries(costFields.map(({ key }) => [key, Number(detailDraft[key]) || 0]))
+    const payload = Object.fromEntries(costAmountFields.map(({ key }) => [key, Number(detailDraft[key]) || 0]))
     await portalApi.updateAfterSalesCostEntry(detailEdit.id, payload)
     detailEdit.open = false
     showNotice('成本明细已保存')
@@ -314,12 +411,137 @@ async function saveDelivery() {
     const payload = { ...draft }
     await portalApi.updateDeliveryCost(editingId.value, payload)
     modalOpen.value = false
+    detailEdit.open = false
     showNotice('交付成本已保存')
     await loadProjects()
   } catch (error) {
     showNotice(error.message || '保存失败', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+function openFixedCost(item = null) {
+  fixedCostModal.open = true
+  fixedCostModal.id = item?.id ?? null
+  fixedCostError.value = ''
+  Object.assign(fixedCostDraft, {
+    customer_name: item?.customer_name || '',
+    name: item?.name || '',
+    daily_price: Number(item?.daily_price || 0),
+    start_date: item?.start_date || localToday(),
+    end_date: item?.end_date || localToday(),
+    note: item?.note || '',
+  })
+}
+
+async function saveFixedCost() {
+  fixedCostError.value = ''
+  if (!fixedCostDraft.start_date || !fixedCostDraft.end_date || fixedCostDays.value < 1) {
+    fixedCostError.value = '结束日期不能早于开始日期，请检查日期范围。'
+    return
+  }
+  saving.value = true
+  try {
+    const payload = {
+      customer_name: fixedCostDraft.customer_name,
+      name: fixedCostDraft.name.trim(),
+      daily_price: Number(fixedCostDraft.daily_price) || 0,
+      start_date: fixedCostDraft.start_date,
+      end_date: fixedCostDraft.end_date,
+      note: fixedCostDraft.note.trim(),
+    }
+    if (fixedCostModal.id) await portalApi.updateFixedCost(fixedCostModal.id, payload)
+    else await portalApi.createFixedCost(payload)
+    fixedCostModal.open = false
+    showNotice('固定成本已保存')
+    await loadProjects()
+  } catch (error) {
+    fixedCostError.value = error.message || '固定成本保存失败'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteFixedCost(item) {
+  if (!window.confirm(`确认删除固定成本“${item.name}”？`)) return
+  try {
+    await portalApi.deleteFixedCost(item.id)
+    showNotice('固定成本已删除')
+    await loadProjects()
+  } catch (error) {
+    showNotice(error.message || '固定成本删除失败', 'error')
+  }
+}
+
+function togglePersonNote(person) {
+  if (personNoteEditorId.value === person.id) {
+    personNoteEditorId.value = null
+    personNoteDraft.value = ''
+  } else {
+    personNoteEditorId.value = person.id
+    personNoteDraft.value = person.note || ''
+  }
+}
+
+async function savePerson(line, person) {
+  saving.value = true
+  try {
+    await portalApi.updateCostPersonDay(person.id, {
+      person_name: person.person_name,
+      days: Number(person.days) || 0,
+      note: person.note || '',
+    })
+    showNotice('人员人天已保存')
+    await loadProjects()
+  } catch (error) {
+    showNotice(error.message || '人员人天保存失败', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function savePersonNote(person) {
+  saving.value = true
+  try {
+    await portalApi.updateCostPersonDay(person.id, { note: personNoteDraft.value })
+    personNoteEditorId.value = null
+    personNoteDraft.value = ''
+    showNotice('人天备注已保存')
+    await loadProjects()
+  } catch (error) {
+    showNotice(error.message || '备注保存失败', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function addPerson(line) {
+  if (!personDraft.person_name.trim()) return
+  saving.value = true
+  try {
+    await portalApi.createCostPersonDay(line.kind, line.id, {
+      person_name: personDraft.person_name,
+      days: Number(personDraft.days) || 0,
+    })
+    Object.assign(personDraft, { person_name: '', days: 0 })
+    showNotice('人员人天已添加')
+    await loadProjects()
+  } catch (error) {
+    showNotice(error.message || '人员人天添加失败', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deletePerson(person) {
+  if (!window.confirm(`确认删除${person.person_name}的人天明细？`)) return
+  try {
+    await portalApi.deleteCostPersonDay(person.id)
+    showNotice('人员人天已删除')
+    await loadProjects()
+  } catch (error) {
+    showNotice(error.message || '人员人天删除失败', 'error')
   }
 }
 

@@ -58,7 +58,7 @@ from .models.technical_docs import (
     TECHNICAL_DOC_PRODUCT_SERIES,
     TechnicalDoc,
 )
-from .models.delivery_costs import AfterSalesCostEntry, CostAssumption, DeliveryCost, DeliveryCostProject
+from .models.delivery_costs import AfterSalesCostEntry, CostAssumption, CostPersonDay, DeliveryCost, DeliveryCostProject, FixedCostEntry
 from .models.portal import AfterSalesLog, CustomerTicket, DiagnosticExportTable, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User, VpnExportTask, VpnSite
 from .vpn_service import EXPORT_DIR, open_terminal_channel, receive_channel, request_export_cancel, run_export_task
 
@@ -352,23 +352,65 @@ class DeliveryCostPayload(BaseModel):
     project_type: Literal["418", "250", "100C"]
     project_name: str = ""
     customer_name: str = ""
-    delivery_headcount: int = Field(default=0, ge=0)
-    travel_cost: float = Field(default=0, ge=0)
-    labor_cost: float = Field(default=0, ge=0)
+    meal_allowance: float = Field(default=0, ge=0)
+    local_transport_cost: float = Field(default=0, ge=0)
+    salary_cost: float = Field(default=0, ge=0)
+    accommodation_cost: float = Field(default=0, ge=0)
+    long_distance_cost: float = Field(default=0, ge=0)
+    visa_cost: float = Field(default=0, ge=0)
     tool_cost: float = Field(default=0, ge=0)
-    hardware_cost: float = Field(default=0, ge=0)
+    hardware_replacement_cost: float = Field(default=0, ge=0)
 
 
 class AfterSalesCostEntryUpdatePayload(BaseModel):
-    travel_cost: Optional[float] = Field(default=None, ge=0)
-    labor_cost: Optional[float] = Field(default=None, ge=0)
+    meal_allowance: Optional[float] = Field(default=None, ge=0)
+    local_transport_cost: Optional[float] = Field(default=None, ge=0)
+    salary_cost: Optional[float] = Field(default=None, ge=0)
+    accommodation_cost: Optional[float] = Field(default=None, ge=0)
+    long_distance_cost: Optional[float] = Field(default=None, ge=0)
+    visa_cost: Optional[float] = Field(default=None, ge=0)
     tool_cost: Optional[float] = Field(default=None, ge=0)
-    hardware_cost: Optional[float] = Field(default=None, ge=0)
+    hardware_replacement_cost: Optional[float] = Field(default=None, ge=0)
 
 
 class CostNotePayload(BaseModel):
-    field: Literal["travel_cost_note", "labor_cost_note", "tool_cost_note", "hardware_cost_note"]
+    field: Literal[
+        "total_man_days_note", "per_day_cost_note", "one_time_cost_note",
+        "meal_allowance_note", "local_transport_cost_note", "salary_cost_note",
+        "accommodation_cost_note", "long_distance_cost_note", "visa_cost_note",
+        "tool_cost_note", "hardware_replacement_cost_note",
+    ]
     note: str = Field(default="", max_length=2000)
+
+
+class CostPersonDayPayload(BaseModel):
+    person_name: str = Field(min_length=1, max_length=120)
+    days: float = Field(ge=0)
+    note: str = Field(default="", max_length=2000)
+
+
+class CostPersonDayUpdatePayload(BaseModel):
+    person_name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    days: Optional[float] = Field(default=None, ge=0)
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class FixedCostPayload(BaseModel):
+    customer_name: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=160)
+    daily_price: float = Field(ge=0)
+    start_date: date
+    end_date: date
+    note: str = Field(default="", max_length=2000)
+
+
+class FixedCostUpdatePayload(BaseModel):
+    customer_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    daily_price: Optional[float] = Field(default=None, ge=0)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    note: Optional[str] = Field(default=None, max_length=2000)
 
 
 class CostAssumptionPayload(BaseModel):
@@ -2049,7 +2091,7 @@ def delete_after_sales_log(log_id: int, _: User = Depends(require_write_access))
             select(AfterSalesCostEntry).where(AfterSalesCostEntry.after_sales_log_id == log_id)
         ).first()
         if cost_entry is not None:
-            session.delete(cost_entry)
+            _delete_after_sales_cost_entry(session, cost_entry)
         session.delete(item)
         session.commit()
     return {"message": "deleted"}
@@ -2344,13 +2386,21 @@ def _is_onsite_support(support_type: str) -> bool:
     return "现场" in (support_type or "")
 
 
+def _delete_after_sales_cost_entry(session, entry: AfterSalesCostEntry) -> None:
+    for detail in session.exec(
+        select(CostPersonDay).where(CostPersonDay.after_sales_cost_entry_id == entry.id)
+    ).all():
+        session.delete(detail)
+    session.delete(entry)
+
+
 def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
     entry = session.exec(
         select(AfterSalesCostEntry).where(AfterSalesCostEntry.after_sales_log_id == log.id)
     ).first()
     if not _is_onsite_support(log.support_type):
         if entry is not None:
-            session.delete(entry)
+            _delete_after_sales_cost_entry(session, entry)
         return
 
     project_type = log.product_model.strip().upper()
@@ -2367,10 +2417,14 @@ def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
             project_id=project.id,
             event_date=log.event_date,
             reference=f"售后记录 #{log.id}",
-            travel_cost=0,
-            labor_cost=0,
+            meal_allowance=0,
+            local_transport_cost=0,
+            salary_cost=0,
+            accommodation_cost=0,
+            long_distance_cost=0,
+            visa_cost=0,
             tool_cost=0,
-            hardware_cost=0,
+            hardware_replacement_cost=0,
             import_batch_id=f"auto-{log.id}",
             source_row=0,
             after_sales_log_id=log.id,
@@ -2390,21 +2444,49 @@ def ensure_after_sales_costs() -> None:
         session.commit()
 
 
-def _cost_project_response(project, delivery, entries) -> Dict[str, object]:
+PER_DAY_COST_FIELDS = ("meal_allowance", "local_transport_cost", "salary_cost", "accommodation_cost")
+ONE_TIME_COST_FIELDS = ("long_distance_cost", "visa_cost", "tool_cost")
+
+
+def _cost_amount_summary(item, person_days) -> Dict[str, object]:
+    data = item.model_dump()
+    people = [person.model_dump() for person in person_days]
+    data["person_days"] = people
+    data["total_man_days"] = round(sum(person.days for person in person_days), 2)
+    data["per_day_cost"] = round(sum(getattr(item, field) for field in PER_DAY_COST_FIELDS), 2)
+    data["one_time_cost"] = round(sum(getattr(item, field) for field in ONE_TIME_COST_FIELDS), 2)
+    return data
+
+
+def _cost_project_response(project, delivery, entries, person_days_by_cost, fixed_costs) -> Dict[str, object]:
+    delivery_details = _cost_amount_summary(
+        delivery,
+        person_days_by_cost.get(("delivery", delivery.id), []),
+    ) if delivery is not None else None
+    entry_details = []
+    for entry in entries:
+        entry_details.append(
+            _cost_amount_summary(
+                entry,
+                person_days_by_cost.get(("after-sales", entry.id), []),
+            )
+        )
     return {
         "id": project.id,
         "project_type": project.project_type,
         "project_name": project.project_name,
         "customer_name": project.customer_name,
-        "delivery": delivery,
+        "delivery": delivery_details,
+        "fixed_costs": fixed_costs,
+        "fixed_cost_total": round(sum(item.total_price for item in fixed_costs), 2),
         "after_sales": {
             "trip_count": len(entries),
-            "travel_cost": round(sum(item.travel_cost for item in entries), 2),
-            "labor_cost": round(sum(item.labor_cost for item in entries), 2),
-            "tool_cost": round(sum(item.tool_cost for item in entries), 2),
-            "hardware_cost": round(sum(item.hardware_cost for item in entries), 2),
+            "total_man_days": round(sum(detail["total_man_days"] for detail in entry_details), 2),
+            "per_day_cost": round(sum(detail["per_day_cost"] for detail in entry_details), 2),
+            "one_time_cost": round(sum(detail["one_time_cost"] for detail in entry_details), 2),
+            "hardware_replacement_cost": round(sum(item.hardware_replacement_cost for item in entries), 2),
         },
-        "entries": entries,
+        "entries": entry_details,
     }
 
 
@@ -2432,6 +2514,19 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
         projects = session.exec(select(DeliveryCostProject).order_by(DeliveryCostProject.project_type, DeliveryCostProject.project_key)).all()
         deliveries = {item.project_id: item for item in session.exec(select(DeliveryCost)).all()}
         entries = session.exec(select(AfterSalesCostEntry).order_by(AfterSalesCostEntry.event_date.desc(), AfterSalesCostEntry.id.desc())).all()
+        fixed_cost_entries = session.exec(
+            select(FixedCostEntry).order_by(FixedCostEntry.customer_name, FixedCostEntry.start_date, FixedCostEntry.id)
+        ).all()
+        fixed_costs_by_customer = defaultdict(list)
+        for item in fixed_cost_entries:
+            fixed_costs_by_customer[item.customer_name.strip().casefold()].append(item)
+        person_days = session.exec(select(CostPersonDay)).all()
+        person_days_by_cost = defaultdict(list)
+        for detail in person_days:
+            if detail.delivery_cost_id is not None:
+                person_days_by_cost[("delivery", detail.delivery_cost_id)].append(detail)
+            elif detail.after_sales_cost_entry_id is not None:
+                person_days_by_cost[("after-sales", detail.after_sales_cost_entry_id)].append(detail)
         entries_by_project = defaultdict(list)
         for item in entries:
             entries_by_project[item.project_id].append(item)
@@ -2442,10 +2537,34 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
         }
         items = []
         for project in projects:
-            item = _cost_project_response(project, deliveries.get(project.id), entries_by_project[project.id])
+            item = _cost_project_response(
+                project,
+                deliveries.get(project.id),
+                entries_by_project[project.id],
+                person_days_by_cost,
+                [],
+            )
             if project.project_type == "418":
                 item["customer_name"] = customer_by_project.get(project.project_key.casefold(), project.customer_name)
             items.append(item)
+        fixed_cost_owner = set()
+        for item in items:
+            customer_key = item["customer_name"].strip().casefold()
+            if not customer_key:
+                item["fixed_costs"] = []
+                item["fixed_cost_total"] = 0
+                item["after_sales"]["fixed_cost_total"] = 0
+                continue
+            if item["project_type"] == "418" and customer_key in fixed_cost_owner:
+                customer_fixed_costs = []
+            else:
+                customer_fixed_costs = fixed_costs_by_customer[customer_key]
+                if item["project_type"] == "418":
+                    fixed_cost_owner.add(customer_key)
+            fixed_cost_total = round(sum(fixed.total_price for fixed in customer_fixed_costs), 2)
+            item["fixed_costs"] = customer_fixed_costs
+            item["fixed_cost_total"] = fixed_cost_total
+            item["after_sales"]["fixed_cost_total"] = fixed_cost_total
         session.commit()
         project_order = {"418": 0, "250": 1, "100C": 2}
         items.sort(key=lambda item: (project_order.get(item["project_type"], 9), (item["project_name"] or item["customer_name"]).casefold()))
@@ -2555,7 +2674,7 @@ def delete_after_sales_cost_entry(entry_id: int, _: User = Depends(require_write
             raise HTTPException(status_code=404, detail="售后成本明细不存在")
         if item.after_sales_log_id is not None:
             raise HTTPException(status_code=409, detail="自动关联明细需通过售后交付记录管理")
-        session.delete(item)
+        _delete_after_sales_cost_entry(session, item)
         session.commit()
     return {"message": "deleted"}
 
@@ -2576,6 +2695,70 @@ def update_after_sales_cost_entry(
         session.commit()
         session.refresh(item)
         return {"item": item}
+
+
+@app.post("/api/delivery-costs/{cost_type}/{cost_id}/people")
+def create_cost_person_day(
+    cost_type: Literal["delivery", "after-sales"],
+    cost_id: int,
+    payload: CostPersonDayPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        if cost_type == "delivery":
+            parent = session.get(DeliveryCost, cost_id)
+            if parent is None:
+                raise HTTPException(status_code=404, detail="交付成本记录不存在")
+            detail = CostPersonDay(delivery_cost_id=cost_id, **payload.model_dump())
+        else:
+            parent = session.get(AfterSalesCostEntry, cost_id)
+            if parent is None:
+                raise HTTPException(status_code=404, detail="售后成本明细不存在")
+            detail = CostPersonDay(after_sales_cost_entry_id=cost_id, **payload.model_dump())
+        detail.person_name = detail.person_name.strip()
+        if not detail.person_name:
+            raise HTTPException(status_code=422, detail="人员姓名不能为空")
+        session.add(detail)
+        session.commit()
+        session.refresh(detail)
+        return {"item": detail}
+
+
+@app.put("/api/delivery-costs/people/{person_day_id}")
+def update_cost_person_day(
+    person_day_id: int,
+    payload: CostPersonDayUpdatePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        detail = session.get(CostPersonDay, person_day_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="人员人天明细不存在")
+        data = payload.model_dump(exclude_unset=True, exclude_none=True)
+        if "person_name" in data:
+            data["person_name"] = data["person_name"].strip()
+            if not data["person_name"]:
+                raise HTTPException(status_code=422, detail="人员姓名不能为空")
+        for key, value in data.items():
+            setattr(detail, key, value)
+        session.add(detail)
+        session.commit()
+        session.refresh(detail)
+        return {"item": detail}
+
+
+@app.delete("/api/delivery-costs/people/{person_day_id}")
+def delete_cost_person_day(
+    person_day_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        detail = session.get(CostPersonDay, person_day_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="人员人天明细不存在")
+        session.delete(detail)
+        session.commit()
+    return {"message": "deleted"}
 
 
 def _save_cost_note(session, item, payload: CostNotePayload) -> Dict[str, object]:
@@ -2612,6 +2795,123 @@ def update_after_sales_cost_note(
         if item is None:
             raise HTTPException(status_code=404, detail="售后成本明细不存在")
         return _save_cost_note(session, item, payload)
+
+
+def _fixed_cost_totals(daily_price: float, start_date: date, end_date: date) -> tuple[int, float]:
+    if end_date < start_date:
+        raise HTTPException(status_code=422, detail="结束日期不能早于开始日期")
+    total_days = (end_date - start_date).days + 1
+    return total_days, round(daily_price * total_days, 2)
+
+
+@app.post("/api/delivery-costs/fixed-costs")
+def create_fixed_cost(
+    payload: FixedCostPayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    name = payload.name.strip()
+    customer_name = payload.customer_name.strip()
+    if not name or not customer_name:
+        raise HTTPException(status_code=422, detail="客户名称和固定成本名称不能为空")
+    with get_session() as session:
+        valid_customers = {
+            (user.customer_company or user.customer_name or "").strip().casefold()
+            for user in session.exec(
+                select(User).where(User.role == "customer", User.is_active == True)  # noqa: E712
+            ).all()
+        }
+        valid_customers.update(
+            (dealer.customer_company or dealer.dealer_name or "").strip().casefold()
+            for dealer in session.exec(select(CiDealerDelivery)).all()
+        )
+        valid_customers.update(
+            (project.customer_company or project.partner_name or "").strip().casefold()
+            for project in session.exec(select(GridScaleProject)).all()
+        )
+        if customer_name.casefold() not in valid_customers:
+            raise HTTPException(status_code=422, detail="客户名称不存在于客户账号或项目数据源")
+    total_days, total_price = _fixed_cost_totals(payload.daily_price, payload.start_date, payload.end_date)
+    with get_session() as session:
+        item = FixedCostEntry(
+            customer_name=customer_name,
+            name=name,
+            daily_price=payload.daily_price,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            total_days=total_days,
+            total_price=total_price,
+            note=payload.note.strip(),
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.put("/api/delivery-costs/fixed-costs/{fixed_cost_id}")
+def update_fixed_cost(
+    fixed_cost_id: int,
+    payload: FixedCostUpdatePayload,
+    _: User = Depends(require_write_access),
+) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(FixedCostEntry, fixed_cost_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="固定成本记录不存在")
+        data = payload.model_dump(exclude_unset=True, exclude_none=True)
+        customer_name = data.get("customer_name", item.customer_name).strip()
+        name = data.get("name", item.name).strip()
+        daily_price = data.get("daily_price", item.daily_price)
+        start_date = data.get("start_date", item.start_date)
+        end_date = data.get("end_date", item.end_date)
+        if not name or not customer_name:
+            raise HTTPException(status_code=422, detail="客户名称和固定成本名称不能为空")
+        if "customer_name" in data:
+            valid_customers = {
+                (user.customer_company or user.customer_name or "").strip().casefold()
+                for user in session.exec(
+                    select(User).where(User.role == "customer", User.is_active == True)  # noqa: E712
+                ).all()
+            }
+            valid_customers.update(
+                (dealer.customer_company or dealer.dealer_name or "").strip().casefold()
+                for dealer in session.exec(select(CiDealerDelivery)).all()
+            )
+            valid_customers.update(
+                (project.customer_company or project.partner_name or "").strip().casefold()
+                for project in session.exec(select(GridScaleProject)).all()
+            )
+            if customer_name.casefold() not in valid_customers:
+                raise HTTPException(status_code=422, detail="客户名称不存在于客户账号或项目数据源")
+        total_days, total_price = _fixed_cost_totals(daily_price, start_date, end_date)
+        item.customer_name = customer_name
+        item.name = name
+        item.daily_price = daily_price
+        item.start_date = start_date
+        item.end_date = end_date
+        item.total_days = total_days
+        item.total_price = total_price
+        if "note" in data:
+            item.note = data["note"].strip()
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"item": item}
+
+
+@app.delete("/api/delivery-costs/fixed-costs/{fixed_cost_id}")
+def delete_fixed_cost(
+    fixed_cost_id: int,
+    _: User = Depends(require_write_access),
+) -> Dict[str, str]:
+    with get_session() as session:
+        item = session.get(FixedCostEntry, fixed_cost_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="固定成本记录不存在")
+        session.delete(item)
+        session.commit()
+    return {"message": "deleted"}
 
 
 @app.get("/api/after-sales/logs/export")

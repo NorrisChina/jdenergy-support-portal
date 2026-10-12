@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -26,15 +26,25 @@ class DeliveryCost(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="delivery_cost_projects.id", index=True, unique=True)
-    delivery_headcount: int = Field(default=0, ge=0)
-    travel_cost: float = Field(default=0, ge=0)
-    labor_cost: float = Field(default=0, ge=0)
+    meal_allowance: float = Field(default=0, ge=0)
+    local_transport_cost: float = Field(default=0, ge=0)
+    salary_cost: float = Field(default=0, ge=0)
+    accommodation_cost: float = Field(default=0, ge=0)
+    long_distance_cost: float = Field(default=0, ge=0)
+    visa_cost: float = Field(default=0, ge=0)
     tool_cost: float = Field(default=0, ge=0)
-    hardware_cost: float = Field(default=0, ge=0)
-    travel_cost_note: str = ""
-    labor_cost_note: str = ""
+    hardware_replacement_cost: float = Field(default=0, ge=0)
+    total_man_days_note: str = ""
+    per_day_cost_note: str = ""
+    one_time_cost_note: str = ""
+    meal_allowance_note: str = ""
+    local_transport_cost_note: str = ""
+    salary_cost_note: str = ""
+    accommodation_cost_note: str = ""
+    long_distance_cost_note: str = ""
+    visa_cost_note: str = ""
     tool_cost_note: str = ""
-    hardware_cost_note: str = ""
+    hardware_replacement_cost_note: str = ""
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -45,14 +55,25 @@ class AfterSalesCostEntry(SQLModel, table=True):
     project_id: int = Field(foreign_key="delivery_cost_projects.id", index=True)
     event_date: Optional[date] = Field(default=None, index=True)
     reference: str = ""
-    travel_cost: float = Field(default=0, ge=0)
-    labor_cost: float = Field(default=0, ge=0)
+    meal_allowance: float = Field(default=0, ge=0)
+    local_transport_cost: float = Field(default=0, ge=0)
+    salary_cost: float = Field(default=0, ge=0)
+    accommodation_cost: float = Field(default=0, ge=0)
+    long_distance_cost: float = Field(default=0, ge=0)
+    visa_cost: float = Field(default=0, ge=0)
     tool_cost: float = Field(default=0, ge=0)
-    hardware_cost: float = Field(default=0, ge=0)
-    travel_cost_note: str = ""
-    labor_cost_note: str = ""
+    hardware_replacement_cost: float = Field(default=0, ge=0)
+    total_man_days_note: str = ""
+    per_day_cost_note: str = ""
+    one_time_cost_note: str = ""
+    meal_allowance_note: str = ""
+    local_transport_cost_note: str = ""
+    salary_cost_note: str = ""
+    accommodation_cost_note: str = ""
+    long_distance_cost_note: str = ""
+    visa_cost_note: str = ""
     tool_cost_note: str = ""
-    hardware_cost_note: str = ""
+    hardware_replacement_cost_note: str = ""
     import_batch_id: str = Field(index=True)
     source_row: int = 0
     after_sales_log_id: Optional[int] = Field(
@@ -62,6 +83,41 @@ class AfterSalesCostEntry(SQLModel, table=True):
         unique=True,
     )
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CostPersonDay(SQLModel, table=True):
+    __tablename__ = "delivery_cost_person_days"
+    __table_args__ = (
+        CheckConstraint(
+            "(delivery_cost_id IS NOT NULL AND after_sales_cost_entry_id IS NULL) OR "
+            "(delivery_cost_id IS NULL AND after_sales_cost_entry_id IS NOT NULL)",
+            name="ck_cost_person_day_single_parent",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    delivery_cost_id: Optional[int] = Field(default=None, foreign_key="delivery_costs.id", index=True)
+    after_sales_cost_entry_id: Optional[int] = Field(default=None, foreign_key="after_sales_cost_entries.id", index=True)
+    person_name: str
+    days: float = Field(default=0, ge=0)
+    note: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class FixedCostEntry(SQLModel, table=True):
+    __tablename__ = "delivery_fixed_cost_entries"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    customer_name: str = Field(index=True)
+    name: str
+    daily_price: float = Field(default=0, ge=0)
+    start_date: date
+    end_date: date
+    total_days: int = Field(default=1, ge=1)
+    total_price: float = Field(default=0, ge=0)
+    note: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class CostAssumption(SQLModel, table=True):

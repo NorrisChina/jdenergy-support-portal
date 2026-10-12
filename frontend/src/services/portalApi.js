@@ -108,6 +108,24 @@ export const portalApi = {
   updateAfterSalesCostEntry(id, payload) {
     return requestJson(`/api/delivery-costs/after-sales/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
   },
+  createCostPersonDay(costType, costId, payload) {
+    return requestJson(`/api/delivery-costs/${encodeURIComponent(costType)}/${encodeURIComponent(String(costId))}/people`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateCostPersonDay(id, payload) {
+    return requestJson(`/api/delivery-costs/people/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteCostPersonDay(id) {
+    return requestJson(`/api/delivery-costs/people/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
+  createFixedCost(payload) {
+    return requestJson('/api/delivery-costs/fixed-costs', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateFixedCost(id, payload) {
+    return requestJson(`/api/delivery-costs/fixed-costs/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteFixedCost(id) {
+    return requestJson(`/api/delivery-costs/fixed-costs/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   updateDeliveryCostNote(id, payload) {
     return requestJson(`/api/delivery-costs/delivery/${encodeURIComponent(String(id))}/notes`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
   },
