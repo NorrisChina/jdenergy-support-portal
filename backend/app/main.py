@@ -2420,6 +2420,9 @@ def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
             travel_cost=0.0,
             labor_cost=0.0,
             hardware_cost=0.0,
+            travel_cost_note="",
+            labor_cost_note="",
+            hardware_cost_note="",
             meal_allowance=0,
             local_transport_cost=0,
             salary_cost=0,
@@ -2428,6 +2431,18 @@ def _sync_after_sales_cost_log(session, log: AfterSalesLog) -> None:
             visa_cost=0,
             tool_cost=0,
             hardware_replacement_cost=0,
+            total_man_days_note="",
+            per_day_cost_note="",
+            one_time_cost_note="",
+            total_cost_note="",
+            meal_allowance_note="",
+            local_transport_cost_note="",
+            salary_cost_note="",
+            accommodation_cost_note="",
+            long_distance_cost_note="",
+            visa_cost_note="",
+            tool_cost_note="",
+            hardware_replacement_cost_note="",
             import_batch_id=f"auto-{log.id}",
             source_row=0,
             after_sales_log_id=log.id,
@@ -2453,6 +2468,12 @@ ONE_TIME_COST_FIELDS = ("long_distance_cost", "visa_cost", "tool_cost")
 
 def _cost_amount_summary(item, person_days) -> Dict[str, object]:
     data = item.model_dump()
+    data.pop("travel_cost", None)
+    data.pop("labor_cost", None)
+    data.pop("hardware_cost", None)
+    data.pop("travel_cost_note", None)
+    data.pop("labor_cost_note", None)
+    data.pop("hardware_cost_note", None)
     data.pop("travel_cost", None)
     data.pop("labor_cost", None)
     people = [person.model_dump() for person in person_days]

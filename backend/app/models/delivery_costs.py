@@ -29,26 +29,26 @@ class DeliveryCost(SQLModel, table=True):
     travel_cost: float = Field(default=0.0, ge=0)
     labor_cost: float = Field(default=0.0, ge=0)
     hardware_cost: float = Field(default=0.0, ge=0)
-    meal_allowance: float = Field(default=0, ge=0)
-    local_transport_cost: float = Field(default=0, ge=0)
-    salary_cost: float = Field(default=0, ge=0)
-    accommodation_cost: float = Field(default=0, ge=0)
-    long_distance_cost: float = Field(default=0, ge=0)
-    visa_cost: float = Field(default=0, ge=0)
-    tool_cost: float = Field(default=0, ge=0)
-    hardware_replacement_cost: float = Field(default=0, ge=0)
-    total_man_days_note: str = ""
-    per_day_cost_note: str = ""
-    one_time_cost_note: str = ""
-    total_cost_note: str = ""
-    meal_allowance_note: str = ""
-    local_transport_cost_note: str = ""
-    salary_cost_note: str = ""
-    accommodation_cost_note: str = ""
-    long_distance_cost_note: str = ""
-    visa_cost_note: str = ""
-    tool_cost_note: str = ""
-    hardware_replacement_cost_note: str = ""
+    meal_allowance: float = Field(default=0.0, ge=0)
+    local_transport_cost: float = Field(default=0.0, ge=0)
+    salary_cost: float = Field(default=0.0, ge=0)
+    accommodation_cost: float = Field(default=0.0, ge=0)
+    long_distance_cost: float = Field(default=0.0, ge=0)
+    visa_cost: float = Field(default=0.0, ge=0)
+    tool_cost: float = Field(default=0.0, ge=0)
+    hardware_replacement_cost: float = Field(default=0.0, ge=0)
+    total_man_days_note: str = Field(default="")
+    per_day_cost_note: str = Field(default="")
+    one_time_cost_note: str = Field(default="")
+    total_cost_note: str = Field(default="")
+    meal_allowance_note: str = Field(default="")
+    local_transport_cost_note: str = Field(default="")
+    salary_cost_note: str = Field(default="")
+    accommodation_cost_note: str = Field(default="")
+    long_distance_cost_note: str = Field(default="")
+    visa_cost_note: str = Field(default="")
+    tool_cost_note: str = Field(default="")
+    hardware_replacement_cost_note: str = Field(default="")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -62,26 +62,29 @@ class AfterSalesCostEntry(SQLModel, table=True):
     travel_cost: float = Field(default=0.0, ge=0)
     labor_cost: float = Field(default=0.0, ge=0)
     hardware_cost: float = Field(default=0.0, ge=0)
-    meal_allowance: float = Field(default=0, ge=0)
-    local_transport_cost: float = Field(default=0, ge=0)
-    salary_cost: float = Field(default=0, ge=0)
-    accommodation_cost: float = Field(default=0, ge=0)
-    long_distance_cost: float = Field(default=0, ge=0)
-    visa_cost: float = Field(default=0, ge=0)
-    tool_cost: float = Field(default=0, ge=0)
-    hardware_replacement_cost: float = Field(default=0, ge=0)
-    total_man_days_note: str = ""
-    per_day_cost_note: str = ""
-    one_time_cost_note: str = ""
-    total_cost_note: str = ""
-    meal_allowance_note: str = ""
-    local_transport_cost_note: str = ""
-    salary_cost_note: str = ""
-    accommodation_cost_note: str = ""
-    long_distance_cost_note: str = ""
-    visa_cost_note: str = ""
-    tool_cost_note: str = ""
-    hardware_replacement_cost_note: str = ""
+    travel_cost_note: str = Field(default="")
+    labor_cost_note: str = Field(default="")
+    hardware_cost_note: str = Field(default="")
+    meal_allowance: float = Field(default=0.0, ge=0)
+    local_transport_cost: float = Field(default=0.0, ge=0)
+    salary_cost: float = Field(default=0.0, ge=0)
+    accommodation_cost: float = Field(default=0.0, ge=0)
+    long_distance_cost: float = Field(default=0.0, ge=0)
+    visa_cost: float = Field(default=0.0, ge=0)
+    tool_cost: float = Field(default=0.0, ge=0)
+    hardware_replacement_cost: float = Field(default=0.0, ge=0)
+    total_man_days_note: str = Field(default="")
+    per_day_cost_note: str = Field(default="")
+    one_time_cost_note: str = Field(default="")
+    total_cost_note: str = Field(default="")
+    meal_allowance_note: str = Field(default="")
+    local_transport_cost_note: str = Field(default="")
+    salary_cost_note: str = Field(default="")
+    accommodation_cost_note: str = Field(default="")
+    long_distance_cost_note: str = Field(default="")
+    visa_cost_note: str = Field(default="")
+    tool_cost_note: str = Field(default="")
+    hardware_replacement_cost_note: str = Field(default="")
     import_batch_id: str = Field(index=True)
     source_row: int = 0
     after_sales_log_id: Optional[int] = Field(
