@@ -2568,7 +2568,7 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
         session.commit()
         project_order = {"418": 0, "250": 1, "100C": 2}
         items.sort(key=lambda item: (project_order.get(item["project_type"], 9), (item["project_name"] or item["customer_name"]).casefold()))
-    return {"items": items}
+    return {"items": items, "fixed_costs": fixed_cost_entries}
 
 
 @app.get("/api/delivery-costs/assumptions")

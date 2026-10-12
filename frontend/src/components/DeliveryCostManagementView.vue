@@ -6,7 +6,7 @@
         <h2 class="mt-2 text-2xl font-semibold text-slate-900">交付与售后成本管理</h2>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button v-if="canManage" type="button" class="rounded-lg border border-cyan-700 bg-white px-3 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-50" @click="openFixedCost()">添加固定成本</button>
+        <button v-if="canManage && activeType === 'fixed-costs'" type="button" class="rounded-lg border border-cyan-700 bg-white px-3 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-50" @click="openFixedCost()">添加固定成本</button>
         <button v-if="canManage" type="button" class="rounded-lg bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800" @click="openAssumptions">成本假设</button>
         <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" :disabled="loading" @click="loadProjects">
           刷新
@@ -18,13 +18,34 @@
       {{ notice }}
     </div>
 
-    <nav class="flex gap-1 border-b border-slate-200" aria-label="项目类型">
+    <nav class="flex gap-1 border-b border-slate-200" aria-label="成本类别">
       <button v-for="item in projectTypes" :key="item.key" type="button" class="border-b-2 px-4 py-3 text-sm font-semibold transition" :class="activeType === item.key ? 'border-cyan-700 text-cyan-800' : 'border-transparent text-slate-500 hover:text-slate-900'" @click="activeType = item.key">
-        {{ item.label }} <span class="ml-1 text-xs font-normal text-slate-400">{{ countByType(item.key) }}</span>
+        {{ item.label }} <span v-if="item.key !== 'fixed-costs'" class="ml-1 text-xs font-normal text-slate-400">{{ countByType(item.key) }}</span>
       </button>
     </nav>
 
-    <div v-if="activeType === '418'" class="flex flex-wrap items-center gap-3">
+    <section v-if="activeType === 'fixed-costs'" class="space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div><p class="text-xs font-semibold uppercase tracking-wider text-cyan-700">CUSTOMER FIXED COSTS</p><h3 class="mt-1 text-xl font-semibold text-slate-900">固定成本</h3></div>
+        <p class="text-sm text-slate-500">固定成本合计 <strong class="ml-2 text-lg tabular-nums text-slate-900">¥ {{ money(allFixedCostTotal) }}</strong></p>
+      </div>
+      <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div v-if="loading" class="px-5 py-12 text-center text-sm text-slate-500">正在加载固定成本…</div>
+        <div v-else-if="!fixedCostRows.length" class="px-5 py-12 text-center text-sm text-slate-500">暂无固定成本记录。</div>
+        <div v-else class="overflow-x-auto">
+          <table class="min-w-[980px] w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs font-semibold text-slate-500"><tr><th class="px-4 py-3">客户名称</th><th class="px-4 py-3">费用名称</th><th class="px-4 py-3">每日单价</th><th class="px-4 py-3">开始时间</th><th class="px-4 py-3">结束时间</th><th class="px-4 py-3">总天数</th><th class="px-4 py-3">总金额</th><th class="px-4 py-3">备注</th><th v-if="canManage" class="px-4 py-3">操作</th></tr></thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-for="item in fixedCostRows" :key="item.id" class="hover:bg-slate-50/70">
+                <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{{ item.customer_name }}</td><td class="px-4 py-3">{{ item.name }}</td><td class="px-4 py-3 tabular-nums">{{ money(item.daily_price) }}</td><td class="px-4 py-3">{{ item.start_date }}</td><td class="px-4 py-3">{{ item.end_date }}</td><td class="px-4 py-3 tabular-nums">{{ item.total_days }}</td><td class="px-4 py-3 font-semibold tabular-nums">{{ money(item.total_price) }}</td><td class="max-w-56 truncate px-4 py-3" :title="item.note">{{ item.note || '—' }}</td><td v-if="canManage" class="whitespace-nowrap px-4 py-3"><button type="button" class="mr-3 text-xs font-semibold text-cyan-800" @click="openFixedCost(item)">编辑</button><button type="button" class="text-xs font-semibold text-rose-600" @click="deleteFixedCost(item)">删除</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="activeType !== 'fixed-costs' && activeType === '418'" class="flex flex-wrap items-center gap-3">
       <label for="delivery-cost-customer-filter" class="text-sm font-semibold text-slate-700">客户筛选</label>
       <select id="delivery-cost-customer-filter" v-model="selectedCustomer" class="min-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">
         <option value="">全部客户</option>
@@ -32,7 +53,7 @@
       </select>
     </div>
 
-    <div class="grid gap-3 md:grid-cols-2">
+    <div v-if="activeType !== 'fixed-costs'" class="grid gap-3 md:grid-cols-2">
       <article class="relative overflow-hidden border-l-4 border-cyan-700 bg-white px-5 py-5 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">总交付成本</p>
         <p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">¥ {{ money(totalDeliveryCost) }}</p>
@@ -42,12 +63,12 @@
         <p class="mt-2 text-3xl font-bold tabular-nums text-slate-900">¥ {{ money(totalAfterSalesCost) }}</p>
       </article>
     </div>
-    <div class="grid gap-3 sm:grid-cols-2">
+    <div v-if="activeType !== 'fixed-costs'" class="grid gap-3 sm:grid-cols-2">
       <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">{{ activeType === '418' ? '项目数' : '客户数' }}</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ visibleProjects.length }}</p></div>
       <div class="bg-slate-100 px-4 py-3"><p class="text-xs text-slate-500">售后出差次数</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-800">{{ totalTripCount }}</p></div>
     </div>
 
-    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div v-if="activeType !== 'fixed-costs'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <h3 class="text-sm font-semibold text-slate-800">{{ activeType }} 项目成本明细</h3>
         <span class="text-xs text-slate-500">金额：元</span>
@@ -108,11 +129,6 @@
                       </tbody>
                     </table>
                   </div>
-                  <section class="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-                    <div class="mb-2 flex items-center justify-between gap-3"><h4 class="text-xs font-semibold uppercase tracking-wide text-slate-600">{{ project.customer_name || '客户' }}固定成本 · 合计 {{ money(project.fixed_cost_total || 0) }}</h4></div>
-                    <div v-if="project.fixed_costs?.length" class="overflow-x-auto"><table class="w-full min-w-[680px] text-left text-xs"><thead class="text-slate-500"><tr><th class="py-2 pr-3">项目</th><th class="py-2 pr-3">每日价格</th><th class="py-2 pr-3">开始日期</th><th class="py-2 pr-3">结束日期</th><th class="py-2 pr-3">总天数</th><th class="py-2 pr-3">总价格</th><th class="py-2 pr-3">备注</th><th v-if="canManage" class="py-2">操作</th></tr></thead><tbody class="divide-y divide-slate-100"><tr v-for="item in project.fixed_costs" :key="item.id"><td class="py-2 pr-3 font-medium text-slate-800">{{ item.name }}</td><td class="py-2 pr-3">{{ money(item.daily_price) }}</td><td class="py-2 pr-3">{{ item.start_date }}</td><td class="py-2 pr-3">{{ item.end_date }}</td><td class="py-2 pr-3">{{ item.total_days }} 天</td><td class="py-2 pr-3 font-semibold">{{ money(item.total_price) }}</td><td class="max-w-48 truncate py-2 pr-3" :title="item.note">{{ item.note || '—' }}</td><td v-if="canManage" class="whitespace-nowrap py-2"><button type="button" class="mr-3 font-semibold text-cyan-800" @click="openFixedCost(item)">编辑</button><button type="button" class="font-semibold text-rose-600" @click="deleteFixedCost(item)">删除</button></td></tr></tbody></table></div>
-                    <p v-else class="py-2 text-xs text-slate-500">暂无固定成本</p>
-                  </section>
                 </td>
               </tr>
             </template>
@@ -187,10 +203,12 @@ const projectTypes = [
   { key: '418', label: '418 项目' },
   { key: '250', label: '250 项目' },
   { key: '100C', label: '100C 项目' },
+  { key: 'fixed-costs', label: '固定成本' },
 ]
 const activeType = ref('418')
 const selectedCustomer = ref('')
 const projects = ref([])
+const fixedCosts = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
@@ -245,15 +263,16 @@ const fixedCostTotal = computed(() => fixedCostDays.value * Math.max(Number(fixe
 const typeProjects = computed(() => projects.value.filter((item) => item.project_type === activeType.value))
 const gridScaleCustomers = computed(() => [...new Set(projects.value.filter((item) => item.project_type === '418').map((item) => item.customer_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
 const customerOptions = computed(() => [...new Set(projects.value.map((item) => item.customer_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
+const fixedCostRows = computed(() => [...fixedCosts.value].sort((left, right) => left.customer_name.localeCompare(right.customer_name, 'zh-CN') || left.start_date.localeCompare(right.start_date) || left.name.localeCompare(right.name, 'zh-CN')))
+const allFixedCostTotal = computed(() => fixedCostRows.value.reduce((sum, item) => sum + Number(item.total_price || 0), 0))
 const visibleProjects = computed(() => typeProjects.value.filter((item) => activeType.value !== '418' || !selectedCustomer.value || item.customer_name === selectedCustomer.value))
 const totalDeliveryCost = computed(() => visibleProjects.value.reduce((sum, item) => sum + deliveryTotal(item), 0))
 const totalAfterSalesCost = computed(() => visibleProjects.value.reduce((sum, item) => sum + afterSalesTotal(item), 0))
 const totalTripCount = computed(() => visibleProjects.value.reduce((sum, item) => sum + item.after_sales.trip_count, 0))
 
 function deliveryTotal(item) {
-  const fixedCosts = Number(item.fixed_cost_total || 0)
-  if (!item.delivery) return fixedCosts
-  return Number(item.delivery.per_day_cost || 0) + Number(item.delivery.one_time_cost || 0) + Number(item.delivery.hardware_replacement_cost || 0) + fixedCosts
+  if (!item.delivery) return 0
+  return Number(item.delivery.per_day_cost || 0) + Number(item.delivery.one_time_cost || 0) + Number(item.delivery.hardware_replacement_cost || 0)
 }
 
 function afterSalesTotal(item) {
@@ -329,6 +348,7 @@ async function loadProjects() {
   try {
     const response = await portalApi.listDeliveryCostProjects()
     projects.value = response.items || []
+    fixedCosts.value = response.fixed_costs || []
   } catch (error) {
     showNotice(error.message || '成本记录加载失败', 'error')
   } finally {
