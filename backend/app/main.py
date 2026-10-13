@@ -21,6 +21,7 @@ from datetime import date, datetime
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
+from urllib.parse import quote
 
 try:
     from typing import Literal
@@ -31,6 +32,8 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, FastAPI, File, Fo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import or_
 from sqlmodel import select
@@ -2578,6 +2581,130 @@ def list_delivery_cost_projects(_: User = Depends(require_staff)) -> Dict[str, o
         project_order = {"418": 0, "250": 1, "100C": 2}
         items.sort(key=lambda item: (project_order.get(item["project_type"], 9), (item["project_name"] or item["customer_name"]).casefold()))
     return {"items": items, "fixed_costs": fixed_cost_entries}
+
+
+def _format_cost_worksheet(worksheet, headers: List[str], rows: List[List[object]]) -> None:
+    worksheet.append(headers)
+    for row in rows:
+        worksheet.append(row)
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = worksheet.dimensions
+    header_fill = PatternFill(fill_type="solid", fgColor="164E63")
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    worksheet.row_dimensions[1].height = 30
+    for row in worksheet.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = Alignment(vertical="center", wrap_text=True)
+            if isinstance(cell.value, float):
+                cell.number_format = '#,##0.00;[Red]-#,##0.00'
+    for column_cells in worksheet.columns:
+        column_letter = column_cells[0].column_letter
+        max_length = max((len(str(cell.value or "")) for cell in column_cells), default=10)
+        worksheet.column_dimensions[column_letter].width = min(max(max_length + 2, 12), 36)
+
+
+@app.get("/api/delivery-costs/export")
+def export_delivery_costs_excel(
+    customer_name: Optional[str] = Query(default=None),
+    user: User = Depends(require_staff),
+) -> Response:
+    data = list_delivery_cost_projects(user)
+    normalized_customer = (customer_name or "").strip().casefold()
+    projects = [
+        item for item in data["items"]
+        if not normalized_customer or (item.get("customer_name") or "").strip().casefold() == normalized_customer
+    ]
+    fixed_costs = [
+        item for item in data["fixed_costs"]
+        if not normalized_customer or item.customer_name.strip().casefold() == normalized_customer
+    ]
+
+    per_day_fields = (
+        ("餐补", "meal_allowance"),
+        ("日常交通", "local_transport_cost"),
+        ("薪资", "salary_cost"),
+        ("住宿", "accommodation_cost"),
+    )
+    one_time_fields = (
+        ("大交通", "long_distance_cost"),
+        ("签证", "visa_cost"),
+        ("工具", "tool_cost"),
+    )
+
+    def project_sheet_rows(project_type: str) -> List[List[object]]:
+        rows: List[List[object]] = []
+        for project in projects:
+            if project["project_type"] != project_type:
+                continue
+            delivery = project.get("delivery") or {}
+            entries = project.get("entries") or []
+            customer = project.get("customer_name") or ""
+            project_name = project.get("project_name") or customer
+            delivery_people = "; ".join(
+                f"{person['person_name']}: {person['days']:g}天"
+                for person in delivery.get("person_days", [])
+            )
+            after_sales_people = "; ".join(
+                f"{entry['after_sales_log_id'] or entry['reference'] or entry['id']} - "
+                + ", ".join(f"{person['person_name']}: {person['days']:g}天" for person in entry.get("person_days", []))
+                for entry in entries
+                if entry.get("person_days")
+            )
+            row: List[object] = [
+                customer,
+                project_name,
+                delivery.get("total_man_days", 0),
+                project.get("after_sales", {}).get("trip_count", 0),
+                delivery_people,
+                after_sales_people,
+            ]
+            row.extend(float(delivery.get(field, 0) or 0) for _, field in per_day_fields)
+            row.extend(float(delivery.get(field, 0) or 0) for _, field in one_time_fields)
+            row.extend((float(delivery.get("hardware_replacement_cost", 0) or 0), delivery.get("total_cost", 0)))
+            row.extend(sum(float(entry.get(field, 0) or 0) for entry in entries) for _, field in per_day_fields)
+            row.extend(sum(float(entry.get(field, 0) or 0) for entry in entries) for _, field in one_time_fields)
+            row.append(sum(float(entry.get("hardware_replacement_cost", 0) or 0) for entry in entries))
+            row.append(project.get("after_sales", {}).get("total_cost", 0))
+            rows.append(row)
+        return rows
+
+    workbook = Workbook()
+    default_sheet = workbook.active
+    workbook.remove(default_sheet)
+    for product_type, sheet_name in (("418", "418项目"), ("250", "250项目"), ("100C", "100C项目")):
+        headers = ["客户名称", "项目名称", "交付总人天", "售后出差次数", "交付人员人天明细", "售后人员人天明细"]
+        headers.extend(f"交付{label}" for label, _ in per_day_fields)
+        headers.extend(f"交付{label}" for label, _ in one_time_fields)
+        headers.extend(("交付硬件更换", "总交付成本", "售后餐补", "售后日常交通", "售后薪资", "售后住宿", "售后大交通", "售后签证", "售后工具", "售后硬件更换", "总售后成本"))
+        rows = project_sheet_rows(product_type)
+        worksheet = workbook.create_sheet(sheet_name)
+        _format_cost_worksheet(worksheet, headers, rows)
+
+    fixed_headers = ["客户名称", "费用名称", "每日单价", "开始时间", "结束时间", "总天数", "总金额", "备注"]
+    fixed_rows = [[
+        item.customer_name,
+        item.name,
+        float(item.daily_price),
+        item.start_date,
+        item.end_date,
+        item.total_days,
+        float(item.total_price),
+        item.note,
+    ] for item in fixed_costs]
+    fixed_sheet = workbook.create_sheet("固定成本")
+    _format_cost_worksheet(fixed_sheet, fixed_headers, fixed_rows)
+
+    output = io.BytesIO()
+    workbook.save(output)
+    filename = f"delivery-after-sales-costs-{date.today().isoformat()}.xlsx"
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
 
 
 @app.get("/api/delivery-costs/assumptions")

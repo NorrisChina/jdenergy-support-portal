@@ -87,6 +87,21 @@ export const portalApi = {
   listDeliveryCostProjects() {
     return requestJson('/api/delivery-costs/projects', { headers: authHeaders() })
   },
+  async downloadDeliveryCostExcel(customerName = '') {
+    const query = customerName ? `?customer_name=${encodeURIComponent(customerName)}` : ''
+    const response = await fetch(`${API_BASE}/api/delivery-costs/export${query}`, { headers: authHeaders() })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload.detail || `HTTP ${response.status}`)
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `delivery-after-sales-costs-${new Date().toISOString().slice(0, 10)}.xlsx`
+    link.click()
+    URL.revokeObjectURL(url)
+  },
   listCostAssumptions() {
     return requestJson('/api/delivery-costs/assumptions', { headers: authHeaders() })
   },

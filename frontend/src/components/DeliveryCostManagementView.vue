@@ -7,6 +7,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <button v-if="canManage && activeType === 'fixed-costs'" type="button" class="rounded-lg border border-cyan-700 bg-white px-3 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-50" @click="openFixedCost()">添加固定成本</button>
+        <button type="button" class="rounded-lg border border-emerald-700 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50" :disabled="exporting" @click="exportWorkbook">{{ exporting ? '导出中…' : '导出 Excel' }}</button>
         <button v-if="canManage" type="button" class="rounded-lg bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800" @click="openAssumptions">成本假设</button>
         <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" :disabled="loading" @click="loadProjects">
           刷新
@@ -187,6 +188,7 @@ const projects = ref([])
 const fixedCosts = ref([])
 const loading = ref(false)
 const saving = ref(false)
+const exporting = ref(false)
 const expandedId = ref(null)
 const notice = ref('')
 const noticeType = ref('success')
@@ -348,6 +350,18 @@ async function loadProjects() {
     showNotice(error.message || '成本记录加载失败', 'error')
   } finally {
     loading.value = false
+  }
+}
+
+async function exportWorkbook() {
+  exporting.value = true
+  try {
+    await portalApi.downloadDeliveryCostExcel(selectedCustomer.value)
+    showNotice('Excel 文件已导出')
+  } catch (error) {
+    showNotice(error.message || 'Excel 导出失败', 'error')
+  } finally {
+    exporting.value = false
   }
 }
 
