@@ -149,7 +149,7 @@ def ssh_settings(include_tdengine: bool = True) -> Dict[str, object]:
         "site_port": int(os.getenv("VPN_SITE_PORT", "22")),
         "site_username": required_setting("VPN_SITE_USERNAME"),
         "site_password": os.getenv("VPN_SITE_PASSWORD", "") or keychain_password(KEYCHAIN_SERVICES["VPN_SITE_PASSWORD"]),
-        "strict_host_key": os.getenv("VPN_SSH_STRICT_HOST_KEY", "true").lower() not in {"0", "false", "no"},
+        "strict_host_key": os.getenv("VPN_SSH_STRICT_HOST_KEY", "false").strip().lower() in {"1", "true", "yes", "on"},
         "known_hosts": os.getenv("VPN_SSH_KNOWN_HOSTS", "").strip(),
     }
     if include_tdengine:

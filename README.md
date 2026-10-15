@@ -117,7 +117,7 @@ chmod +x configure_vpn_keychain.sh
 ./run_prod.sh
 ```
 
-生产环境默认启用 SSH 主机密钥严格校验。应将跳板机和站点主机密钥加入后端运行用户的 `~/.ssh/known_hosts`，或通过 `VPN_SSH_KNOWN_HOSTS` 指向专用文件。仅在受控测试环境可临时设置 `VPN_SSH_STRICT_HOST_KEY=false`。
+SSH 主机密钥校验默认使用 Paramiko `AutoAddPolicy`，首次连接时自动将跳板机和站点主机指纹写入后端运行用户的 `~/.ssh/known_hosts`（或 `VPN_SSH_KNOWN_HOSTS` 指定的专用文件）。如需在生产环境强制只信任预置指纹，可显式设置 `VPN_SSH_STRICT_HOST_KEY=true`，此时必须先把跳板机和站点主机密钥加入 `known_hosts`，否则会出现 “Server '…' not found in known_hosts” 连接失败。
 
 Nginx 的 `/api/` 代理必须保留 WebSocket 配置：
 
