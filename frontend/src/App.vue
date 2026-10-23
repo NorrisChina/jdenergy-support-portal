@@ -579,7 +579,7 @@
           >
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-xl font-semibold text-white">
-                {{ category === SOFTWARE_VERSION_CATEGORY ? "软件版本 / Latest Software" : category }}
+                {{ categoryLabel(category) }}
               </h3>
               <button
                 v-if="materialsCanManage && (category === SOFTWARE_VERSION_CATEGORY || category === TOOLS_CATEGORY)"
@@ -692,9 +692,9 @@
           </button>
         </div>
         <div class="mb-5 flex flex-wrap items-center gap-3">
-          <label for="overview-customer-filter-418" class="text-sm font-semibold text-slate-200">客户名称</label>
+          <label for="overview-customer-filter-418" class="text-sm font-semibold text-slate-200">{{ t("ci.customerName") }}</label>
           <select id="overview-customer-filter-418" v-model="overviewCustomerFilter" class="min-w-56 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white">
-            <option value="">全部客户</option>
+            <option value="">{{ t("ci.allCustomers") }}</option>
             <option v-for="company in overviewCustomerOptions" :key="company" :value="company">{{ company }}</option>
           </select>
         </div>
@@ -987,9 +987,9 @@
           </button>
         </div>
         <div class="mb-5 flex flex-wrap items-center gap-3">
-          <label for="overview-customer-filter-ci" class="text-sm font-semibold text-slate-200">客户名称</label>
+          <label for="overview-customer-filter-ci" class="text-sm font-semibold text-slate-200">{{ t("ci.customerName") }}</label>
           <select id="overview-customer-filter-ci" v-model="overviewCustomerFilter" class="min-w-56 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white">
-            <option value="">全部客户</option>
+            <option value="">{{ t("ci.allCustomers") }}</option>
             <option v-for="company in overviewCustomerOptions" :key="company" :value="company">{{ company }}</option>
           </select>
         </div>
@@ -1020,7 +1020,7 @@
                   class="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                   @click="exportCiDeliveryDetails"
                 >
-                  导出交付明细
+                  {{ t("ci.exportDetails") }}
                 </button>
                 <button
                   v-if="isInternalMode"
@@ -1049,7 +1049,7 @@
                 100C
               </p>
               <p class="kpi-number mt-1 font-semibold text-white">
-                {{ ciSummary.total100c }} 台
+                {{ ciSummary.total100c }} {{ t("ci.units") }}
               </p>
               <p class="kpi-number kpi-number-sub text-xs text-cyan-200">
                 {{ formatCiMwh(ciSummary.total100cMwh) }} MWh
@@ -1062,7 +1062,7 @@
                 250
               </p>
               <p class="kpi-number mt-1 text-base font-bold text-emerald-950">
-                {{ ciSummary.total250 }} 台
+                {{ ciSummary.total250 }} {{ t("ci.units") }}
               </p>
               <p class="kpi-number kpi-number-sub text-xs font-medium text-emerald-600">
                 {{ formatCiMwh(ciSummary.total250Mwh) }} MWh
@@ -1082,8 +1082,8 @@
                 <tr>
                   <th class="px-5 py-4 font-medium">{{ t("ci.region") }}</th>
                   <th class="px-5 py-4 font-medium">{{ t("ci.dealer") }}</th>
-                  <th class="px-5 py-4 font-medium">100C 已交付</th>
-                  <th class="px-5 py-4 font-medium">250 已交付</th>
+                  <th class="px-5 py-4 font-medium">{{ t("ci.delivered100c") }}</th>
+                  <th class="px-5 py-4 font-medium">{{ t("ci.delivered250") }}</th>
                   <th v-if="isInternalMode" class="px-5 py-4 font-medium">
                     {{ t("common.actions") }}
                   </th>
@@ -1101,7 +1101,7 @@
                     <p
                       class="delivery-metric delivery-metric-100c font-semibold text-cyan-200"
                     >
-                      {{ item.delivered_100c }} 台 ({{
+                      {{ item.delivered_100c }} {{ t("ci.units") }} ({{
                         formatCiMwh(item.mwh100c)
                       }}
                       MWh)
@@ -1120,7 +1120,7 @@
                     <p
                       class="delivery-metric delivery-metric-250 font-semibold text-emerald-200"
                     >
-                      {{ item.delivered_250 }} 台 ({{
+                      {{ item.delivered_250 }} {{ t("ci.units") }} ({{
                         formatCiMwh(item.mwh250)
                       }}
                       MWh)
@@ -1165,23 +1165,23 @@
                     <div class="grid gap-5 lg:grid-cols-2">
                       <section v-for="productType in ['100C', '250']" :key="productType" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div class="mb-3 flex items-center justify-between gap-3">
-                          <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">{{ productType }} 交付明细</h4>
-                          <button v-if="isInternalMode" type="button" class="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-100" @click="openBatchDeliveryModal(item, productType)">+ 新增交付批次</button>
+                          <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">{{ productType }} {{ t("ci.detail") }}</h4>
+                          <button v-if="isInternalMode" type="button" class="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-100" @click="openBatchDeliveryModal(item, productType)">{{ t("ci.addBatch") }}</button>
                         </div>
                         <div v-if="ciBatchesByDealer[item.id]?.filter((batch) => batch.product_type === productType).length" class="overflow-x-auto">
                           <table class="w-full text-left text-sm">
                             <thead>
                               <tr class="border-b border-slate-100 text-xs font-semibold text-slate-400">
-                                <th class="py-2 pr-3">数量</th>
-                                <th class="py-2 pr-3">日期</th>
-                                <th class="py-2 pr-3">地点 (Place)</th>
-                                <th class="py-2 pr-3">软件版本 (SW Version)</th>
-                                <th v-if="isInternalMode" class="py-2 text-right">操作</th>
+                                <th class="py-2 pr-3">{{ t("ci.colQty") }}</th>
+                                <th class="py-2 pr-3">{{ t("ci.colDate") }}</th>
+                                <th class="py-2 pr-3">{{ t("ci.colPlace") }}</th>
+                                <th class="py-2 pr-3">{{ t("ci.colSwVersion") }}</th>
+                                <th v-if="isInternalMode" class="py-2 text-right">{{ t("common.actions") }}</th>
                               </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                               <tr v-for="batch in ciBatchesByDealer[item.id].filter((entry) => entry.product_type === productType)" :key="batch.id">
-                                <td class="py-2 pr-3 font-semibold text-slate-800">{{ batch.quantity }} 台</td>
+                                <td class="py-2 pr-3 font-semibold text-slate-800">{{ batch.quantity }} {{ t("ci.units") }}</td>
                                 <td class="py-2 pr-3 font-mono text-xs text-slate-500">{{ batch.delivery_date }}</td>
                                 <td class="py-2 pr-3 text-xs text-slate-600">{{ batch.place || "-" }}</td>
                                 <td class="py-2 pr-3 font-mono text-xs text-slate-600">{{ batch.software_version || "-" }}</td>
@@ -1193,7 +1193,7 @@
                             </tbody>
                           </table>
                         </div>
-                        <p v-else class="text-sm text-slate-500">暂无交付批次</p>
+                        <p v-else class="text-sm text-slate-500">{{ t("ci.noBatch") }}</p>
                       </section>
                     </div>
                   </td>
@@ -2769,7 +2769,7 @@
                     :key="category"
                     :value="category"
                   >
-                    {{ category }}
+                    {{ categoryLabel(category) }}
                   </option>
                 </select>
               </label>
@@ -3022,38 +3022,38 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Delivery Batch</p>
-              <h3 class="mt-2 text-2xl font-semibold text-white">{{ batchDeliveryModal.mode === 'edit' ? '编辑交付批次' : '新增交付批次' }}</h3>
+              <h3 class="mt-2 text-2xl font-semibold text-white">{{ batchDeliveryModal.mode === 'edit' ? (isEnglish ? 'Edit delivery batch' : '编辑交付批次') : (isEnglish ? 'Add delivery batch' : '新增交付批次') }}</h3>
               <p class="mt-1 text-sm text-slate-400">{{ batchDeliveryModal.dealerName }}</p>
             </div>
             <button type="button" class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white" @click="closeBatchDeliveryModal">{{ t('common.close') }}</button>
           </div>
           <div class="mt-5 grid gap-4 sm:grid-cols-2">
             <label class="block">
-              <span class="mb-2 block text-xs font-semibold text-slate-400">产品类型</span>
+              <span class="mb-2 block text-xs font-semibold text-slate-400">{{ isEnglish ? "Product type" : "产品类型" }}</span>
               <select v-model="batchDeliveryDraft.product_type" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white">
                 <option value="100C">100C</option>
                 <option value="250">250</option>
               </select>
             </label>
             <label class="block">
-              <span class="mb-2 block text-xs font-semibold text-slate-400">交付台数 *</span>
+              <span class="mb-2 block text-xs font-semibold text-slate-400">{{ isEnglish ? "Quantity *" : "交付台数 *" }}</span>
               <input v-model.number="batchDeliveryDraft.quantity" type="number" min="1" required class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
             </label>
             <label class="block">
-              <span class="mb-2 block text-xs font-semibold text-slate-400">交付时间 *</span>
+              <span class="mb-2 block text-xs font-semibold text-slate-400">{{ isEnglish ? "Delivery date *" : "交付时间 *" }}</span>
               <input v-model="batchDeliveryDraft.delivery_date" type="date" required class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
             </label>
             <label class="block">
-              <span class="mb-2 block text-xs font-semibold text-slate-400">地点 Place（选填）</span>
+              <span class="mb-2 block text-xs font-semibold text-slate-400">{{ isEnglish ? "Place (optional)" : "地点 Place（选填）" }}</span>
               <input v-model="batchDeliveryDraft.place" type="text" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
             </label>
             <label class="block">
-              <span class="mb-2 block text-xs font-semibold text-slate-400">软件版本 SW Version（选填）</span>
+              <span class="mb-2 block text-xs font-semibold text-slate-400">{{ isEnglish ? "SW Version (optional)" : "软件版本 SW Version（选填）" }}</span>
               <input v-model="batchDeliveryDraft.software_version" type="text" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
             </label>
             <label class="block sm:col-span-2">
-              <span class="mb-2 block text-xs font-semibold text-slate-400">设备序列号 SN（选填）</span>
-              <textarea v-model="batchDeliveryDraft.serial_numbers" rows="4" placeholder="每行或逗号分隔一个 SN" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white"></textarea>
+              <span class="mb-2 block text-xs font-semibold text-slate-400">{{ isEnglish ? "Serial numbers (optional)" : "设备序列号 SN（选填）" }}</span>
+              <textarea v-model="batchDeliveryDraft.serial_numbers" rows="4" :placeholder="isEnglish ? 'One SN per line or comma-separated' : '每行或逗号分隔一个 SN'" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white"></textarea>
             </label>
           </div>
           <div class="mt-6 flex justify-end gap-3">
@@ -3718,6 +3718,10 @@ const materialsByCategory = computed(() => {
   }
   return grouped;
 });
+
+function categoryLabel(category) {
+  return messages[locale.value]?.materials?.categories?.[category] ?? category;
+}
 
 function t(path) {
   return (
