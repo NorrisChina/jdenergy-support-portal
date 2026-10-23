@@ -49,6 +49,8 @@ class CIDeliveryBatch(SQLModel, table=True):
     quantity: int = Field(default=1)
     delivery_date: str
     serial_numbers: Optional[str] = ""
+    place: Optional[str] = ""
+    software_version: Optional[str] = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

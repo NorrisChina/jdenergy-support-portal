@@ -262,6 +262,10 @@ def init_db() -> None:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))
             except Exception:
                 pass
+        batch_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(ci_delivery_batches)"))}
+        for column in ("place", "software_version"):
+            if column not in batch_columns:
+                connection.execute(text(f"ALTER TABLE ci_delivery_batches ADD COLUMN {column} TEXT DEFAULT ''"))
         grid_columns = {
             row[1] for row in connection.execute(text("PRAGMA table_info(gridscaleproject)"))
         }

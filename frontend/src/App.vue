@@ -573,12 +573,22 @@
 
         <div v-else class="grid gap-6 xl:grid-cols-2">
           <section
-            v-for="category in technicalDocCategories"
+            v-for="category in materialsVisibleCategories"
             :key="category"
             class="rounded-3xl border border-white/10 bg-white/5 p-6"
           >
             <div class="flex items-center justify-between gap-3">
-              <h3 class="text-xl font-semibold text-white">{{ category }}</h3>
+              <h3 class="text-xl font-semibold text-white">
+                {{ category === SOFTWARE_VERSION_CATEGORY ? "软件版本 / Latest Software" : category }}
+              </h3>
+              <button
+                v-if="materialsCanManage && (category === SOFTWARE_VERSION_CATEGORY || category === TOOLS_CATEGORY)"
+                type="button"
+                class="ml-auto rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/15"
+                @click="openTechnicalDocEditor(null, category)"
+              >
+                + 上传
+              </button>
               <span
                 class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
                 >{{ materialsByCategory[category]?.length ?? 0 }}</span
@@ -595,6 +605,11 @@
                   <div>
                     <p class="text-sm font-semibold text-white">
                       {{ item.title }}
+                      <span
+                        v-if="category === SOFTWARE_VERSION_CATEGORY && item.id === materialsByCategory[category][0]?.id"
+                        class="ml-2 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] text-emerald-200"
+                        >最新 / Latest</span
+                      >
                     </p>
                     <p class="doc-meta mt-1 text-xs text-slate-400">
                       {{ item.file_type || "-" }} · {{ item.file_size || "-" }}
@@ -1153,15 +1168,30 @@
                           <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">{{ productType }} 交付明细</h4>
                           <button v-if="isInternalMode" type="button" class="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-100" @click="openBatchDeliveryModal(item, productType)">+ 新增交付批次</button>
                         </div>
-                        <div v-if="ciBatchesByDealer[item.id]?.filter((batch) => batch.product_type === productType).length" class="divide-y divide-slate-100">
-                          <div v-for="batch in ciBatchesByDealer[item.id].filter((entry) => entry.product_type === productType)" :key="batch.id" class="flex items-center justify-between gap-3 py-2 text-sm">
-                            <span class="text-sm font-semibold text-slate-800">{{ batch.quantity }} 台</span>
-                            <span class="font-mono text-xs text-slate-500">{{ batch.delivery_date }}</span>
-                            <div v-if="isInternalMode" class="flex gap-2 text-xs">
-                              <button type="button" class="mr-2 text-xs font-medium text-indigo-600 hover:text-indigo-800" @click="openBatchDeliveryModal(item, productType, batch)">{{ t('common.edit') }}</button>
-                              <button type="button" class="text-xs font-medium text-rose-500 hover:text-rose-700" @click="openDeleteDialog('ci-batch', `${item.id}:${batch.id}`, `${productType} ${batch.delivery_date}`, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
-                            </div>
-                          </div>
+                        <div v-if="ciBatchesByDealer[item.id]?.filter((batch) => batch.product_type === productType).length" class="overflow-x-auto">
+                          <table class="w-full text-left text-sm">
+                            <thead>
+                              <tr class="border-b border-slate-100 text-xs font-semibold text-slate-400">
+                                <th class="py-2 pr-3">数量</th>
+                                <th class="py-2 pr-3">日期</th>
+                                <th class="py-2 pr-3">地点 (Place)</th>
+                                <th class="py-2 pr-3">软件版本 (SW Version)</th>
+                                <th v-if="isInternalMode" class="py-2 text-right">操作</th>
+                              </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                              <tr v-for="batch in ciBatchesByDealer[item.id].filter((entry) => entry.product_type === productType)" :key="batch.id">
+                                <td class="py-2 pr-3 font-semibold text-slate-800">{{ batch.quantity }} 台</td>
+                                <td class="py-2 pr-3 font-mono text-xs text-slate-500">{{ batch.delivery_date }}</td>
+                                <td class="py-2 pr-3 text-xs text-slate-600">{{ batch.place || "-" }}</td>
+                                <td class="py-2 pr-3 font-mono text-xs text-slate-600">{{ batch.software_version || "-" }}</td>
+                                <td v-if="isInternalMode" class="whitespace-nowrap py-2 text-right text-xs">
+                                  <button type="button" class="mr-2 text-xs font-medium text-indigo-600 hover:text-indigo-800" @click="openBatchDeliveryModal(item, productType, batch)">{{ t('common.edit') }}</button>
+                                  <button type="button" class="text-xs font-medium text-rose-500 hover:text-rose-700" @click="openDeleteDialog('ci-batch', `${item.id}:${batch.id}`, `${productType} ${batch.delivery_date}`, t('common.deleteConfirm'))">{{ t('common.delete') }}</button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
                         <p v-else class="text-sm text-slate-500">暂无交付批次</p>
                       </section>
@@ -3013,6 +3043,14 @@
               <span class="mb-2 block text-xs font-semibold text-slate-400">交付时间 *</span>
               <input v-model="batchDeliveryDraft.delivery_date" type="date" required class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
             </label>
+            <label class="block">
+              <span class="mb-2 block text-xs font-semibold text-slate-400">地点 Place（选填）</span>
+              <input v-model="batchDeliveryDraft.place" type="text" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
+            </label>
+            <label class="block">
+              <span class="mb-2 block text-xs font-semibold text-slate-400">软件版本 SW Version（选填）</span>
+              <input v-model="batchDeliveryDraft.software_version" type="text" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white" />
+            </label>
             <label class="block sm:col-span-2">
               <span class="mb-2 block text-xs font-semibold text-slate-400">设备序列号 SN（选填）</span>
               <textarea v-model="batchDeliveryDraft.serial_numbers" rows="4" placeholder="每行或逗号分隔一个 SN" class="w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white"></textarea>
@@ -3087,11 +3125,11 @@ const navGroups = computed(() => [
     label: t("nav.overview"),
     items: [
       { key: "overview", label: t("views.overview") },
-      ...(!isCustomer.value
+      ...(isSuperAdmin.value || isViewer.value
         ? [{ key: "delivery-costs", label: t("views.deliveryCosts") }]
         : []),
       { key: "logistics", label: t("views.logistics") },
-      ...(!isCustomer.value
+      ...(isSuperAdmin.value || isViewer.value
         ? [{ key: "warehouse", label: t("views.warehouse") }]
         : []),
       ...(!isCustomer.value
@@ -3134,14 +3172,18 @@ const warehouseOptions = [
   { key: "north_america", label: "北美仓 / North America" },
 ];
 
-const technicalDocProductSeries = ["418", "250", "100C"];
+const technicalDocProductSeries = ["418", "250", "100C", "Tools"];
 const technicalDocCategories = [
   "安装手册",
   "调试手册",
   "运维手册",
   "安装视频",
   "其他手册",
+  "软件版本",
+  "工具软件",
 ];
+const SOFTWARE_VERSION_CATEGORY = "软件版本";
+const TOOLS_CATEGORY = "工具软件";
 
 const projectStatuses = [
   "待交付",
@@ -3171,7 +3213,7 @@ const ciDeliveries = ref([]);
 const ciBatchesByDealer = ref({});
 const ciExpandedDealerId = ref(null);
 const batchDeliveryModal = reactive({ open: false, mode: "create", dealerId: null, dealerName: "", batchId: null });
-const batchDeliveryDraft = reactive({ product_type: "100C", quantity: 1, delivery_date: new Date().toISOString().slice(0, 10), serial_numbers: "" });
+const batchDeliveryDraft = reactive({ product_type: "100C", quantity: 1, delivery_date: new Date().toISOString().slice(0, 10), serial_numbers: "", place: "", software_version: "" });
 const projectDraftStatus = reactive({});
 
 const selectedWarehouse = ref("europe");
@@ -3654,6 +3696,16 @@ const materialsCanManage = computed(() => {
   }
   return Boolean(window.localStorage.getItem("token"));
 });
+const materialsVisibleCategories = computed(() => {
+  if (materialsProductSeries.value === "Tools") return [TOOLS_CATEGORY];
+  return [
+    SOFTWARE_VERSION_CATEGORY,
+    ...technicalDocCategories.filter(
+      (category) =>
+        category !== SOFTWARE_VERSION_CATEGORY && category !== TOOLS_CATEGORY,
+    ),
+  ];
+});
 const materialsByCategory = computed(() => {
   const grouped = Object.fromEntries(
     technicalDocCategories.map((category) => [category, []]),
@@ -4002,7 +4054,7 @@ async function loadTechnicalDocs() {
   }
 }
 
-function openTechnicalDocEditor(record = null) {
+function openTechnicalDocEditor(record = null, presetCategory = "") {
   if (!materialsCanManage.value) {
     setNotice(
       isEnglish.value
@@ -4013,6 +4065,13 @@ function openTechnicalDocEditor(record = null) {
     return;
   }
   openCrudModal("technical-doc", record ? "edit" : "create", record);
+  if (!record) {
+    crudDraft.category =
+      presetCategory ||
+      (materialsProductSeries.value === "Tools"
+        ? TOOLS_CATEGORY
+        : technicalDocCategories[0]);
+  }
 }
 
 function openTechnicalDocFilePicker() {
@@ -5034,6 +5093,8 @@ function exportCiDeliveryDetails() {
     "交付台数",
     "交付容量 (MWh)",
     "交付时间",
+    "地点",
+    "软件版本",
     "设备序列号",
   ];
   const rows = [];
@@ -5041,7 +5102,7 @@ function exportCiDeliveryDetails() {
     const batches = ciBatchesByDealer.value[dealer.id] || [];
     const customerName = dealer.customer_company || dealer.dealer_name || "";
     if (batches.length === 0) {
-      rows.push([dealer.region || "", customerName, "", "", "", "", ""]);
+      rows.push([dealer.region || "", customerName, "", "", "", "", "", "", ""]);
       continue;
     }
     for (const batch of batches) {
@@ -5054,6 +5115,8 @@ function exportCiDeliveryDetails() {
         quantity,
         (quantity * unitCapacity).toFixed(2),
         batch.delivery_date || "",
+        batch.place || "",
+        batch.software_version || "",
         batch.serial_numbers || "",
       ]);
     }
@@ -5093,6 +5156,8 @@ function openBatchDeliveryModal(dealer, productType = "100C", batch = null) {
     quantity: batch?.quantity || 1,
     delivery_date: batch?.delivery_date || new Date().toISOString().slice(0, 10),
     serial_numbers: batch?.serial_numbers || "",
+    place: batch?.place || "",
+    software_version: batch?.software_version || "",
   });
 }
 

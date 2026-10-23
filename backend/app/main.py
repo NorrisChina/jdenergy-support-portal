@@ -261,6 +261,8 @@ class CIDeliveryBatchPayload(BaseModel):
     quantity: int = Field(default=1, gt=0)
     delivery_date: str
     serial_numbers: Optional[str] = ""
+    place: Optional[str] = ""
+    software_version: Optional[str] = ""
 
 
 class WarehouseTransactionCreate(BaseModel):
@@ -3519,6 +3521,8 @@ def create_ci_delivery_batch(dealer_id: int, payload: CIDeliveryBatchPayload, _:
             quantity=payload.quantity,
             delivery_date=delivery_date,
             serial_numbers=payload.serial_numbers or "",
+            place=(payload.place or "").strip(),
+            software_version=(payload.software_version or "").strip(),
         )
         session.add(item)
         session.commit()
@@ -3537,6 +3541,8 @@ def update_ci_delivery_batch(batch_id: int, payload: CIDeliveryBatchPayload, _: 
         item.quantity = payload.quantity
         item.delivery_date = delivery_date
         item.serial_numbers = payload.serial_numbers or ""
+        item.place = (payload.place or "").strip()
+        item.software_version = (payload.software_version or "").strip()
         session.add(item)
         session.commit()
         session.refresh(item)

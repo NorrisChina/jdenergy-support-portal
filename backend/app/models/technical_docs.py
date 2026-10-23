@@ -6,7 +6,7 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
-TECHNICAL_DOC_PRODUCT_SERIES = ["418", "250", "100C", "418/250"]
+TECHNICAL_DOC_PRODUCT_SERIES = ["418", "250", "100C", "418/250", "Tools"]
 
 TECHNICAL_DOC_CATEGORIES = [
     "安装手册",
@@ -14,6 +14,8 @@ TECHNICAL_DOC_CATEGORIES = [
     "运维手册",
     "安装视频",
     "其他手册",
+    "软件版本",
+    "工具软件",
 ]
 
 
