@@ -9,7 +9,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_TILE_ATTRIBUTION, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '../services/mapConfig'
+import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_TILE_ATTRIBUTION, MAP_TILE_MAX_ZOOM, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '../services/mapConfig'
 
 const props = defineProps({
   latitude: { type: [Number, String, null], default: null },
@@ -44,7 +44,7 @@ function sync(recenter) {
 
 onMounted(() => {
   map = L.map(mapEl.value, { center: MAP_DEFAULT_CENTER, zoom: MAP_DEFAULT_ZOOM, minZoom: 1, worldCopyJump: true })
-  L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, subdomains: MAP_TILE_SUBDOMAINS, maxZoom: 19 }).addTo(map)
+  L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, subdomains: MAP_TILE_SUBDOMAINS, maxZoom: MAP_TILE_MAX_ZOOM }).addTo(map)
   map.on('click', (event) => {
     const { lat, lng } = event.latlng.wrap()
     emit('pick', { latitude: Number(lat.toFixed(6)), longitude: Number(lng.toFixed(6)) })

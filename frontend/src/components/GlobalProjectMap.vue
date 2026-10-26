@@ -25,10 +25,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_TILE_ATTRIBUTION, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '../services/mapConfig'
+import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM, MAP_TILE_ATTRIBUTION, MAP_TILE_MAX_ZOOM, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '../services/mapConfig'
 
 const props = defineProps({
-  // Each project: project_name, customer_company, capacity_mwh, cod, software_version, status ('connected' | 'pending'), latitude, longitude
+  // Each item: kind ('grid' | 'ci'), project_name, customer_company, capacity_mwh, cod, software_version, region, delivered_100c, delivered_250, status ('connected' | 'pending'), latitude, longitude
   projects: { type: Array, default: () => [] },
   locale: { type: String, default: 'zh-CN' },
 })
@@ -39,16 +39,17 @@ const COLORS = { connected: '#34d399', pending: '#fbbf24' }
 const copy = computed(() => props.locale === 'en-US' ? {
   totalProjects: 'Total projects', totalMwh: 'Total capacity (MWh)', connectedMwh: 'Grid-connected (MWh)', pendingMwh: 'Pending delivery (MWh)',
   connected: 'Connected', pending: 'Pending', missing: (n) => `${n} without coordinates`,
-  customer: 'Customer', capacity: 'Capacity', cod: 'COD / Delivery date', software: 'Software version', status: 'Status', details: 'View details',
+  customer: 'Customer', region: 'Country / region', units100c: '100C delivered', units250: '250 delivered', unitSuffix: 'units', capacity: 'Capacity', cod: 'COD / Delivery date', software: 'Software version', status: 'Status', details: 'View details',
 } : {
   totalProjects: '全球总项目数', totalMwh: '全球总容量 (MWh)', connectedMwh: '已并网容量 (MWh)', pendingMwh: '待交付容量 (MWh)',
   connected: '已并网', pending: '待交付', missing: (n) => `${n} 个项目未设置坐标`,
-  customer: '客户名称', capacity: '容量', cod: 'COD / 交付日期', software: '软件版本', status: '并网状态', details: '查看详情',
+  customer: '客户名称', region: '国家 / 区域', units100c: '100C 已交付', units250: '250 已交付', unitSuffix: '台', capacity: '容量', cod: 'COD / 交付日期', software: '软件版本', status: '并网状态', details: '查看详情',
 })
 
 const mapEl = ref(null)
 let map = null
 let layer = null
+let resizeObserver = null
 
 const mwhOf = (project) => Number(project.capacity_mwh) || 0
 const round = (value) => Math.round(value * 100) / 100
@@ -86,10 +87,15 @@ function popupHtml(project) {
   const row = (label, value) => `<div class="jd-pop-row"><span>${label}</span><b>${escapeHtml(value || '-')}</b></div>`
   return `<div class="jd-pop">
     <div class="jd-pop-title">${escapeHtml(project.project_name)}</div>
-    ${row(copy.value.customer, project.customer_company)}
-    ${row(copy.value.capacity, `${round(mwhOf(project))} MWh`)}
-    ${row(copy.value.cod, project.cod)}
-    ${row(copy.value.software, project.software_version)}
+    ${project.kind === 'ci'
+      ? row(copy.value.region, project.region) +
+        row(copy.value.units100c, `${project.delivered_100c || 0} ${copy.value.unitSuffix}`) +
+        row(copy.value.units250, `${project.delivered_250 || 0} ${copy.value.unitSuffix}`) +
+        row(copy.value.capacity, `${round(mwhOf(project))} MWh`)
+      : row(copy.value.customer, project.customer_company) +
+        row(copy.value.capacity, `${round(mwhOf(project))} MWh`) +
+        row(copy.value.cod, project.cod) +
+        row(copy.value.software, project.software_version)}
     <div class="jd-pop-row"><span>${copy.value.status}</span><b style="color:${color}">${connected ? copy.value.connected : copy.value.pending}</b></div>
     <button type="button" class="jd-pop-btn">${copy.value.details}</button>
   </div>`
@@ -119,13 +125,26 @@ function render() {
 onMounted(() => {
   map = L.map(mapEl.value, { center: MAP_DEFAULT_CENTER, zoom: MAP_DEFAULT_ZOOM, minZoom: 2, worldCopyJump: true, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
-  L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, subdomains: MAP_TILE_SUBDOMAINS, maxZoom: 19, className: 'jd-dark-tiles' }).addTo(map)
+  L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, subdomains: MAP_TILE_SUBDOMAINS, maxZoom: MAP_TILE_MAX_ZOOM, className: 'jd-dark-tiles' }).addTo(map)
   layer = L.layerGroup().addTo(map)
   render()
   setTimeout(() => map?.invalidateSize(), 0)
+  // Keep tiles and markers aligned when the container or window changes size.
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => map?.invalidateSize())
+    resizeObserver.observe(mapEl.value)
+  }
+  window.addEventListener('resize', handleWindowResize)
 })
 
+function handleWindowResize() {
+  map?.invalidateSize()
+}
+
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleWindowResize)
+  resizeObserver?.disconnect()
+  resizeObserver = null
   map?.remove()
   map = null
 })
@@ -137,7 +156,6 @@ watch(() => [props.projects, props.locale], render, { deep: true })
 /* Darken the free OSM tiles to match the portal theme. */
 .jd-dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6); }
 .jd-map-marker { background: transparent; border: 0; }
-.jd-map-marker { position: relative; }
 .jd-map-pulse {
   position: absolute; inset: 0; border-radius: 9999px;
   background: color-mix(in srgb, var(--c) 35%, transparent);

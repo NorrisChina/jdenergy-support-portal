@@ -252,6 +252,8 @@ class CiDeliveryUpdate(BaseModel):
     delivered_100c: int = 0
     delivered_250: int = 0
     customer_company: Optional[str] = None
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
 
 
 class CiDeliveryCreateUpdate(CiDeliveryUpdate):
@@ -3675,7 +3677,9 @@ def update_ci_delivery(dealer_name: str, payload: CiDeliveryUpdate, _: User = De
         if item is None:
             raise HTTPException(status_code=404, detail="Dealer not found")
         item.region = payload.region
-        item.customer_company = (payload.customer_company or payload.dealer_name).strip()
+        item.latitude = payload.latitude
+        item.longitude = payload.longitude
+        item.customer_company = (payload.customer_company or item.customer_company or item.dealer_name).strip()
         session.add(item)
         session.flush()
         company = (item.customer_company or item.dealer_name).strip()

@@ -40,6 +40,8 @@ class CiDealerDelivery(SQLModel, table=True):
     delivered_250: int
     customer_id: Optional[int] = Field(default=None, index=True)
     customer_company: str = Field(default="", index=True)
+    latitude: Optional[float] = Field(default=None)
+    longitude: Optional[float] = Field(default=None)
 
 
 class CIDeliveryBatch(SQLModel, table=True):

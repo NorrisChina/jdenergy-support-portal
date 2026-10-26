@@ -269,6 +269,10 @@ def init_db() -> None:
         grid_columns = {
             row[1] for row in connection.execute(text("PRAGMA table_info(gridscaleproject)"))
         }
+        ci_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(cidealerdelivery)"))}
+        for column in ("latitude", "longitude"):
+            if column not in ci_columns:
+                connection.execute(text(f"ALTER TABLE cidealerdelivery ADD COLUMN {column} REAL"))
         for column in ("latitude", "longitude"):
             if column not in grid_columns:
                 connection.execute(text(f"ALTER TABLE gridscaleproject ADD COLUMN {column} REAL"))

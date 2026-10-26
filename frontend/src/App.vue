@@ -1007,7 +1007,7 @@
           <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t("map.section") }}</h2>
           <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t("map.subtitle") }}</p>
         </div>
-        <GlobalProjectMap :projects="mapProjects" :locale="locale" @view-details="openMilestoneTimeline" />
+        <GlobalProjectMap :projects="mapProjects" :locale="locale" @view-details="handleMapViewDetails" />
       </section>
 
       <section v-else-if="activeView === 'overview' && overviewSubTab === 'ci-dashboard'" class="flex-1">
@@ -1146,6 +1146,12 @@
                   <td class="key-cell px-5 py-4">{{ item.region }}</td>
                   <td class="key-cell px-5 py-4 font-medium text-white">
                     {{ item.dealer_name }}
+                    <p
+                      class="mt-1 font-mono text-[11px] font-normal"
+                      :class="hasCoordinates(item) ? 'text-slate-400' : 'text-amber-300/80'"
+                    >
+                      {{ hasCoordinates(item) ? `📍 ${Number(item.latitude).toFixed(4)}, ${Number(item.longitude).toFixed(4)}` : t("map.noCoordinates") }}
+                    </p>
                   </td>
                   <td class="cursor-pointer px-5 py-4" @click="toggleCiDeliveryBatches(item)">
                     <span class="mr-2 text-xs text-cyan-200">{{ ciExpandedDealerId === item.id ? '▼' : '▶' }}</span>
@@ -2827,6 +2833,42 @@
                   class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none disabled:opacity-60"
                 />
               </label>
+              <label class="block">
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("map.latitude") }}</span
+                >
+                <input
+                  v-model="crudDraft.latitude"
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
+              </label>
+              <label class="block">
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("map.longitude") }}</span
+                >
+                <input
+                  v-model="crudDraft.longitude"
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
+              </label>
+              <div class="md:col-span-2">
+                <LocationPicker
+                  :latitude="crudDraft.latitude"
+                  :longitude="crudDraft.longitude"
+                  :locale="locale"
+                  @pick="(point) => { crudDraft.latitude = point.latitude; crudDraft.longitude = point.longitude; }"
+                />
+              </div>
             </template>
             <template v-else-if="crudModal.kind === 'technical-doc'">
               <label class="block">
@@ -3882,14 +3924,59 @@ const faultTotalPages = computed(() =>
   Math.max(1, Math.ceil((faultTotal.value || 0) / (faultPageSize.value || 1))),
 );
 
-const mapProjects = computed(() =>
+function hasCoordinates(item) {
+  return (
+    item?.latitude !== null &&
+    item?.latitude !== undefined &&
+    item?.latitude !== "" &&
+    item?.longitude !== null &&
+    item?.longitude !== undefined &&
+    item?.longitude !== ""
+  );
+}
+
+const mapProjects = computed(() => [
+  ...mapGridProjects.value,
+  ...mapCiProjects.value,
+]);
+
+const mapGridProjects = computed(() =>
   filteredGridProjects.value.map((project) => ({
     ...project,
+    kind: "grid",
     status: isGridProjectConnectedStatus(project.progress_status)
       ? "connected"
       : "pending",
   })),
 );
+
+// C&I dealers are aggregated per customer; delivered units count as delivered capacity.
+const mapCiProjects = computed(() =>
+  ciCapacityRows.value.map((item) => ({
+    kind: "ci",
+    id: item.id,
+    project_name: item.dealer_name,
+    customer_company: item.customer_company || item.dealer_name,
+    region: item.region,
+    delivered_100c: item.delivered_100c,
+    delivered_250: item.delivered_250,
+    capacity_mwh: (Number(item.mwh100c) || 0) + (Number(item.mwh250) || 0),
+    latitude: item.latitude,
+    longitude: item.longitude,
+    status: "connected",
+  })),
+);
+
+async function handleMapViewDetails(project) {
+  if (project.kind === "ci") {
+    overviewSubTab.value = "ci-dashboard";
+    if (ciExpandedDealerId.value !== project.id) {
+      await toggleCiDeliveryBatches({ id: project.id });
+    }
+    return;
+  }
+  openMilestoneTimeline(project);
+}
 
 const gridSummary = computed(() => {
   const totalMwh = filteredGridProjects.value.reduce(
@@ -4070,6 +4157,27 @@ function getCodDayDiff(cod, todayDayValue = getTodayDayValue()) {
   const codDayValue = getCodDayValue(cod);
   if (codDayValue === null) return null;
   return Math.round((codDayValue - todayDayValue) / 86400000);
+}
+
+function parseCoordinatePair(rawLatitude, rawLongitude) {
+  const parse = (value) =>
+    value === "" || value === null || value === undefined ? null : Number(value);
+  const latitude = parse(rawLatitude);
+  const longitude = parse(rawLongitude);
+  if (
+    (latitude !== null && !(latitude >= -90 && latitude <= 90)) ||
+    (longitude !== null && !(longitude >= -180 && longitude <= 180)) ||
+    (latitude === null) !== (longitude === null)
+  ) {
+    setNotice(
+      isEnglish.value
+        ? "Enter both latitude (-90 to 90) and longitude (-180 to 180), or leave both empty."
+        : "请同时填写有效的纬度（-90~90）和经度（-180~180），或都留空。",
+      "error",
+    );
+    return null;
+  }
+  return { latitude, longitude };
 }
 
 function normalizeGridProjectStatus(status) {
@@ -4354,6 +4462,8 @@ function resetCrudDraft(kind, record) {
   if (kind === "ci" && record) {
     nextDraft.region = record.region;
     nextDraft.dealer_name = record.dealer_name;
+    nextDraft.latitude = record.latitude ?? "";
+    nextDraft.longitude = record.longitude ?? "";
     nextDraft.delivered_100c = record.delivered_100c;
     nextDraft.delivered_250 = record.delivered_250;
   }
@@ -5461,23 +5571,9 @@ async function submitCrud() {
   }
 
   if (crudModal.kind === "grid") {
-    const parseCoordinate = (value) =>
-      value === "" || value === null || value === undefined ? null : Number(value);
-    const latitude = parseCoordinate(crudDraft.latitude);
-    const longitude = parseCoordinate(crudDraft.longitude);
-    if (
-      (latitude !== null && !(latitude >= -90 && latitude <= 90)) ||
-      (longitude !== null && !(longitude >= -180 && longitude <= 180)) ||
-      (latitude === null) !== (longitude === null)
-    ) {
-      setNotice(
-        isEnglish.value
-          ? "Enter both latitude (-90 to 90) and longitude (-180 to 180), or leave both empty."
-          : "请同时填写有效的纬度（-90~90）和经度（-180~180），或都留空。",
-        "error",
-      );
-      return;
-    }
+    const coordinates = parseCoordinatePair(crudDraft.latitude, crudDraft.longitude);
+    if (!coordinates) return;
+    const { latitude, longitude } = coordinates;
     const payload = {
       latitude,
       longitude,
@@ -5504,9 +5600,12 @@ async function submitCrud() {
   }
 
   if (crudModal.kind === "ci") {
+    const coordinates = parseCoordinatePair(crudDraft.latitude, crudDraft.longitude);
+    if (!coordinates) return;
     const payload = {
       dealer_name: crudDraft.dealer_name.trim(),
       region: crudDraft.region.trim(),
+      ...coordinates,
     };
     if (crudModal.mode === "create") {
       await portalApi.createCiDelivery(payload);

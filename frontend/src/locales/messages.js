@@ -70,6 +70,7 @@ export const messages = {
       subtitle: '在地图上查看全球项目分布、容量规模与并网状态。',
       latitude: '纬度 (Latitude)',
       longitude: '经度 (Longitude)',
+      noCoordinates: '📍 未设置经纬度',
     },
     logistics: {
       add: '新增物流记录',
@@ -384,6 +385,7 @@ export const messages = {
       subtitle: 'See project distribution, capacity and grid-connection status on the map.',
       latitude: 'Latitude',
       longitude: 'Longitude',
+      noCoordinates: '📍 No coordinates set',
     },
     logistics: {
       add: 'Add Shipment',
