@@ -690,6 +690,14 @@
           >
             {{ t("overviewTabs.ciDashboard") }}
           </button>
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold transition"
+            :class="overviewSubTab === 'map' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'"
+            @click="overviewSubTab = 'map'"
+          >
+            {{ t("overviewTabs.map") }}
+          </button>
         </div>
         <div class="mb-5 flex flex-wrap items-center gap-3">
           <label for="overview-customer-filter-418" class="text-sm font-semibold text-slate-200">{{ t("ci.customerName") }}</label>
@@ -967,6 +975,41 @@
         </div>
       </section>
 
+      <section v-else-if="activeView === 'overview' && overviewSubTab === 'map'" class="flex-1">
+        <div class="mb-5 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+            @click="overviewSubTab = 'grid-scale'"
+          >
+            {{ t("overviewTabs.gridScale") }}
+          </button>
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+            @click="overviewSubTab = 'ci-dashboard'"
+          >
+            {{ t("overviewTabs.ciDashboard") }}
+          </button>
+          <button type="button" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition">
+            {{ t("overviewTabs.map") }}
+          </button>
+        </div>
+        <div class="mb-5 flex flex-wrap items-center gap-3">
+          <label for="overview-customer-filter-map" class="text-sm font-semibold text-slate-200">{{ t("ci.customerName") }}</label>
+          <select id="overview-customer-filter-map" v-model="overviewCustomerFilter" class="min-w-56 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white">
+            <option value="">{{ t("ci.allCustomers") }}</option>
+            <option v-for="company in overviewCustomerOptions" :key="company" :value="company">{{ company }}</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Global Project Map Dashboard</p>
+          <h2 class="mt-2 text-2xl font-semibold text-white sm:text-3xl">{{ t("map.section") }}</h2>
+          <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-300">{{ t("map.subtitle") }}</p>
+        </div>
+        <GlobalProjectMap :projects="mapProjects" :locale="locale" @view-details="openMilestoneTimeline" />
+      </section>
+
       <section v-else-if="activeView === 'overview' && overviewSubTab === 'ci-dashboard'" class="flex-1">
         <div class="mb-5 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
           <button
@@ -984,6 +1027,14 @@
             @click="overviewSubTab = 'ci-dashboard'"
           >
             {{ t("overviewTabs.ciDashboard") }}
+          </button>
+          <button
+            type="button"
+            class="rounded-full px-4 py-2 text-sm font-semibold transition"
+            :class="overviewSubTab === 'map' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'"
+            @click="overviewSubTab = 'map'"
+          >
+            {{ t("overviewTabs.map") }}
           </button>
         </div>
         <div class="mb-5 flex flex-wrap items-center gap-3">
@@ -1763,6 +1814,11 @@
           </table>
         </div>
       </section>
+
+      <DeliveryScheduleView
+        v-else-if="activeView === 'delivery-schedule' && (isSuperAdmin || isViewer)"
+        :locale="locale"
+      />
 
       <VpnDiagnosticView
         v-else-if="activeView === 'vpn-diagnostics'"
@@ -2644,6 +2700,42 @@
               <label class="block">
                 <span
                   class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("map.latitude") }}</span
+                >
+                <input
+                  v-model="crudDraft.latitude"
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
+              </label>
+              <label class="block">
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
+                  >{{ t("map.longitude") }}</span
+                >
+                <input
+                  v-model="crudDraft.longitude"
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  class="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                />
+              </label>
+              <div class="md:col-span-2">
+                <LocationPicker
+                  :latitude="crudDraft.latitude"
+                  :longitude="crudDraft.longitude"
+                  :locale="locale"
+                  @pick="(point) => { crudDraft.latitude = point.latitude; crudDraft.longitude = point.longitude; }"
+                />
+              </div>
+              <label class="block">
+                <span
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400"
                   >Status</span
                 >
                 <select
@@ -3102,6 +3194,15 @@ import { messages } from "./locales/messages";
 import { portalApi } from "./services/portalApi";
 import { usePortalState } from "./composables/usePortalState";
 
+const GlobalProjectMap = defineAsyncComponent(() =>
+  import("./components/GlobalProjectMap.vue"),
+);
+const LocationPicker = defineAsyncComponent(() =>
+  import("./components/LocationPicker.vue"),
+);
+const DeliveryScheduleView = defineAsyncComponent(() =>
+  import("./components/DeliveryScheduleView.vue"),
+);
 const VpnDiagnosticView = defineAsyncComponent(() =>
   import("./components/VpnDiagnosticView.vue"),
 );
@@ -3127,6 +3228,9 @@ const navGroups = computed(() => [
       { key: "overview", label: t("views.overview") },
       ...(isSuperAdmin.value || isViewer.value
         ? [{ key: "delivery-costs", label: t("views.deliveryCosts") }]
+        : []),
+      ...(isSuperAdmin.value || isViewer.value
+        ? [{ key: "delivery-schedule", label: t("views.deliverySchedule") }]
         : []),
       { key: "logistics", label: t("views.logistics") },
       ...(isSuperAdmin.value || isViewer.value
@@ -3778,6 +3882,15 @@ const faultTotalPages = computed(() =>
   Math.max(1, Math.ceil((faultTotal.value || 0) / (faultPageSize.value || 1))),
 );
 
+const mapProjects = computed(() =>
+  filteredGridProjects.value.map((project) => ({
+    ...project,
+    status: isGridProjectConnectedStatus(project.progress_status)
+      ? "connected"
+      : "pending",
+  })),
+);
+
 const gridSummary = computed(() => {
   const totalMwh = filteredGridProjects.value.reduce(
     (sum, project) => sum + (Number(project.capacity_mwh) || 0),
@@ -4180,6 +4293,8 @@ function createEmptyCrudDraft() {
     cod: "",
     capacity_mwh: 0,
     software_version: "",
+    latitude: "",
+    longitude: "",
     progress_status: projectStatuses[0],
     photo_paths: [],
     region: "",
@@ -4231,6 +4346,8 @@ function resetCrudDraft(kind, record) {
     nextDraft.cod = record.cod;
     nextDraft.capacity_mwh = record.capacity_mwh;
     nextDraft.software_version = record.software_version || record.cell_version || "";
+    nextDraft.latitude = record.latitude ?? "";
+    nextDraft.longitude = record.longitude ?? "";
     nextDraft.progress_status = record.progress_status;
     nextDraft.photo_paths = [...(record.photo_paths ?? [])];
   }
@@ -5344,7 +5461,26 @@ async function submitCrud() {
   }
 
   if (crudModal.kind === "grid") {
+    const parseCoordinate = (value) =>
+      value === "" || value === null || value === undefined ? null : Number(value);
+    const latitude = parseCoordinate(crudDraft.latitude);
+    const longitude = parseCoordinate(crudDraft.longitude);
+    if (
+      (latitude !== null && !(latitude >= -90 && latitude <= 90)) ||
+      (longitude !== null && !(longitude >= -180 && longitude <= 180)) ||
+      (latitude === null) !== (longitude === null)
+    ) {
+      setNotice(
+        isEnglish.value
+          ? "Enter both latitude (-90 to 90) and longitude (-180 to 180), or leave both empty."
+          : "请同时填写有效的纬度（-90~90）和经度（-180~180），或都留空。",
+        "error",
+      );
+      return;
+    }
     const payload = {
+      latitude,
+      longitude,
       project_name: crudDraft.project_name.trim(),
       cod: crudDraft.cod.trim(),
       capacity_mwh: Number(crudDraft.capacity_mwh) || 0,
@@ -5552,6 +5688,16 @@ watch(
     await loadLogisticsShipments();
   },
   { deep: true },
+);
+
+watch(
+  [activeView, isSuperAdmin, isViewer],
+  ([view, superAdmin, viewer]) => {
+    if (view === "delivery-schedule" && !superAdmin && !viewer) {
+      activeView.value = "overview";
+    }
+  },
+  { immediate: true },
 );
 
 watch(isInternalMode, (enabled) => {

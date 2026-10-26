@@ -28,6 +28,8 @@ class GridScaleProject(SQLModel, table=True):
     customer_id: Optional[int] = Field(default=None, index=True)
     partner_name: str = Field(default="", index=True)
     customer_company: str = Field(default="", index=True)
+    latitude: Optional[float] = Field(default=None)
+    longitude: Optional[float] = Field(default=None)
 
 
 class CiDealerDelivery(SQLModel, table=True):

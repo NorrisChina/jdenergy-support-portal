@@ -8,3 +8,5 @@ __pycache__/
 backend/storage.db
 backend/uploads/vpn_exports/
 *.log
+.env
+backend/.env

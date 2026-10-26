@@ -52,6 +52,7 @@ export const messages = {
       customerTickets: '客户工单与需求反馈',
       accounts: '账号管理',
       vpnDiagnostics: 'VPN 远程诊断与数据导出',
+      deliverySchedule: '交付计划日历',
       otherSettings: '其他配置',
     },
     nav: {
@@ -62,6 +63,13 @@ export const messages = {
     overviewTabs: {
       gridScale: '⚡ 源网侧大储成果展 (418)',
       ciDashboard: '🏢 工商业交付看板 (250/100C)',
+      map: '🌍 全球地图看板',
+    },
+    map: {
+      section: '全球项目地图看板',
+      subtitle: '在地图上查看全球项目分布、容量规模与并网状态。',
+      latitude: '纬度 (Latitude)',
+      longitude: '经度 (Longitude)',
     },
     logistics: {
       add: '新增物流记录',
@@ -358,6 +366,7 @@ export const messages = {
       customerTickets: 'Customer Tickets & Requests',
       accounts: 'Account management',
       vpnDiagnostics: 'VPN Diagnostics & Data Export',
+      deliverySchedule: 'Delivery Schedule Calendar',
       otherSettings: 'Other Settings',
     },
     nav: {
@@ -368,6 +377,13 @@ export const messages = {
     overviewTabs: {
       gridScale: '⚡ Utility-scale BESS (418)',
       ciDashboard: '🏢 C&I Delivery Dashboard (250/100C)',
+      map: '🌍 Global Map',
+    },
+    map: {
+      section: 'Global Project Map Dashboard',
+      subtitle: 'See project distribution, capacity and grid-connection status on the map.',
+      latitude: 'Latitude',
+      longitude: 'Longitude',
     },
     logistics: {
       add: 'Add Shipment',

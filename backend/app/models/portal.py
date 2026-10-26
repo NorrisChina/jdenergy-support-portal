@@ -216,3 +216,18 @@ class VpnExportTask(SQLModel, table=True):
     created_by: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     completed_at: Optional[datetime] = None
+
+class DeliverySchedule(SQLModel, table=True):
+    __tablename__ = "delivery_schedules"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    customer_name: str = Field(default="", index=True)
+    project_name: str = Field(default="", index=True)
+    schedule_date: str = Field(index=True)
+    start_time: str = Field(default="09:00")
+    end_time: str = Field(default="13:00")
+    engineer: str = Field(default="")
+    stage: str = Field(default="")
+    notes: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -129,14 +129,27 @@ def keychain_password(service_name: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def dotenv_value(name: str) -> str:
+    env_file = BACKEND_ROOT / ".env"
+    try:
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for line in lines:
+        key, sep, raw = line.strip().partition("=")
+        if sep and key.strip() == name:
+            return raw.strip().strip("\"'")
+    return ""
+
+
 def required_setting(name: str) -> str:
-    value = os.getenv(name, "").strip()
+    value = os.getenv(name, "").strip() or dotenv_value(name)
     if not value and name in SETTING_DEFAULTS:
         value = SETTING_DEFAULTS[name]
     if not value and name in KEYCHAIN_SERVICES:
         value = keychain_password(KEYCHAIN_SERVICES[name])
     if not value:
-        raise VpnConfigurationError(f"Server setting {name} is not configured in the environment or Keychain")
+        raise VpnConfigurationError(f"Server setting {name} is not configured in the environment, backend/.env or Keychain")
     return value
 
 

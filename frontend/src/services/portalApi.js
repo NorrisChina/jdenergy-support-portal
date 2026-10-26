@@ -212,6 +212,22 @@ export const portalApi = {
   deleteEmpowermentSkill(id) {
     return requestJson(`/api/config/empowerment-skills/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
   },
+  listDeliverySchedules(start = '', end = '') {
+    const params = new URLSearchParams()
+    if (start) params.set('start', start)
+    if (end) params.set('end', end)
+    const suffix = params.toString()
+    return requestJson(`/api/delivery-schedules${suffix ? `?${suffix}` : ''}`, { headers: authHeaders() })
+  },
+  createDeliverySchedule(payload) {
+    return requestJson('/api/delivery-schedules', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  updateDeliverySchedule(id, payload) {
+    return requestJson(`/api/delivery-schedules/${encodeURIComponent(String(id))}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) })
+  },
+  deleteDeliverySchedule(id) {
+    return requestJson(`/api/delivery-schedules/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers: authHeaders() })
+  },
   listVpnCustomerOptions() {
     return requestJson('/api/vpn/customer-options', { headers: authHeaders() })
   },

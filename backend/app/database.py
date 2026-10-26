@@ -269,6 +269,9 @@ def init_db() -> None:
         grid_columns = {
             row[1] for row in connection.execute(text("PRAGMA table_info(gridscaleproject)"))
         }
+        for column in ("latitude", "longitude"):
+            if column not in grid_columns:
+                connection.execute(text(f"ALTER TABLE gridscaleproject ADD COLUMN {column} REAL"))
         if "id" not in grid_columns:
             connection.execute(text("ALTER TABLE gridscaleproject ADD COLUMN id INTEGER"))
             connection.execute(text("UPDATE gridscaleproject SET id = rowid WHERE id IS NULL"))

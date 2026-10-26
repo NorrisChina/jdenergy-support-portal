@@ -62,7 +62,7 @@ from .models.technical_docs import (
     TechnicalDoc,
 )
 from .models.delivery_costs import AfterSalesCostEntry, CostAssumption, CostPersonDay, DeliveryCost, DeliveryCostProject, FixedCostEntry
-from .models.portal import AfterSalesLog, CustomerTicket, DiagnosticExportTable, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User, VpnExportTask, VpnSite
+from .models.portal import DeliverySchedule, AfterSalesLog, CustomerTicket, DiagnosticExportTable, EmpowermentRecord, EmpowermentSkill, FaultComponent, LogisticsShipment, LogisticsStatus, ProjectMilestone, User, VpnExportTask, VpnSite
 from .vpn_service import EXPORT_DIR, open_terminal_channel, receive_channel, request_export_cancel, run_export_task
 
 
@@ -243,6 +243,8 @@ class GridScaleProjectUpsert(BaseModel):
     photo_paths: List[str]
     partner_name: str = ""
     customer_company: str = ""
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
 
 
 class CiDeliveryUpdate(BaseModel):
@@ -263,6 +265,17 @@ class CIDeliveryBatchPayload(BaseModel):
     serial_numbers: Optional[str] = ""
     place: Optional[str] = ""
     software_version: Optional[str] = ""
+
+
+class DeliverySchedulePayload(BaseModel):
+    customer_name: str = ""
+    project_name: str = ""
+    schedule_date: str
+    start_time: str = "09:00"
+    end_time: str = "13:00"
+    engineer: str = ""
+    stage: str = ""
+    notes: str = ""
 
 
 class WarehouseTransactionCreate(BaseModel):
@@ -1273,6 +1286,83 @@ def delete_user(user_id: int, _: User = Depends(require_write_access)) -> Dict[s
         session.delete(user)
         session.commit()
     return {"message": "deleted"}
+
+
+def normalize_schedule_payload(payload: DeliverySchedulePayload) -> Dict[str, str]:
+    try:
+        datetime.strptime(payload.schedule_date, "%Y-%m-%d")
+        start = datetime.strptime(payload.start_time, "%H:%M")
+        end = datetime.strptime(payload.end_time, "%H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date or time format")
+    if end <= start:
+        raise HTTPException(status_code=400, detail="End time must be later than start time")
+    if not payload.customer_name.strip() and not payload.project_name.strip():
+        raise HTTPException(status_code=400, detail="Customer or project name is required")
+    return {
+        "customer_name": payload.customer_name.strip(),
+        "project_name": payload.project_name.strip(),
+        "schedule_date": payload.schedule_date,
+        "start_time": payload.start_time,
+        "end_time": payload.end_time,
+        "engineer": payload.engineer.strip(),
+        "stage": payload.stage.strip(),
+        "notes": payload.notes.strip(),
+    }
+
+
+@app.get("/api/delivery-schedules")
+def list_delivery_schedules(
+    start: Optional[str] = Query(default=None),
+    end: Optional[str] = Query(default=None),
+    _: User = Depends(require_staff),
+) -> Dict[str, object]:
+    with get_session() as session:
+        statement = select(DeliverySchedule)
+        if start:
+            statement = statement.where(DeliverySchedule.schedule_date >= start)
+        if end:
+            statement = statement.where(DeliverySchedule.schedule_date <= end)
+        items = session.exec(statement.order_by(DeliverySchedule.schedule_date, DeliverySchedule.start_time)).all()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/delivery-schedules")
+def create_delivery_schedule(payload: DeliverySchedulePayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+    data = normalize_schedule_payload(payload)
+    with get_session() as session:
+        item = DeliverySchedule(**data)
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "created", "item": item}
+
+
+@app.put("/api/delivery-schedules/{schedule_id}")
+def update_delivery_schedule(schedule_id: int, payload: DeliverySchedulePayload, _: User = Depends(require_staff)) -> Dict[str, object]:
+    data = normalize_schedule_payload(payload)
+    with get_session() as session:
+        item = session.get(DeliverySchedule, schedule_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Delivery schedule not found")
+        for key, value in data.items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return {"message": "updated", "item": item}
+
+
+@app.delete("/api/delivery-schedules/{schedule_id}")
+def delete_delivery_schedule(schedule_id: int, _: User = Depends(require_staff)) -> Dict[str, object]:
+    with get_session() as session:
+        item = session.get(DeliverySchedule, schedule_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Delivery schedule not found")
+        session.delete(item)
+        session.commit()
+        return {"message": "deleted"}
 
 
 @app.get("/api/vpn/customer-options")
@@ -3346,6 +3436,8 @@ def update_grid_scale_project(project_id: int, payload: GridScaleProjectUpsert, 
         item.cod = payload.cod
         item.capacity_mwh = payload.capacity_mwh
         item.software_version = payload.software_version
+        item.latitude = payload.latitude
+        item.longitude = payload.longitude
         item.progress_status = payload.progress_status
         item.photo_paths = payload.photo_paths
         item.partner_name = payload.partner_name.strip()
